@@ -58,6 +58,8 @@
 #include "../AI/PlayerbotWarlockAI.h"
 #include "../AI/PlayerbotWarriorAI.h"
 
+#include "../sol/sol.hpp"
+
 #include <iomanip>
 #include <iostream>
 
