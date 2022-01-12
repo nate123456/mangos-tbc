@@ -144,5 +144,4 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/PlayerBot/playerbot.conf.dist.in DESTI
 if (BUILD_PLAYERBOT)
   add_subdirectory(lua)
   target_link_libraries(${LIBRARY_NAME} PRIVATE lua::lib)
-  add_subdirectory(sol)
 endif()
