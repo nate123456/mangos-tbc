@@ -31,3 +31,7 @@ endif()
 if (BUILD_GAME_SERVER OR BUILD_LOGIN_SERVER OR BUILD_EXTRACTORS)
   add_subdirectory(utf8cpp)
 endif()
+
+if (BUILD_PLAYERBOT)
+  add_subdirectory(lua)
+endif()

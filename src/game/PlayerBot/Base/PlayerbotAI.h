@@ -724,6 +724,9 @@ class PlayerbotAI
         Player* const m_bot;
         PlayerbotClassAI* m_classAI;
 
+        // lua VM for this bot
+        //sol::state m_lua;
+
         // ignores AI updates until time specified
         // no need to waste CPU cycles during casting etc
         time_t m_ignoreAIUpdatesUntilTime;

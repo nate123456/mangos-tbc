@@ -58,7 +58,7 @@
 #include "../AI/PlayerbotWarlockAI.h"
 #include "../AI/PlayerbotWarriorAI.h"
 
-#include "../sol/sol.hpp"
+#include "../../sol/sol.hpp"
 
 #include <iomanip>
 #include <iostream>
@@ -100,6 +100,18 @@ PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper
 {
     // set bot state
     m_botState = BOTSTATE_LOADING;
+
+    sol::state m_lua;
+
+    m_lua.open_libraries(sol::lib::base);
+
+    m_lua.set_function("print",
+        sol::overload(
+            [this] (std::string t) { TellMaster(t); }
+        )
+    );
+
+    m_lua.script("print('LUA IS ALIVE!')");
 
     // reset some pointers
     m_targetChanged = false;
