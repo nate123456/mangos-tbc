@@ -69,6 +69,13 @@ float rand_float(float low, float high)
     return (rand() / (static_cast<float>(RAND_MAX) + 1.0)) * (high - low) + low;
 }
 
+sol::state get_lua()
+{
+    sol::state lua;
+
+    return lua;
+}
+
 enum NPCFlags VENDOR_MASK = (enum NPCFlags)(UNIT_NPC_FLAG_VENDOR
                             | UNIT_NPC_FLAG_VENDOR_AMMO
                             | UNIT_NPC_FLAG_VENDOR_FOOD
@@ -96,12 +103,11 @@ PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper
     m_taxiMaster(ObjectGuid()),
     m_ignoreNeutralizeEffect(false),
     m_bDebugCommandChat(false),
-    m_debugWhisper(debugWhisper)
+    m_debugWhisper(debugWhisper),
+    m_lua(get_lua())
 {
     // set bot state
     m_botState = BOTSTATE_LOADING;
-
-    sol::state m_lua;
 
     m_lua.open_libraries(sol::lib::base);
 
@@ -4979,6 +4985,8 @@ void PlayerbotAI::Announce(AnnounceFlags msg)
 
 void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
 {
+    m_lua.script("print('LUA IS ALIVE AGAIN!')");
+
     if (GetClassAI()->GetWaitUntil() <= CurrentTime())
         GetClassAI()->ClearWait();
 
