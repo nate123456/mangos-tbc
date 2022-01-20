@@ -58,7 +58,8 @@
 #include "../AI/PlayerbotWarlockAI.h"
 #include "../AI/PlayerbotWarriorAI.h"
 
-#include "../../sol/sol.hpp"
+#define SOL_ALL_SAFETIES_ON 1
+#include <sol/sol.hpp>
 
 #include <iomanip>
 #include <iostream>
@@ -67,13 +68,6 @@
 float rand_float(float low, float high)
 {
     return (rand() / (static_cast<float>(RAND_MAX) + 1.0)) * (high - low) + low;
-}
-
-sol::state get_lua()
-{
-    sol::state lua;
-
-    return lua;
 }
 
 enum NPCFlags VENDOR_MASK = (enum NPCFlags)(UNIT_NPC_FLAG_VENDOR
@@ -103,8 +97,7 @@ PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper
     m_taxiMaster(ObjectGuid()),
     m_ignoreNeutralizeEffect(false),
     m_bDebugCommandChat(false),
-    m_debugWhisper(debugWhisper),
-    m_lua(get_lua())
+    m_debugWhisper(debugWhisper)
 {
     // set bot state
     m_botState = BOTSTATE_LOADING;
@@ -4985,7 +4978,7 @@ void PlayerbotAI::Announce(AnnounceFlags msg)
 
 void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
 {
-    m_lua.script("print('LUA IS ALIVE AGAIN!')");
+    m_lua.script("print('LUA IS ALIVE IN UPDATE!')");
 
     if (GetClassAI()->GetWaitUntil() <= CurrentTime())
         GetClassAI()->ClearWait();

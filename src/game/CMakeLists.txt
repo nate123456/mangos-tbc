@@ -76,16 +76,20 @@ add_library(${LIBRARY_NAME} STATIC
   ${LIBRARY_SRCS}
 )
 
-find_package(Lua REQUIRED)
-include_directories(${LUA_INCLUDE_DIR})
-
 target_link_libraries(${LIBRARY_NAME}
   PRIVATE shared
   PRIVATE g3dlite
-  PRIVATE ${LUA_LIBRARY}
   PRIVATE detour
   PRIVATE ${ZLIB_LIBRARIES}  
 )
+
+# add lua and sol dependencies
+if (BUILD_PLAYERBOT)
+  target_link_libraries(${LIBRARY_NAME}
+    PUBLIC lua
+    PUBLIC sol
+  )
+endif()
 
 # include additionals headers
 set(ADDITIONAL_INCLUDE_DIRS
@@ -102,7 +106,6 @@ target_include_directories(${LIBRARY_NAME}
   INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE ${ADDITIONAL_INCLUDE_DIRS}
   PRIVATE ${Boost_INCLUDE_DIRS}
-  PRIVATE lua
 )
 
 if(UNIX)
@@ -143,4 +146,3 @@ if(PCH)
 endif()
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/PlayerBot/playerbot.conf.dist.in DESTINATION ${CONF_DIR} RENAME playerbot.conf.dist)
-

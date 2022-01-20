@@ -26,6 +26,9 @@
 #include "../../GameEvents/GameEventMgr.h"
 #include "../../Quests/QuestDef.h"
 
+#define SOL_ALL_SAFETIES_ON 1
+#include <sol/sol.hpp>
+
 class WorldPacket;
 class WorldObject;
 class Player;
@@ -726,7 +729,7 @@ class PlayerbotAI
         PlayerbotClassAI* m_classAI;
 
         // lua VM for the bot
-        state& m_lua;
+        sol::state m_lua;
 
         // ignores AI updates until time specified
         // no need to waste CPU cycles during casting etc

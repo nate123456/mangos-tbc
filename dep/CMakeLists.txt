@@ -26,3 +26,8 @@ endif()
 if (BUILD_GAME_SERVER OR BUILD_LOGIN_SERVER OR BUILD_EXTRACTORS)
   add_subdirectory(g3dlite)
 endif()
+
+if (BUILD_PLAYERBOT)
+  add_subdirectory(lua)
+  add_subdirectory(sol)
+endif()
