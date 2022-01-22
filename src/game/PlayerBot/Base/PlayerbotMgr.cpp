@@ -77,11 +77,73 @@ PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master)
         sLog.outError("Playerbot: PlayerbotAI.Collect.Distance higher than PlayerbotAI.Collect.DistanceMax. Using DistanceMax value");
         m_confCollectDistance = m_confCollectDistanceMax;
     }
+
+    InitLua();
 }
 
 PlayerbotMgr::~PlayerbotMgr()
 {
     LogoutAllBots(true);
+}
+
+void PlayerbotMgr::InitLua()
+{
+    m_lua.open_libraries(sol::lib::base,
+        sol::lib::package,
+        sol::lib::coroutine,
+        sol::lib::string,
+        sol::lib::math,
+        sol::lib::table);
+
+    m_lua.set_function("print",
+        sol::overload(
+            [this](const std::string& t) { TellMaster(t); }
+        )
+    );
+
+    InitLuaPlayerType();
+    InitLuaUnitType();
+
+    m_lua.script(R"(  function main(player p)								
+								print(p.hp / p.max_hp)
+							end)");
+
+    m_lua.script("print('[DEBUG] LUA IS ALIVE!')");
+}
+
+void PlayerbotMgr::InitLuaPlayerType()
+{
+    sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
+        sol::constructors<Player(WorldSession* session)>());
+
+    player_type.set("max_hp", sol::readonly(&Player::GetMaxHealth));
+    player_type.set("hp", sol::readonly(&Player::GetHealth));
+}
+
+void PlayerbotMgr::InitLuaUnitType()
+{
+    sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit",
+        sol::constructors<Unit()>());
+
+    unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+}
+
+void PlayerbotMgr::TellMaster(const std::string& text) const
+{
+    SendWhisper(text, *GetMaster());
+}
+
+void PlayerbotMgr::SendWhisper(const std::string& text, Player& player) const
+{
+    if (player.GetPlayerbotAI())
+        return;
+
+    WorldPacket* const packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
+    *packet << uint32(CHAT_MSG_WHISPER);
+    *packet << uint32(LANG_UNIVERSAL);
+    *packet << player.GetName();
+    *packet << text;
+    GetMaster()->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet))); // queue the packet to get around race condition
 }
 
 void PlayerbotMgr::UpdateAI(const uint32 /*diff*/) {}

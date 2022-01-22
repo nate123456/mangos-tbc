@@ -394,7 +394,7 @@ class PlayerbotAI
         };
 
     public:
-        PlayerbotAI(PlayerbotMgr& mgr, Player* const bot, bool debugWhisper);
+        PlayerbotAI(PlayerbotMgr& mgr, Player* bot, bool debugWhisper, sol::state lua);
         virtual ~PlayerbotAI();
 
         // This is called from Unit.cpp and is called every second (I think)
@@ -728,9 +728,6 @@ class PlayerbotAI
         Player* const m_bot;
         PlayerbotClassAI* m_classAI;
 
-        // lua VM for the bot
-        sol::state m_lua;
-
         // ignores AI updates until time specified
         // no need to waste CPU cycles during casting etc
         time_t m_ignoreAIUpdatesUntilTime;
@@ -807,6 +804,8 @@ class PlayerbotAI
         bool m_bDebugCommandChat;
 
         bool m_debugWhisper = false;
+
+        sol::state m_lua;
 };
 
 #endif

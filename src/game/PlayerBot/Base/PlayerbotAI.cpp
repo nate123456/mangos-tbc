@@ -89,7 +89,7 @@ class PlayerbotChatHandler : protected ChatHandler
         bool dropQuest(char* str) { return HandleQuestRemoveCommand(str); }
 };
 
-PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper) :
+PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper, sol::state lua) :
     m_AutoEquipToggle(false), m_mgr(mgr), m_bot(bot), m_classAI(0), m_ignoreAIUpdatesUntilTime(CurrentTime()),
     m_combatOrder(ORDERS_NONE), m_ScenarioType(SCENARIO_PVE),
     m_CurrentlyCastingSpellId(0), m_CraftSpellId(0), m_spellIdCommand(0),
@@ -97,20 +97,11 @@ PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper
     m_taxiMaster(ObjectGuid()),
     m_ignoreNeutralizeEffect(false),
     m_bDebugCommandChat(false),
-    m_debugWhisper(debugWhisper)
+    m_debugWhisper(debugWhisper),
+	m_lua(lua)
 {
     // set bot state
-    m_botState = BOTSTATE_LOADING;
-
-    m_lua.open_libraries(sol::lib::base);
-
-    m_lua.set_function("print",
-        sol::overload(
-            [this] (std::string t) { TellMaster(t); }
-        )
-    );
-
-    m_lua.script("print('LUA IS ALIVE!')");
+    m_botState = BOTSTATE_LOADING;    
 
     // reset some pointers
     m_targetChanged = false;
@@ -4978,7 +4969,7 @@ void PlayerbotAI::Announce(AnnounceFlags msg)
 
 void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
 {
-    m_lua.script("print('LUA IS ALIVE IN UPDATE!')");
+    m_lua["main"](m_bot);
 
     if (GetClassAI()->GetWaitUntil() <= CurrentTime())
         GetClassAI()->ClearWait();

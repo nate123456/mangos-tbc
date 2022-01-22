@@ -21,6 +21,9 @@
 
 #include "Common.h"
 
+#define SOL_ALL_SAFETIES_ON 1
+#include <sol/sol.hpp>
+
 class WorldPacket;
 class Player;
 class Unit;
@@ -39,6 +42,12 @@ class PlayerbotMgr
     public:
         PlayerbotMgr(Player* const master);
         virtual ~PlayerbotMgr();
+
+        void InitLua();
+        void InitLuaPlayerType();
+        void InitLuaUnitType();
+        void TellMaster(const std::string& text) const;
+        void SendWhisper(const std::string& text, Player& player) const;
 
         // remove marked bot
         // should be called from worldsession::Update only to avoid possible problem with invalid session or player pointer
@@ -90,6 +99,9 @@ class PlayerbotMgr
         Player* const m_master;
         PlayerBotMap m_playerBots;
         GuidSet m_botToRemove;
+
+        // lua VM for the bot
+        sol::state m_lua;
 };
 
 #endif
