@@ -89,7 +89,7 @@ class PlayerbotChatHandler : protected ChatHandler
         bool dropQuest(char* str) { return HandleQuestRemoveCommand(str); }
 };
 
-PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper, sol::state lua) :
+PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper, sol::state& lua) :
     m_AutoEquipToggle(false), m_mgr(mgr), m_bot(bot), m_classAI(0), m_ignoreAIUpdatesUntilTime(CurrentTime()),
     m_combatOrder(ORDERS_NONE), m_ScenarioType(SCENARIO_PVE),
     m_CurrentlyCastingSpellId(0), m_CraftSpellId(0), m_spellIdCommand(0),
@@ -4968,9 +4968,9 @@ void PlayerbotAI::Announce(AnnounceFlags msg)
 // hasAuraType
 
 void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
-{
-    m_lua["main"](m_bot);
-
+{   
+    return;
+    
     if (GetClassAI()->GetWaitUntil() <= CurrentTime())
         GetClassAI()->ClearWait();
 

@@ -38,6 +38,7 @@
 
 #include <iostream>
 #include <string>
+#include <cstdlib>
 
 #ifdef _WIN32
 #include "ServiceWin32.h"
@@ -67,12 +68,15 @@ int main(int argc, char* argv[])
 {
     std::string auctionBotConfig, configFile, playerBotConfig, serviceParameter;
 
+    const char* defaultConfig = std::getenv("TBCMANGOSD_CONFIG");
+    const char* defaultPlayerBotConfig = std::getenv("TBCPLAYERBOT_CONFIG");
+
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
     ("ahbot,a", boost::program_options::value<std::string>(&auctionBotConfig), "ahbot configuration file")
-    ("config,c", boost::program_options::value<std::string>(&configFile)->default_value(_MANGOSD_CONFIG), "configuration file")
+    ("config,c", boost::program_options::value<std::string>(&configFile)->default_value(defaultConfig != 0 ? std::string(defaultConfig) : _MANGOSD_CONFIG), "configuration file")
 #ifdef BUILD_PLAYERBOT
-    ("playerbot,p", boost::program_options::value<std::string>(&playerBotConfig)->default_value(_D_PLAYERBOT_CONFIG), "playerbot configuration file")
+    ("playerbot,p", boost::program_options::value<std::string>(&playerBotConfig)->default_value(defaultPlayerBotConfig != 0 ? std::string(defaultPlayerBotConfig) : _D_PLAYERBOT_CONFIG), "playerbot configuration file")
 #endif
     ("help,h", "prints usage")
     ("version,v", "print version and exit")
@@ -141,6 +145,7 @@ int main(int argc, char* argv[])
     if (!sConfig.SetSource(configFile))
     {
         sLog.outError("Could not find configuration file %s.", configFile.c_str());
+
         Log::WaitBeforeContinueIfNeed();
         return 1;
     }

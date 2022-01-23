@@ -44,6 +44,7 @@ class PlayerbotMgr
         virtual ~PlayerbotMgr();
 
         void InitLua();
+        void LoadLuaScript(std::string script);
         void InitLuaPlayerType();
         void InitLuaUnitType();
         void TellMaster(const std::string& text) const;

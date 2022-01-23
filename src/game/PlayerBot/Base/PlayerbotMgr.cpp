@@ -86,6 +86,36 @@ PlayerbotMgr::~PlayerbotMgr()
     LogoutAllBots(true);
 }
 
+void PlayerbotMgr::UpdateAI(const uint32 p_time)
+{
+    auto setup_result = m_lua["setup"]();
+
+    if (!setup_result.valid()) 
+    {
+        // An error has occured
+        sol::error err = setup_result;
+        std::string what = err.what();
+        TellMaster(what);
+    }
+
+    auto result = m_lua["act"](GetPlayer());
+    
+    if (!result.valid()) 
+    {
+        // An error has occured
+        sol::error err = result;
+        std::string what = err.what();
+        TellMaster(what);
+    }
+    
+    return;
+}
+
+void PlayerbotMgr::ReportLuaError(sol::error error)
+{
+
+}
+
 void PlayerbotMgr::InitLua()
 {
     m_lua.open_libraries(sol::lib::base,
@@ -104,11 +134,23 @@ void PlayerbotMgr::InitLua()
     InitLuaPlayerType();
     InitLuaUnitType();
 
-    m_lua.script(R"(  function main(player p)								
-								print(p.hp / p.max_hp)
-							end)");
+    LoadLuaScript(R"(   function main(p)								
+                            return p.hp / p.max_hp
+                        end)");
 
-    m_lua.script("print('[DEBUG] LUA IS ALIVE!')");
+    m_lua.script("print('[DEBUG] LUA IS ALIVE (From manager)!')");
+}
+
+void PlayerbotMgr::LoadLuaScript(std::string script)
+{   
+    sol::load_result fx = m_lua.load(script);
+
+    if (!fx.valid()) {
+		sol::error err = fx;
+        ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load string-based script into the program:\n%s", err.what());
+	}
+
+    fx();
 }
 
 void PlayerbotMgr::InitLuaPlayerType()
@@ -116,14 +158,13 @@ void PlayerbotMgr::InitLuaPlayerType()
     sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
         sol::constructors<Player(WorldSession* session)>());
 
-    player_type.set("max_hp", sol::readonly(&Player::GetMaxHealth));
-    player_type.set("hp", sol::readonly(&Player::GetHealth));
+    player_type.set("max_hp", sol::property(&Player::GetMaxHealth));
+    player_type["hp"] = sol::property(&Player::GetHealth);
 }
 
 void PlayerbotMgr::InitLuaUnitType()
 {
-    sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit",
-        sol::constructors<Unit()>());
+    sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit");
 
     unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
 }
@@ -145,8 +186,6 @@ void PlayerbotMgr::SendWhisper(const std::string& text, Player& player) const
     *packet << text;
     GetMaster()->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet))); // queue the packet to get around race condition
 }
-
-void PlayerbotMgr::UpdateAI(const uint32 /*diff*/) {}
 
 void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 {
@@ -938,7 +977,6 @@ void PlayerbotMgr::Stay()
     }
 }
 
-
 // Playerbot mod: logs out a Playerbot.
 void PlayerbotMgr::LogoutPlayerBot(ObjectGuid guid)
 {
@@ -964,7 +1002,7 @@ void PlayerbotMgr::OnBotLogin(Player* const bot)
     bot->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(pMSG_MOVE_FALL_LAND)));
 
     // give the bot some AI, object is owned by the player class
-    PlayerbotAI* ai = new PlayerbotAI(*this, bot, m_confDebugWhisper);
+    PlayerbotAI* ai = new PlayerbotAI(*this, bot, m_confDebugWhisper, m_lua);
     bot->SetPlayerbotAI(ai);
 
     // tell the world session that they now manage this new bot
