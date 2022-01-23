@@ -103,7 +103,7 @@ void PlayerbotMgr::UpdateAI(const uint32 p_time)
 		if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
 		{
 			const sol::error error = act_result;
-			ChatHandler(m_master).PSendSysMessage("|cffff0000Act script failed for %s:\n%u", bot->GetName(), error.what());
+			ChatHandler(m_master).PSendSysMessage("|cffff0000Act script failed for %s:\n%s", bot->GetName(), error.what());
 		}
 	}
 }
@@ -131,7 +131,7 @@ void PlayerbotMgr::InitLua()
                         end)");
 
     ValidateLuaScript(R"(   function act(p)
-                            return p.name + ": " + tostring(p.hp / p.max_hp)
+                            return p.name .. ": " .. p.hp / p.max_hp
                         end)");
 
     m_lua.script("print('[DEBUG] LUA has been initialized.')");
