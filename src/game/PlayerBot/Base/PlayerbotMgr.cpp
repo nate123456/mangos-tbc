@@ -88,32 +88,24 @@ PlayerbotMgr::~PlayerbotMgr()
 
 void PlayerbotMgr::UpdateAI(const uint32 p_time)
 {
-    auto setup_result = m_lua["setup"]();
+    if (!ValidateLuaExecution(m_lua["setup"]()))
+        return;
 
-    if (!setup_result.valid()) 
-    {
-        // An error has occured
-        sol::error err = setup_result;
-        std::string what = err.what();
-        TellMaster(what);
-    }
-
-    auto result = m_lua["act"](GetPlayer());
-    
-    if (!result.valid()) 
-    {
-        // An error has occured
-        sol::error err = result;
-        std::string what = err.what();
-        TellMaster(what);
-    }
-    
-    return;
+    for (auto &[id, bot] : m_playerBots)
+        ValidateLuaExecution(m_lua["act"](bot));
 }
 
-void PlayerbotMgr::ReportLuaError(sol::error error)
+bool PlayerbotMgr::ValidateLuaExecution(const sol::protected_function_result* result) const
 {
+	const bool valid = result->valid();
 
+    if (!valid)
+    {
+	    const sol::error error = *result;
+        ChatHandler(m_master).PSendSysMessage("|cffff0000Lua script failed:\n%s", error.what());
+    }
+
+    return valid;
 }
 
 void PlayerbotMgr::InitLua()
@@ -134,20 +126,24 @@ void PlayerbotMgr::InitLua()
     InitLuaPlayerType();
     InitLuaUnitType();
 
-    LoadLuaScript(R"(   function main(p)								
-                            return p.hp / p.max_hp
+    ValidateLuaScript(R"(   function setup()
+                            print("setup finished.")
                         end)");
 
-    m_lua.script("print('[DEBUG] LUA IS ALIVE (From manager)!')");
+    ValidateLuaScript(R"(   function act(p)
+                            return p.name + ": " + tostring(p.hp / p.max_hp)
+                        end)");
+
+    m_lua.script("print('[DEBUG] LUA has been initialized.')");
 }
 
-void PlayerbotMgr::LoadLuaScript(std::string script)
+void PlayerbotMgr::ValidateLuaScript(const char* script)
 {   
-    sol::load_result fx = m_lua.load(script);
+    sol::load_result fx = m_lua.load(std::string(script));
 
     if (!fx.valid()) {
-		sol::error err = fx;
-        ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load string-based script into the program:\n%s", err.what());
+	    const sol::error error = fx;
+        ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load string-based script into the program:\n%s", error.what());
 	}
 
     fx();
@@ -160,6 +156,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
     player_type.set("max_hp", sol::property(&Player::GetMaxHealth));
     player_type["hp"] = sol::property(&Player::GetHealth);
+    player_type["name"] = sol::property(&Player::GetName);
 }
 
 void PlayerbotMgr::InitLuaUnitType()

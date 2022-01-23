@@ -44,7 +44,8 @@ class PlayerbotMgr
         virtual ~PlayerbotMgr();
 
         void InitLua();
-        void LoadLuaScript(std::string script);
+        bool ValidateLuaExecution(const sol::protected_function_result* result) const;
+        void ValidateLuaScript(const char* script);
         void InitLuaPlayerType();
         void InitLuaUnitType();
         void TellMaster(const std::string& text) const;
