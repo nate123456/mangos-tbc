@@ -88,24 +88,24 @@ PlayerbotMgr::~PlayerbotMgr()
 
 void PlayerbotMgr::UpdateAI(const uint32 p_time)
 {
-    if (!ValidateLuaExecution(m_lua["setup"]()))
-        return;
+	const sol::protected_function setup_func = m_lua["setup"];
 
-    for (auto &[id, bot] : m_playerBots)
-        ValidateLuaExecution(m_lua["act"](bot));
-}
+	if (const sol::protected_function_result setup_result = setup_func(); !setup_result.valid())
+	{
+		const sol::error error = setup_result;
+		ChatHandler(m_master).PSendSysMessage("|cffff0000Setup script failed:\n%s", error.what());
+	}
 
-bool PlayerbotMgr::ValidateLuaExecution(const sol::protected_function_result* result) const
-{
-	const bool valid = result->valid();
+	const sol::protected_function act_func = m_lua["act"];
 
-    if (!valid)
-    {
-	    const sol::error error = *result;
-        ChatHandler(m_master).PSendSysMessage("|cffff0000Lua script failed:\n%s", error.what());
-    }
-
-    return valid;
+	for (auto& [id, bot] : m_playerBots)
+	{
+		if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
+		{
+			const sol::error error = act_result;
+			ChatHandler(m_master).PSendSysMessage("|cffff0000Act script failed for %s:\n%u", bot->GetName(), error.what());
+		}
+	}
 }
 
 void PlayerbotMgr::InitLua()
