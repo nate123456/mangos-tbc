@@ -94,7 +94,7 @@ void PlayerbotMgr::UpdateAI(const uint32 p_time)
 
     const sol::protected_function setup_func = m_lua["setup"];
 
-    if (const sol::protected_function_result setup_result = setup_func(); !setup_result.valid())
+    if (const sol::protected_function_result setup_result = setup_func(p_time); !setup_result.valid())
     {
         const sol::error error = setup_result;
         if (const std::string error_msg = error.what(); m_lastSetupErrorMsg != error_msg)
@@ -105,7 +105,8 @@ void PlayerbotMgr::UpdateAI(const uint32 p_time)
     }
     else
     {
-        m_lastSetupErrorMsg = "";
+        if (!m_lastSetupErrorMsg.empty())
+            m_lastSetupErrorMsg = "";
     }
 
     const sol::protected_function act_func = m_lua["act"];
@@ -123,7 +124,8 @@ void PlayerbotMgr::UpdateAI(const uint32 p_time)
         }
         else
         {
-            m_lastActErrorMsg = "";
+            if (!m_lastActErrorMsg.empty())
+                m_lastActErrorMsg = "";
         }
     }
 }
@@ -168,9 +170,16 @@ void PlayerbotMgr::InitLuaPlayerType()
     sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
         sol::constructors<Player(WorldSession* session)>());
 
-    player_type.set("max_hp", sol::property(&Player::GetMaxHealth));
+    // read-only members
+    player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
     player_type["hp"] = sol::property(&Player::GetHealth);
     player_type["name"] = sol::property(&Player::GetName);
+
+    // actions
+    player_type["follow"] = [](Player& player, Unit* target, const float dist = 1, const float angle = 0)
+    {
+	    player.GetMotionMaster()->MoveFollow(target, dist, angle);
+    };
 }
 
 void PlayerbotMgr::InitLuaUnitType()
