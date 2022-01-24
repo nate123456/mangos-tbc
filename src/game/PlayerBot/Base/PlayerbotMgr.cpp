@@ -32,6 +32,7 @@
 #include "../../Spells/SpellMgr.h"
 #include "../../Tools/Language.h"
 #include "../../World/World.h"
+#include <boost/algorithm/string/trim.hpp>
 
 class LoginQueryHolder;
 class CharacterHandler;
@@ -137,16 +138,18 @@ void PlayerbotMgr::InitLua()
     m_lua.script("print('[DEBUG] LUA has been initialized.')");
 }
 
-void PlayerbotMgr::ValidateLuaScript(const char* script)
+bool PlayerbotMgr::ValidateLuaScript(const char* script)
 {   
     sol::load_result fx = m_lua.load(std::string(script));
 
     if (!fx.valid()) {
 	    const sol::error error = fx;
         ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load string-based script into the program:\n%s", error.what());
+        return false;
 	}
 
     fx();
+    return true;
 }
 
 void PlayerbotMgr::InitLuaPlayerType()
@@ -1229,13 +1232,177 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 
     if (!*args)
     {
-        PSendSysMessage("|cffff0000usage: add PLAYERNAME  or  remove PLAYERNAME");
+        PSendSysMessage("|cffff0000usage: add PLAYERNAME  or  remove PLAYERNAME or ai ...");
         SetSentErrorMessage(true);
         return false;
     }
 
+    std::string cmd_string = args;
+    boost::algorithm::trim(cmd_string);
+
+    // if args starts with ai
+    if (cmd_string.rfind("ai", 0) == 0)
+    {
+	    // create the playerbot manager if it doesn't already exist
+	    PlayerbotMgr* mgr = m_session->GetPlayer()->GetPlayerbotMgr();
+	    if (!mgr)
+	    {
+		    mgr = new PlayerbotMgr(m_session->GetPlayer());
+		    m_session->GetPlayer()->SetPlayerbotMgr(mgr);
+	    }
+
+	    std::string rem_cmd = cmd_string.erase(0, 2);
+	    boost::algorithm::trim(rem_cmd);
+
+	    // print help if requested or missing args
+	    if (rem_cmd.empty() || rem_cmd.rfind("help", 0) == 0)
+	    {
+		    PSendSysMessage(
+			    R"(|cffff0000usage: load <NAME> (load ai script from memory)\n
+set <NAME> <URL> (download script from url, store as name and load)\n
+remove <NAME> (remove script from database))");
+		    SetSentErrorMessage(true);
+		    return false;
+	    }
+
+	    if (rem_cmd.rfind("load", 0) == 0)
+	    {
+		    std::string name = rem_cmd.erase(0, 4);
+		    boost::algorithm::trim(name);
+
+		    if (name.empty())
+		    {
+			    PSendSysMessage("|cffff0000No script name provided.");
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+
+		    if (const QueryResult* count_result = CharacterDatabase.PQuery(
+			    "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+		    {
+			    const Field* count_result_fields = count_result->Fetch();
+
+			    if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
+			    {
+				    PSendSysMessage("|cffff0000No script exists with the name '%s'", name.c_str());
+				    SetSentErrorMessage(true);
+				    return false;
+			    }
+
+			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
+				    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
+			    {
+				    const Field* load_fields = load_result->Fetch();
+
+				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
+					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
+			    }
+		    }
+		    else
+		    {
+			    PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+	    }
+
+	    if (rem_cmd.rfind("remove", 0) == 0)
+	    {
+		    std::string name = rem_cmd.erase(0, 6);
+		    boost::algorithm::trim(name);
+
+		    if (name.empty())
+		    {
+			    PSendSysMessage("|cffff0000No script name provided.");
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+
+		    if (const QueryResult* count_result = CharacterDatabase.PQuery(
+			    "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+		    {
+			    const Field* count_result_fields = count_result->Fetch();
+
+			    if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
+			    {
+				    PSendSysMessage("|cffff0000No script exists with the name '%s'", name.c_str());
+				    SetSentErrorMessage(true);
+				    return false;
+			    }
+
+			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
+				    "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
+			    {
+				    const Field* load_fields = load_result->Fetch();
+
+				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
+					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
+			    }
+		    }
+		    else
+		    {
+			    PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+	    }
+
+	    if (rem_cmd.rfind("set", 0) == 0)
+	    {
+		    std::string name = rem_cmd.erase(0, 3);
+		    boost::algorithm::trim(name);
+
+		    if (name.empty())
+		    {
+			    PSendSysMessage("|cffff0000No script name provided.");
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+
+		    std::string url = rem_cmd.erase(0, name.length());
+		    boost::algorithm::trim(url);
+
+		    if (url.empty())
+		    {
+			    PSendSysMessage("|cffff0000No script url provided.");
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+
+		    cpr::Response response = Get(cpr::Url{url});
+
+		    if (response.status_code != 200)
+		    {
+			    PSendSysMessage("|cffff0000Url returned %u HTTP status.", response.status_code);
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+
+		    std::string script = response.text;
+
+		    if (mgr->ValidateLuaScript(script.c_str()))
+		    {
+			    if (CharacterDatabase.PExecute(
+				    "INSERT INTO scripts (name,script) VALUES ('%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
+				    name.c_str(), script.c_str(), script.c_str()))
+			    {
+				    PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
+			    }
+			    else
+			    {
+				    PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
+				    SetSentErrorMessage(true);
+				    return false;
+			    }
+		    }
+	    }
+
+	    return true;
+    }
+
     char* cmd = strtok((char*) args, " ");
     char* charname = strtok(nullptr, " ");
+
     if (!cmd || !charname)
     {
         PSendSysMessage("|cffff0000usage: add PLAYERNAME  or  remove PLAYERNAME");

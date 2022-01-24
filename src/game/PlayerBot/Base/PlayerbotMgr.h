@@ -45,7 +45,7 @@ class PlayerbotMgr
         virtual ~PlayerbotMgr();
 
         void InitLua();
-        void ValidateLuaScript(const char* script);
+        bool ValidateLuaScript(const char* script);
         void InitLuaPlayerType();
         void InitLuaUnitType();
         void TellMaster(const std::string& text) const;
@@ -69,7 +69,7 @@ class PlayerbotMgr
         void LoginPlayerBot(ObjectGuid guid);
         void LogoutPlayerBot(ObjectGuid guid);          // mark bot to be removed on next update
         Player* GetPlayerBot(ObjectGuid guid) const;
-        Player* GetMaster() const { return m_master; };
+        Player* GetMaster() const { return m_master; }
 
         PlayerBotMap::const_iterator GetPlayerBotsBegin() const { return m_playerBots.begin(); }
         PlayerBotMap::const_iterator GetPlayerBotsEnd()   const { return m_playerBots.end();   }
