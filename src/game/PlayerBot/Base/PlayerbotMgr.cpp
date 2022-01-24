@@ -141,7 +141,7 @@ void PlayerbotMgr::InitLua()
 
     m_lua.set_function("print",
         sol::overload(
-            [this](const std::string& t) { ChatHandler(m_master).PSendSysMessage(t.c_str()); }
+            [this](const std::string& t) { ChatHandler(m_master).PSendSysMessage("[AI] %s", t.c_str()); }
         )
     );
 
@@ -180,7 +180,7 @@ bool PlayerbotMgr::ValidateLuaScript(const char* script)
 void PlayerbotMgr::InitLuaPlayerType()
 {
     sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
-        sol::constructors<Player(WorldSession* session)>());
+        sol::constructors<Player(WorldSession* session)>(), sol::base_classes, sol::bases<Unit>());
 
     // read-only members
     player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
@@ -1258,6 +1258,35 @@ uint32 Player::GetSpec()
     return spec;
 }
 
+bool LoadAIScript(ChatHandler ch, PlayerbotMgr mgr, std::string name&, std::string url&)
+{
+    cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(0));
+
+    if (response.status_code != 200)
+    {
+        ch.PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
+        return false;
+    }
+
+    std::string script = response.text;
+
+    if (mgr->ValidateLuaScript(script.c_str()))
+    {
+        if (CharacterDatabase.PExecute(
+            "INSERT INTO scripts (name,script) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
+            name.c_str(), script.c_str(), url.c_str(), script.c_str()))
+        {
+            PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
+        }
+        else
+        {
+            PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
+            SetSentErrorMessage(true);
+            return false;
+        }
+    }
+}
+
 bool ChatHandler::HandlePlayerbotCommand(char* args)
 {
     if (!(m_session->GetSecurity() > SEC_PLAYER))
@@ -1305,14 +1334,57 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 	    if (rem_cmd.empty() || rem_cmd.rfind("help", 0) == 0)
 	    {
 		    PSendSysMessage(
-			    R"(usage: load <NAME> (load ai script from memory)
-set <NAME> <URL> (download script from url, store as name and load)
-remove <NAME> (remove script from database))");
+			    R"(usage: 
+load <NAME>: load ai script from memory
+set <NAME> <URL>: download script from url, store as name and load
+remove <NAME>: remove script from database
+reload <NAME>: redownload script from same url)");
 		    SetSentErrorMessage(true);
 		    return false;
 	    }
 
 	    if (rem_cmd.rfind("load", 0) == 0)
+	    {
+		    std::string name = rem_cmd.substr(4);
+		    boost::algorithm::trim(name);
+
+		    if (name.empty())
+		    {
+			    PSendSysMessage("|cffff0000No script name provided.");
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+
+		    if (const QueryResult* count_result = CharacterDatabase.PQuery(
+			    "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+		    {
+			    const Field* count_result_fields = count_result->Fetch();
+
+			    if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
+			    {
+				    PSendSysMessage("|cffff0000No script exists with the name '%s'", name.c_str());
+				    SetSentErrorMessage(true);
+				    return false;
+			    }
+
+			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
+				    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
+			    {
+				    const Field* load_fields = load_result->Fetch();
+
+				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
+					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
+			    }
+		    }
+		    else
+		    {
+			    PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
+			    SetSentErrorMessage(true);
+			    return false;
+		    }
+	    }
+
+        if (rem_cmd.rfind("reload", 0) == 0)
 	    {
 		    std::string name = rem_cmd.substr(4);
 		    boost::algorithm::trim(name);
@@ -1439,8 +1511,8 @@ remove <NAME> (remove script from database))");
 		    if (mgr->ValidateLuaScript(script.c_str()))
 		    {
 			    if (CharacterDatabase.PExecute(
-				    "INSERT INTO scripts (name,script) VALUES ('%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
-				    name.c_str(), script.c_str(), script.c_str()))
+				    "INSERT INTO scripts (name,script) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
+				    name.c_str(), script.c_str(), url.c_str(), script.c_str()))
 			    {
 				    PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
 			    }
