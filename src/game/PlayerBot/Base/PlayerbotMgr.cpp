@@ -1258,33 +1258,60 @@ uint32 Player::GetSpec()
     return spec;
 }
 
-bool LoadAIScript(ChatHandler ch, PlayerbotMgr mgr, std::string name&, std::string url&)
+bool PlayerbotMgr::LoadAIScript(ChatHandler* ch, const std::string& name, const std::string& url)
 {
-    cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(0));
+	const cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(false));
 
     if (response.status_code != 200)
     {
-        ch.PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
+        ch->PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
+        ch->SetSentErrorMessage(true);
         return false;
     }
 
-    std::string script = response.text;
+	const std::string script = response.text;
 
-    if (mgr->ValidateLuaScript(script.c_str()))
+    if (ValidateLuaScript(script.c_str()))
     {
         if (CharacterDatabase.PExecute(
             "INSERT INTO scripts (name,script) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
             name.c_str(), script.c_str(), url.c_str(), script.c_str()))
         {
-            PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
+            ch->PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
         }
         else
         {
-            PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
-            SetSentErrorMessage(true);
+            ch->PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
+            ch->SetSentErrorMessage(true);
             return false;
         }
     }
+
+    return true;
+}
+
+bool PlayerbotMgr::VerifyScriptExists(ChatHandler* ch, const std::string& name)
+{
+    if (const QueryResult* count_result = CharacterDatabase.PQuery(
+        "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+    {
+        const Field* count_result_fields = count_result->Fetch();
+
+        if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
+        {            
+            ch->PSendSysMessage("|cffff0000No script was found by the name '%s'", name.c_str());
+            ch->SetSentErrorMessage(true);
+            return false;
+        }
+    }
+    else
+    {
+        ch->PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
+        ch->SetSentErrorMessage(true);
+        return false;
+    }
+
+    return true;
 }
 
 bool ChatHandler::HandlePlayerbotCommand(char* args)
@@ -1338,9 +1365,8 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 load <NAME>: load ai script from memory
 set <NAME> <URL>: download script from url, store as name and load
 remove <NAME>: remove script from database
-reload <NAME>: redownload script from same url)");
-		    SetSentErrorMessage(true);
-		    return false;
+reload <NAME>: re-download script from same url)");
+		    return true;
 	    }
 
 	    if (rem_cmd.rfind("load", 0) == 0)
@@ -1355,33 +1381,19 @@ reload <NAME>: redownload script from same url)");
 			    return false;
 		    }
 
-		    if (const QueryResult* count_result = CharacterDatabase.PQuery(
-			    "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+		    if (mgr->VerifyScriptExists(this, name))
 		    {
-			    const Field* count_result_fields = count_result->Fetch();
+                if (const QueryResult* load_result = CharacterDatabase.PQuery(
+                    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
+                {
+                    const Field* load_fields = load_result->Fetch();
 
-			    if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
-			    {
-				    PSendSysMessage("|cffff0000No script exists with the name '%s'", name.c_str());
-				    SetSentErrorMessage(true);
-				    return false;
-			    }
-
-			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
-				    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
-			    {
-				    const Field* load_fields = load_result->Fetch();
-
-				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
-					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
-			    }
+                    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
+                        PSendSysMessage("Script '%s' read successfully.", name.c_str());
+                }
 		    }
-		    else
-		    {
-			    PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
+
+            return false;                
 	    }
 
         if (rem_cmd.rfind("reload", 0) == 0)
@@ -1396,33 +1408,21 @@ reload <NAME>: redownload script from same url)");
 			    return false;
 		    }
 
-		    if (const QueryResult* count_result = CharacterDatabase.PQuery(
-			    "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+		    if (mgr->VerifyScriptExists(this, name))
 		    {
-			    const Field* count_result_fields = count_result->Fetch();
-
-			    if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
-			    {
-				    PSendSysMessage("|cffff0000No script exists with the name '%s'", name.c_str());
-				    SetSentErrorMessage(true);
-				    return false;
-			    }
-
-			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
-				    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
-			    {
-				    const Field* load_fields = load_result->Fetch();
-
-				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
-					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
-			    }
+                if (const QueryResult* load_result = CharacterDatabase.PQuery(
+                    "SELECT url FROM scripts WHERE name = '%s'", name.c_str()))
+                {
+                    if (const Field* load_fields = load_result->Fetch(); !mgr->LoadAIScript(
+                        this, name, load_fields[0].GetCppString()))
+                    {
+                        SetSentErrorMessage(true);
+                        return false;
+                    }
+                }
 		    }
-		    else
-		    {
-			    PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
+
+            return false;                
 	    }
 
 	    if (rem_cmd.rfind("remove", 0) == 0)
@@ -1437,30 +1437,16 @@ reload <NAME>: redownload script from same url)");
 			    return false;
 		    }
 
-		    if (const QueryResult* count_result = CharacterDatabase.PQuery(
-			    "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+		    if (mgr->VerifyScriptExists(this, name))
 		    {
-			    const Field* count_result_fields = count_result->Fetch();
-
-			    if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
-			    {
-				    PSendSysMessage("|cffff0000No script exists with the name '%s'", name.c_str());
-				    SetSentErrorMessage(true);
-				    return false;
-			    }
-
-			    if (CharacterDatabase.PExecute(
-				    "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
-			    {
-				    PSendSysMessage("Script '%s' removed successfully.", name.c_str());
-			    }
+                if (CharacterDatabase.PExecute(
+                    "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
+                {
+                    PSendSysMessage("Script '%s' removed successfully.", name.c_str());
+                }
 		    }
-		    else
-		    {
-			    PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
+
+            return false;
 	    }
 
 	    if (rem_cmd.rfind("set", 0) == 0)
@@ -1468,7 +1454,7 @@ reload <NAME>: redownload script from same url)");
 		    std::string rem_set_cmd = rem_cmd.substr(3);
 		    boost::algorithm::trim(rem_set_cmd);
 
-            int first_space = rem_set_cmd.find_first_of(" ");
+            auto first_space = rem_set_cmd.find_first_of(' ');
 
             if (first_space == -1)
             {
@@ -1497,32 +1483,7 @@ reload <NAME>: redownload script from same url)");
 			    return false;
 		    }
 
-		    cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(0));
-
-		    if (response.status_code != 200)
-		    {
-			    PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
-
-		    std::string script = response.text;
-
-		    if (mgr->ValidateLuaScript(script.c_str()))
-		    {
-			    if (CharacterDatabase.PExecute(
-				    "INSERT INTO scripts (name,script) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
-				    name.c_str(), script.c_str(), url.c_str(), script.c_str()))
-			    {
-				    PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
-			    }
-			    else
-			    {
-				    PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
-				    SetSentErrorMessage(true);
-				    return false;
-			    }
-		    }
+            return mgr->LoadAIScript(this, name, url);
 	    }
 
 	    return true;

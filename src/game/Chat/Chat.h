@@ -160,6 +160,8 @@ class ChatHandler
         bool ExtractPlayerTarget(char** args, Player** player, ObjectGuid* player_guid = nullptr, std::string* player_name = nullptr);
 
         WorldSession* GetSession() const { return m_session; }
+
+        void SetSentErrorMessage(bool val) { sentErrorMessage = val; };
     protected:
         explicit ChatHandler() : m_session(nullptr), sentErrorMessage(false)
         {}      // for CLI subclass
@@ -859,8 +861,6 @@ class ChatHandler
         std::string GenerateDeletedCharacterGUIDsWhereStr(DeletedInfoList::const_iterator& itr, DeletedInfoList::const_iterator const& itr_end);
         void HandleCharacterDeletedListHelper(DeletedInfoList const& foundList);
         void HandleCharacterDeletedRestoreHelper(DeletedInfo const& delInfo);
-
-        void SetSentErrorMessage(bool val) { sentErrorMessage = val;};
     private:
         WorldSession* m_session;                            // != nullptr for chat command call and nullptr for CLI command
 

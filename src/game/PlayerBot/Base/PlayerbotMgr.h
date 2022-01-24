@@ -77,6 +77,8 @@ class PlayerbotMgr
 
         void LogoutAllBots(bool fullRemove = false);                           // mark all bots to be removed on next update
         void RemoveAllBotsFromGroup();
+        bool LoadAIScript(ChatHandler* ch, const std::string& name, const std::string& url);
+        static bool VerifyScriptExists(ChatHandler* ch, const std::string& name);
         void OnBotLogin(Player* const bot);
         void Stay();
 
