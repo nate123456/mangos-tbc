@@ -148,8 +148,20 @@ void PlayerbotMgr::InitLua()
     InitLuaPlayerType();
     InitLuaUnitType();
 
+    InitLuaMembers();
+
     m_lua.script("print('[DEBUG] LUA has been initialized.')");
 }
+
+class PlayerbotChatHandler : protected ChatHandler
+{
+public:
+    explicit PlayerbotChatHandler(Player* bot) : ChatHandler(bot) {}
+    bool Revive(Player& bot) { return HandleReviveCommand(const_cast<char*>(bot.GetName())); }
+    bool Teleport(Player& bot) { return HandleNamegoCommand(const_cast<char*>(bot.GetName())); }
+    void SendSysMessage(const char* str) { SendSysMessage(str); }
+    bool DropQuest(char* str) { return HandleQuestRemoveCommand(str); }
+};
 
 bool PlayerbotMgr::ValidateLuaScript(const char* script)
 {   
@@ -176,9 +188,17 @@ void PlayerbotMgr::InitLuaPlayerType()
     player_type["name"] = sol::property(&Player::GetName);
 
     // actions
-    player_type["follow"] = [](Player& player, Unit* target, const float dist = 1, const float angle = 0)
+    player_type["follow"] = [](Player* player, Unit* target, const float dist = 1, const float angle = 0)
     {
-	    player.GetMotionMaster()->MoveFollow(target, dist, angle);
+	    player->GetMotionMaster()->MoveFollow(target, dist, angle);
+    };
+    
+    player_type["teleport_to"] = [](Player* player, Player* target)
+    {
+        // refactor this to be instantiated once per bot and kept in the bot map?
+        PlayerbotChatHandler chat_handler(player);
+
+        return chat_handler.Teleport(*target);
     };
 }
 
@@ -187,6 +207,11 @@ void PlayerbotMgr::InitLuaUnitType()
     sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit");
 
     unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+}
+
+void PlayerbotMgr::InitLuaMembers()
+{
+    m_lua["master"] = GetMaster();
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text) const
@@ -206,6 +231,8 @@ void PlayerbotMgr::SendWhisper(const std::string& text, Player& player) const
     *packet << text;
     GetMaster()->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet))); // queue the packet to get around race condition
 }
+
+
 
 void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 {

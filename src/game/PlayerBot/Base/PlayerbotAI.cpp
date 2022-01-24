@@ -82,11 +82,11 @@ enum NPCFlags VENDOR_MASK = (enum NPCFlags)(UNIT_NPC_FLAG_VENDOR
 class PlayerbotChatHandler : protected ChatHandler
 {
     public:
-        explicit PlayerbotChatHandler(Player* pMasterPlayer) : ChatHandler(pMasterPlayer) {}
-        bool revive(Player& botPlayer) { return HandleReviveCommand((char*) botPlayer.GetName()); }
-        bool teleport(Player& botPlayer) { return HandleNamegoCommand((char*) botPlayer.GetName()); }
-        void sysmessage(const char* str) { SendSysMessage(str); }
-        bool dropQuest(char* str) { return HandleQuestRemoveCommand(str); }
+        explicit PlayerbotChatHandler(Player* bot) : ChatHandler(bot) {}
+        bool Revive(Player& botPlayer) { return HandleReviveCommand((char*) botPlayer.GetName()); }
+        bool Teleport(Player& botPlayer) { return HandleNamegoCommand((char*) botPlayer.GetName()); }
+        void SendSysMessage(const char* str) { SendSysMessage(str); }
+        bool DropQuest(char* str) { return HandleQuestRemoveCommand(str); }
 };
 
 PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper, sol::state& lua) :
@@ -5060,9 +5060,9 @@ void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
             SetIgnoreUpdateTime(6);
 
             PlayerbotChatHandler ch(GetMaster());
-            if (!ch.revive(*m_bot))
+            if (!ch.Revive(*m_bot))
             {
-                ch.sysmessage(".. could not be revived ..");
+                ch.SendSysMessage(".. could not be revived ..");
                 return;
             }
             // set back to normal
@@ -7275,13 +7275,13 @@ bool PlayerbotAI::DoTeleport(WorldObject& /*obj*/)
 {
     SetIgnoreUpdateTime(6);
     PlayerbotChatHandler ch(GetMaster());
-    if (!ch.teleport(*m_bot))
+    if (!ch.Teleport(*m_bot))
     {
         m_ignoreAIUpdatesUntilTime = time(0) + 6;
         PlayerbotChatHandler ch(GetMaster());
-        if (!ch.teleport(*m_bot))
+        if (!ch.Teleport(*m_bot))
         {
-            ch.sysmessage(".. could not be teleported ..");
+            ch.SendSysMessage(".. could not be teleported ..");
             // DEBUG_LOG ("[PlayerbotAI]: DoTeleport - %s failed to teleport", m_bot->GetName() );
             return false;
         }
@@ -10221,9 +10221,9 @@ void PlayerbotAI::_HandleCommandQuest(std::string& text, Player& fromPlayer)
         int8 linkStart = text.find("|");
         if (text.find("|") != std::string::npos)
         {
-            if (!ch.dropQuest((char*) text.substr(linkStart).c_str()))
+            if (!ch.DropQuest((char*) text.substr(linkStart).c_str()))
             {
-                ch.sysmessage("ERROR: could not drop quest");
+                ch.SendSysMessage("ERROR: could not drop quest");
             }
             else
             {

@@ -46,6 +46,7 @@ class PlayerbotMgr
 
         void InitLua();
         bool ValidateLuaScript(const char* script);
+        void InitLuaMembers();
         void InitLuaPlayerType();
         void InitLuaUnitType();
         void TellMaster(const std::string& text) const;
