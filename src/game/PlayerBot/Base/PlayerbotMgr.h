@@ -104,6 +104,8 @@ class PlayerbotMgr
 
         // lua VM for the bot
         sol::state m_lua;
+        std::string m_lastSetupErrorMsg;
+        std::string m_lastActErrorMsg;
 };
 
 #endif

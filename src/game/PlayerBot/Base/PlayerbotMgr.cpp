@@ -89,24 +89,43 @@ PlayerbotMgr::~PlayerbotMgr()
 
 void PlayerbotMgr::UpdateAI(const uint32 p_time)
 {
-	const sol::protected_function setup_func = m_lua["setup"];
+    if (m_playerBots.empty())
+        return;
 
-	if (const sol::protected_function_result setup_result = setup_func(); !setup_result.valid())
-	{
-		const sol::error error = setup_result;
-		ChatHandler(m_master).PSendSysMessage("|cffff0000Setup script failed:\n%s", error.what());
-	}
+    const sol::protected_function setup_func = m_lua["setup"];
 
-	const sol::protected_function act_func = m_lua["act"];
+    if (const sol::protected_function_result setup_result = setup_func(); !setup_result.valid())
+    {
+        const sol::error error = setup_result;
+        if (const std::string error_msg = error.what(); m_lastSetupErrorMsg != error_msg)
+        {
+            ChatHandler(m_master).PSendSysMessage("|cffff0000Setup script failed:\n%s", error_msg.c_str());
+            m_lastSetupErrorMsg = error_msg;
+        }
+    }
+    else
+    {
+        m_lastSetupErrorMsg = "";
+    }
 
-	for (auto& [id, bot] : m_playerBots)
-	{
-		if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
-		{
-			const sol::error error = act_result;
-			ChatHandler(m_master).PSendSysMessage("|cffff0000Act script failed for %s:\n%s", bot->GetName(), error.what());
-		}
-	}
+    const sol::protected_function act_func = m_lua["act"];
+
+    for (auto& [id, bot] : m_playerBots)
+    {
+        if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
+        {
+            const sol::error error = act_result;
+            if (const std::string error_msg = error.what(); m_lastActErrorMsg != error_msg)
+            {
+                ChatHandler(m_master).PSendSysMessage("|cffff0000Act script failed:\n%s", error_msg.c_str());
+                m_lastActErrorMsg = error_msg;
+            }
+        }
+        else
+        {
+            m_lastActErrorMsg = "";
+        }
+    }
 }
 
 void PlayerbotMgr::InitLua()
@@ -120,20 +139,12 @@ void PlayerbotMgr::InitLua()
 
     m_lua.set_function("print",
         sol::overload(
-            [this](const std::string& t) { TellMaster(t); }
+            [this](const std::string& t) { ChatHandler(m_master).PSendSysMessage(t.c_str()); }
         )
     );
 
     InitLuaPlayerType();
     InitLuaUnitType();
-
-    ValidateLuaScript(R"(   function setup()
-                            print("setup finished.")
-                        end)");
-
-    ValidateLuaScript(R"(   function act(p)
-                            return p.name .. ": " .. p.hp / p.max_hp
-                        end)");
 
     m_lua.script("print('[DEBUG] LUA has been initialized.')");
 }
@@ -1251,15 +1262,15 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 		    m_session->GetPlayer()->SetPlayerbotMgr(mgr);
 	    }
 
-	    std::string rem_cmd = cmd_string.erase(0, 2);
+	    std::string rem_cmd = cmd_string.substr(2);
 	    boost::algorithm::trim(rem_cmd);
 
 	    // print help if requested or missing args
 	    if (rem_cmd.empty() || rem_cmd.rfind("help", 0) == 0)
 	    {
 		    PSendSysMessage(
-			    R"(|cffff0000usage: load <NAME> (load ai script from memory)\n
-set <NAME> <URL> (download script from url, store as name and load)\n
+			    R"(usage: load <NAME> (load ai script from memory)
+set <NAME> <URL> (download script from url, store as name and load)
 remove <NAME> (remove script from database))");
 		    SetSentErrorMessage(true);
 		    return false;
@@ -1267,7 +1278,7 @@ remove <NAME> (remove script from database))");
 
 	    if (rem_cmd.rfind("load", 0) == 0)
 	    {
-		    std::string name = rem_cmd.erase(0, 4);
+		    std::string name = rem_cmd.substr(4);
 		    boost::algorithm::trim(name);
 
 		    if (name.empty())
@@ -1308,7 +1319,7 @@ remove <NAME> (remove script from database))");
 
 	    if (rem_cmd.rfind("remove", 0) == 0)
 	    {
-		    std::string name = rem_cmd.erase(0, 6);
+		    std::string name = rem_cmd.substr(6);
 		    boost::algorithm::trim(name);
 
 		    if (name.empty())
@@ -1330,13 +1341,10 @@ remove <NAME> (remove script from database))");
 				    return false;
 			    }
 
-			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
+			    if (CharacterDatabase.PExecute(
 				    "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
 			    {
-				    const Field* load_fields = load_result->Fetch();
-
-				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
-					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
+				    PSendSysMessage("Script '%s' removed successfully.", name.c_str());
 			    }
 		    }
 		    else
@@ -1349,8 +1357,23 @@ remove <NAME> (remove script from database))");
 
 	    if (rem_cmd.rfind("set", 0) == 0)
 	    {
-		    std::string name = rem_cmd.erase(0, 3);
+		    std::string rem_set_cmd = rem_cmd.substr(3);
+		    boost::algorithm::trim(rem_set_cmd);
+
+            int first_space = rem_set_cmd.find_first_of(" ");
+
+            if (first_space == -1)
+            {
+                PSendSysMessage("|cffff0000No script name or url provided. usage example: .bot ai set <NAME> <URL>");
+			    SetSentErrorMessage(true);
+			    return false;
+            }
+
+		    std::string name = rem_set_cmd.substr(0, first_space);
 		    boost::algorithm::trim(name);
+
+            std::string url = rem_set_cmd.substr(first_space);
+		    boost::algorithm::trim(url);
 
 		    if (name.empty())
 		    {
@@ -1359,9 +1382,6 @@ remove <NAME> (remove script from database))");
 			    return false;
 		    }
 
-		    std::string url = rem_cmd.erase(0, name.length());
-		    boost::algorithm::trim(url);
-
 		    if (url.empty())
 		    {
 			    PSendSysMessage("|cffff0000No script url provided.");
@@ -1369,11 +1389,11 @@ remove <NAME> (remove script from database))");
 			    return false;
 		    }
 
-		    cpr::Response response = Get(cpr::Url{url});
+		    cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(0));
 
 		    if (response.status_code != 200)
 		    {
-			    PSendSysMessage("|cffff0000Url returned %u HTTP status.", response.status_code);
+			    PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
 			    SetSentErrorMessage(true);
 			    return false;
 		    }
