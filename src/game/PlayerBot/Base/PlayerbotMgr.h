@@ -53,6 +53,7 @@ class PlayerbotMgr
         void InitLuaUnitType();
         void InitLuaCreatureType();
         void InitLuaObjectType();
+        void InitLuaPositionType();
         void InitLuaGameObjectType();
         void InitLuaWorldObjectType();
         void TellMaster(const std::string& text, const Player* fromPlayer) const;

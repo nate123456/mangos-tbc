@@ -174,6 +174,7 @@ void PlayerbotMgr::InitLua()
     InitLuaGameObjectType();
     InitLuaWorldObjectType();
     InitLuaObjectType();
+    InitLuaPositionType();
 	InitLuaMembers();
     InitLuaFunctions();
 
@@ -194,13 +195,13 @@ public:
 
 void PlayerbotMgr::InitializeLuaEnvironment()
 {
-    m_luaEnvironment = sol::environment(m_lua, sol::create, m_lua.globals());
+	m_luaEnvironment = sol::environment(m_lua, sol::create, m_lua.globals());
 
-    if (!m_lastSetupErrorMsg.empty())
-        m_lastSetupErrorMsg = "";
+	if (!m_lastSetupErrorMsg.empty())
+		m_lastSetupErrorMsg = "";
 
-    if (!m_lastActErrorMsg.empty())
-        m_lastActErrorMsg = "";
+	if (!m_lastActErrorMsg.empty())
+		m_lastActErrorMsg = "";
 }
 
 bool PlayerbotMgr::ValidateLuaScript(const char* script)
@@ -226,7 +227,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
 	player_type["hp"] = sol::property(&Player::GetHealth);
-	player_type["name"] = sol::property(&Player::GetName);
 
 	player_type["follow"] = [](Player* player, Unit* target, const float dist = 1, const float angle = 0)
 	{
@@ -234,12 +234,17 @@ void PlayerbotMgr::InitLuaPlayerType()
 		player->GetMotionMaster()->MoveFollow(target, dist, angle);
 	};
 
-	player_type["teleport_to"] = [](Player* player, Player* target)
-	{
+    player_type["stop"] = [](Player* player)
+    {
+        player->GetMotionMaster()->Initialize();
+    };
+
+    player_type["teleport_to"] = [](Player* player, const Player* target)
+    {
         float x, y, z;
-        player->GetClosePoint(x, y, z, target->GetObjectBoundingRadius());
-        target->TeleportTo(player->GetMapId(), x, y, z, target->GetOrientation());
-	};
+        target->GetClosePoint(x, y, z, player->GetObjectBoundingRadius());
+        player->TeleportTo(target->GetMapId(), x, y, z, player->GetOrientation());
+    };
 }
 
 void PlayerbotMgr::InitLuaUnitType()
@@ -248,39 +253,50 @@ void PlayerbotMgr::InitLuaUnitType()
 	                                                         sol::bases<WorldObject, Object>());
 
 	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+    unit_type["bounding_radius"] = &Unit::GetObjectBoundingRadius;
 }
 
 void PlayerbotMgr::InitLuaCreatureType()
 {
-	sol::usertype<Creature> unit_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
-	                                                                 sol::bases<Unit, WorldObject, Object>());
-
-	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+	sol::usertype<Creature> creature_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
+	                                                                     sol::bases<Unit, WorldObject, Object>());
 }
 
 void PlayerbotMgr::InitLuaObjectType()
 {
-    sol::usertype<Object> game_object_type = m_lua.new_usertype<Object>(
-        "object");
+	sol::usertype<Object> object_type = m_lua.new_usertype<Object>(
+		"object");
 }
 
 void PlayerbotMgr::InitLuaWorldObjectType()
 {
-	sol::usertype<WorldObject> game_object_type = m_lua.new_usertype<WorldObject>(
+	sol::usertype<WorldObject> world_object_type = m_lua.new_usertype<WorldObject>(
 		"world_object", sol::base_classes, sol::bases<Object>());
 
-	game_object_type.set("get_pos", [](const WorldObject* obj)
+    world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
+    world_object_type["name"] = sol::property(&WorldObject::GetName);
+
+	world_object_type.set("get_pos", [](const WorldObject* obj)
 	{
 		return obj->GetPosition();
 	});
+}
 
-    sol::usertype<Position> position_type = m_lua.new_usertype<Position>(
-        "position");
+void PlayerbotMgr::InitLuaGameObjectType()
+{
+	sol::usertype<GameObject> game_object_type = m_lua.new_usertype<GameObject>(
+		"game_object", sol::base_classes, sol::bases<WorldObject, Object>());
+}
 
-    position_type["x"] = &Position::x;
-    position_type["y"] = &Position::y;
-    position_type["z"] = &Position::z;
-    position_type["o"] = &Position::o;
+void PlayerbotMgr::InitLuaPositionType()
+{
+	sol::usertype<Position> position_type = m_lua.new_usertype<Position>(
+		"position");
+
+	position_type["x"] = &Position::x;
+	position_type["y"] = &Position::y;
+	position_type["z"] = &Position::z;
+	position_type["o"] = &Position::o;
 
 	position_type.set_function("distance", [](const Position* self, const Position* other)
 	{
@@ -291,12 +307,6 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	{
 		return self->GetAngle(x, y);
 	});
-}
-
-void PlayerbotMgr::InitLuaGameObjectType()
-{
-    sol::usertype<GameObject> game_object_type = m_lua.new_usertype<GameObject>(
-        "game_object", sol::base_classes, sol::bases<WorldObject, Object>());
 }
 
 void PlayerbotMgr::InitLuaMembers()
@@ -325,17 +335,18 @@ void PlayerbotMgr::InitLuaFunctions()
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
 {
-    SendWhisper(text, fromPlayer, GetMaster());
+	SendWhisper(text, fromPlayer, GetMaster());
 }
 
 void PlayerbotMgr::SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const
 {
 	const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
-    *packet << static_cast<uint32>(CHAT_MSG_WHISPER);
-    *packet << static_cast<uint32>(LANG_UNIVERSAL);
-    *packet << fromPlayer->GetName();
-    *packet << text;
-    toPlayer->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet))); // queue the packet to get around race condition
+	*packet << static_cast<uint32>(CHAT_MSG_WHISPER);
+	*packet << static_cast<uint32>(LANG_UNIVERSAL);
+	*packet << fromPlayer->GetName();
+	*packet << text;
+	toPlayer->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
+	// queue the packet to get around race condition
 }
 
 void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
@@ -1521,12 +1532,8 @@ reload <NAME>: re-download script from same url)");
 			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
 				    "SELECT url FROM scripts WHERE name = '%s'", name.c_str()))
 			    {
-				    if (const Field* load_fields = load_result->Fetch(); !mgr->LoadAIScript(
-					    name, load_fields[0].GetCppString()))
-				    {
-					    SetSentErrorMessage(true);
-					    return false;
-				    }
+                    const Field* load_fields = load_result->Fetch();
+                    return mgr->LoadAIScript(name, load_fields[0].GetCppString());
 			    }
 		    }
 
