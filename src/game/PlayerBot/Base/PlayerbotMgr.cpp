@@ -271,7 +271,7 @@ void PlayerbotMgr::InitLuaObjectType()
 
 void PlayerbotMgr::InitLuaWorldObjectType()
 {
-	sol::usertype<GameObject> game_object_type = m_lua.new_usertype<WorldObject>(
+	sol::usertype<WorldObject> game_object_type = m_lua.new_usertype<WorldObject>(
 		"world_object", sol::base_classes, sol::bases<Object>());
 
 	game_object_type["pos_x"] = sol::property(&WorldObject::GetPositionX);
