@@ -87,7 +87,7 @@ PlayerbotMgr::~PlayerbotMgr()
     LogoutAllBots(true);
 }
 
-void PlayerbotMgr::UpdateAI(const uint32 p_time)
+void PlayerbotMgr::UpdateAI(const uint32 time)
 {
 	if (m_playerBots.empty())
 		return;
@@ -109,7 +109,7 @@ void PlayerbotMgr::UpdateAI(const uint32 p_time)
 		return;
 	}
 
-	if (const sol::protected_function_result setup_result = setup_func(p_time); !setup_result.valid())
+	if (const sol::protected_function_result setup_result = setup_func(time); !setup_result.valid())
 	{
 		const sol::error error = setup_result;
 
@@ -206,16 +206,13 @@ bool PlayerbotMgr::ValidateLuaScript(const char* script)
 {
 	InitializeLuaEnvironment();
 
-	sol::load_result fx = m_lua.load(std::string(script));
-
-	if (!fx.valid())
+	if (const auto result = m_lua.safe_script(std::string(script), m_luaEnvironment); !result.valid())
 	{
-		const sol::error error = fx;
+		const sol::error error = result;
 		ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load ai script:\n%s", error.what());
 		return false;
 	}
 
-	fx();
 	return true;
 }
 

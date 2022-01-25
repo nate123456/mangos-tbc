@@ -62,7 +62,7 @@ class PlayerbotMgr
         void RemoveBots();
 
         // This is called from Unit.cpp and is called every second (I think)
-        void UpdateAI(const uint32 p_time);
+        void UpdateAI(const uint32 time);
 
         // This is called whenever the master sends a packet to the server.
         // These packets can be viewed, but not edited.
