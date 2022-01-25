@@ -1473,7 +1473,7 @@ reload <NAME>: re-download script from same url)");
 
 	    if (rem_cmd.rfind("reload", 0) == 0)
 	    {
-		    std::string name = rem_cmd.substr(4);
+		    std::string name = rem_cmd.substr(6);
 		    boost::algorithm::trim(name);
 
 		    if (name.empty())
