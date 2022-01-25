@@ -224,7 +224,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 	sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
 	                                                               sol::constructors<Player(WorldSession* session)>(),
 	                                                               sol::base_classes,
-	                                                               sol::bases<Unit, GameObject, WorldObject, Object>());
+	                                                               sol::bases<Unit, WorldObject, Object>());
 
 	// read-only members
 	player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
@@ -250,7 +250,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 void PlayerbotMgr::InitLuaUnitType()
 {
 	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit", sol::base_classes,
-	                                                         sol::bases<GameObject, WorldObject, Object>());
+	                                                         sol::bases<WorldObject, Object>());
 
 	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
 }
@@ -258,7 +258,7 @@ void PlayerbotMgr::InitLuaUnitType()
 void PlayerbotMgr::InitLuaCreatureType()
 {
 	sol::usertype<Creature> unit_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
-	                                                                 sol::bases<GameObject, WorldObject, Object>());
+	                                                                 sol::bases<Unit, WorldObject, Object>());
 
 	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
 }
@@ -290,25 +290,20 @@ void PlayerbotMgr::InitLuaMembers()
     m_lua["master"] = GetMaster();
 }
 
-void PlayerbotMgr::TellMaster(const std::string& text) const
+void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
 {
-    SendWhisper(text, *GetMaster());
+    SendWhisper(text, fromPlayer, GetMaster());
 }
 
-void PlayerbotMgr::SendWhisper(const std::string& text, Player& player) const
+void PlayerbotMgr::SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const
 {
-    if (player.GetPlayerbotAI())
-        return;
-
-    WorldPacket* const packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
-    *packet << uint32(CHAT_MSG_WHISPER);
-    *packet << uint32(LANG_UNIVERSAL);
-    *packet << player.GetName();
+	const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
+    *packet << static_cast<uint32>(CHAT_MSG_WHISPER);
+    *packet << static_cast<uint32>(LANG_UNIVERSAL);
+    *packet << fromPlayer->GetName();
     *packet << text;
-    GetMaster()->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet))); // queue the packet to get around race condition
+    toPlayer->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet))); // queue the packet to get around race condition
 }
-
-
 
 void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 {
