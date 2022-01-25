@@ -52,7 +52,7 @@ void PlayerbotMgr::SetInitialWorldSettings()
         sLog.outError("Playerbot: Configuration file version doesn't match expected version. Some config variables may be wrong or missing.");
 }
 
-PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master)
+PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master), m_masterChatHandler(master)
 {
     // load config variables
     m_confMaxNumBots = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
@@ -89,68 +89,94 @@ PlayerbotMgr::~PlayerbotMgr()
 
 void PlayerbotMgr::UpdateAI(const uint32 p_time)
 {
-    if (m_playerBots.empty())
+	if (m_playerBots.empty())
+		return;
+
+	if (!m_luaEnvironment)
+		return;
+
+	const sol::protected_function setup_func = m_luaEnvironment["setup"];
+
+	if (!setup_func.valid())
+	{
+		if (const auto error_msg = "No 'setup' function with time parameter is defined."; m_lastSetupErrorMsg !=
+			error_msg)
+		{
+			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
+			m_lastSetupErrorMsg = error_msg;
+		}
+
+		return;
+	}
+
+	if (const sol::protected_function_result setup_result = setup_func(p_time); !setup_result.valid())
+	{
+		const sol::error error = setup_result;
+
+		if (const char* error_msg = error.what(); m_lastSetupErrorMsg != error_msg)
+		{
+			m_masterChatHandler.PSendSysMessage("|cffff0000Setup script failed:\n%s", error_msg);
+			m_lastSetupErrorMsg = error_msg;
+		}
+
         return;
+	}
 
-    const sol::protected_function setup_func = m_lua["setup"];
+	const sol::protected_function act_func = m_luaEnvironment["act"];
 
-    if (const sol::protected_function_result setup_result = setup_func(p_time); !setup_result.valid())
-    {
-        const sol::error error = setup_result;
-        if (const std::string error_msg = error.what(); m_lastSetupErrorMsg != error_msg)
-        {
-            ChatHandler(m_master).PSendSysMessage("|cffff0000Setup script failed:\n%s", error_msg.c_str());
-            m_lastSetupErrorMsg = error_msg;
-        }
-    }
-    else
-    {
-        if (!m_lastSetupErrorMsg.empty())
-            m_lastSetupErrorMsg = "";
-    }
+	if (!act_func.valid())
+	{
+		if (const auto error_msg = "No 'act' function with player parameter is defined."; m_lastActErrorMsg !=
+			error_msg)
+		{
+			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
+            m_lastActErrorMsg = error_msg;
+		}
+	}
 
-    const sol::protected_function act_func = m_lua["act"];
+	for (auto& [id, bot] : m_playerBots)
+	{
+		if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
+		{
+			const sol::error error = act_result;
+			if (const char* error_msg = error.what(); m_lastActErrorMsg != error_msg)
+			{
+				m_masterChatHandler.PSendSysMessage("|cffff0000Act script failed:\n%s", error_msg);
+				m_lastActErrorMsg = error_msg;
+			}
+		}
+	}
 
-    for (auto& [id, bot] : m_playerBots)
-    {
-        if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
-        {
-            const sol::error error = act_result;
-            if (const std::string error_msg = error.what(); m_lastActErrorMsg != error_msg)
-            {
-                ChatHandler(m_master).PSendSysMessage("|cffff0000Act script failed:\n%s", error_msg.c_str());
-                m_lastActErrorMsg = error_msg;
-            }
-        }
-        else
-        {
-            if (!m_lastActErrorMsg.empty())
-                m_lastActErrorMsg = "";
-        }
-    }
+    // reset error message members if no errors occurred.
+	if (!m_lastSetupErrorMsg.empty())
+		m_lastSetupErrorMsg = "";
+
+	if (!m_lastActErrorMsg.empty())
+		m_lastActErrorMsg = "";
 }
 
 void PlayerbotMgr::InitLua()
 {
-    m_lua.open_libraries(sol::lib::base,
-        sol::lib::package,
-        sol::lib::coroutine,
-        sol::lib::string,
-        sol::lib::math,
-        sol::lib::table);
+	m_lua.open_libraries(sol::lib::base,
+	                     sol::lib::package,
+	                     sol::lib::coroutine,
+	                     sol::lib::string,
+	                     sol::lib::math,
+	                     sol::lib::table);
 
-    m_lua.set_function("print",
-        sol::overload(
-            [this](const std::string& t) { ChatHandler(m_master).PSendSysMessage("[AI] %s", t.c_str()); }
-        )
-    );
+	m_lua.set_function("print",
+	                   sol::overload(
+		                   [this](const std::string& t) { ChatHandler(m_master).PSendSysMessage("[AI] %s", t.c_str()); }
+	                   ));
 
-    InitLuaPlayerType();
-    InitLuaUnitType();
+	InitLuaPlayerType();
+	InitLuaUnitType();
 
-    InitLuaMembers();
+	InitLuaMembers();
 
-    m_lua.script("print('[DEBUG] LUA has been initialized.')");
+	InitializeLuaEnvironment();
+
+	m_lua.script("print('[DEBUG] LUA has been initialized.')");
 }
 
 class PlayerbotChatHandler : protected ChatHandler
@@ -163,18 +189,26 @@ public:
     bool DropQuest(char* str) { return HandleQuestRemoveCommand(str); }
 };
 
-bool PlayerbotMgr::ValidateLuaScript(const char* script)
-{   
-    sol::load_result fx = m_lua.load(std::string(script));
+void PlayerbotMgr::InitializeLuaEnvironment()
+{
+    m_luaEnvironment = sol::environment(m_lua, sol::create, m_lua.globals());
+}
 
-    if (!fx.valid()) {
-	    const sol::error error = fx;
-        ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load string-based script into the program:\n%s", error.what());
-        return false;
+bool PlayerbotMgr::ValidateLuaScript(const char* script)
+{
+	InitializeLuaEnvironment();
+
+	sol::load_result fx = m_lua.load(std::string(script));
+
+	if (!fx.valid())
+	{
+		const sol::error error = fx;
+		ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load ai script:\n%s", error.what());
+		return false;
 	}
 
-    fx();
-    return true;
+	fx(&m_luaEnvironment);
+	return true;
 }
 
 void PlayerbotMgr::InitLuaPlayerType()
@@ -1258,14 +1292,14 @@ uint32 Player::GetSpec()
     return spec;
 }
 
-bool PlayerbotMgr::LoadAIScript(ChatHandler* ch, const std::string& name, const std::string& url)
+bool PlayerbotMgr::LoadAIScript(const std::string& name, const std::string& url)
 {
 	const cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(false));
 
     if (response.status_code != 200)
     {
-        ch->PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
-        ch->SetSentErrorMessage(true);
+        m_masterChatHandler.PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
+        m_masterChatHandler.SetSentErrorMessage(true);
         return false;
     }
 
@@ -1277,12 +1311,12 @@ bool PlayerbotMgr::LoadAIScript(ChatHandler* ch, const std::string& name, const 
             "INSERT INTO scripts (name,script) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
             name.c_str(), script.c_str(), url.c_str(), script.c_str()))
         {
-            ch->PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
+            m_masterChatHandler.PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
         }
         else
         {
-            ch->PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
-            ch->SetSentErrorMessage(true);
+            m_masterChatHandler.PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
+            m_masterChatHandler.SetSentErrorMessage(true);
             return false;
         }
     }
@@ -1290,7 +1324,7 @@ bool PlayerbotMgr::LoadAIScript(ChatHandler* ch, const std::string& name, const 
     return true;
 }
 
-bool PlayerbotMgr::VerifyScriptExists(ChatHandler* ch, const std::string& name)
+bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
 {
     if (const QueryResult* count_result = CharacterDatabase.PQuery(
         "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
@@ -1299,15 +1333,15 @@ bool PlayerbotMgr::VerifyScriptExists(ChatHandler* ch, const std::string& name)
 
         if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
         {            
-            ch->PSendSysMessage("|cffff0000No script was found by the name '%s'", name.c_str());
-            ch->SetSentErrorMessage(true);
+            m_masterChatHandler.PSendSysMessage("|cffff0000No script was found by the name '%s'", name.c_str());
+            m_masterChatHandler.SetSentErrorMessage(true);
             return false;
         }
     }
     else
     {
-        ch->PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
-        ch->SetSentErrorMessage(true);
+        m_masterChatHandler.PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
+        m_masterChatHandler.SetSentErrorMessage(true);
         return false;
     }
 
@@ -1381,7 +1415,7 @@ reload <NAME>: re-download script from same url)");
 			    return false;
 		    }
 
-		    if (mgr->VerifyScriptExists(this, name))
+		    if (mgr->VerifyScriptExists(name))
 		    {
                 if (const QueryResult* load_result = CharacterDatabase.PQuery(
                     "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
@@ -1408,13 +1442,13 @@ reload <NAME>: re-download script from same url)");
 			    return false;
 		    }
 
-		    if (mgr->VerifyScriptExists(this, name))
+		    if (mgr->VerifyScriptExists(name))
 		    {
                 if (const QueryResult* load_result = CharacterDatabase.PQuery(
                     "SELECT url FROM scripts WHERE name = '%s'", name.c_str()))
                 {
                     if (const Field* load_fields = load_result->Fetch(); !mgr->LoadAIScript(
-                        this, name, load_fields[0].GetCppString()))
+	                    name, load_fields[0].GetCppString()))
                     {
                         SetSentErrorMessage(true);
                         return false;
@@ -1437,7 +1471,7 @@ reload <NAME>: re-download script from same url)");
 			    return false;
 		    }
 
-		    if (mgr->VerifyScriptExists(this, name))
+		    if (mgr->VerifyScriptExists(name))
 		    {
                 if (CharacterDatabase.PExecute(
                     "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
@@ -1483,7 +1517,7 @@ reload <NAME>: re-download script from same url)");
 			    return false;
 		    }
 
-            return mgr->LoadAIScript(this, name, url);
+            return mgr->LoadAIScript(name, url);
 	    }
 
 	    return true;

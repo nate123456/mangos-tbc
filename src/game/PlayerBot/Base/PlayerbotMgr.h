@@ -45,6 +45,7 @@ class PlayerbotMgr
         virtual ~PlayerbotMgr();
 
         void InitLua();
+        void InitializeLuaEnvironment();
         bool ValidateLuaScript(const char* script);
         void InitLuaMembers();
         void InitLuaPlayerType();
@@ -77,8 +78,8 @@ class PlayerbotMgr
 
         void LogoutAllBots(bool fullRemove = false);                           // mark all bots to be removed on next update
         void RemoveAllBotsFromGroup();
-        bool LoadAIScript(ChatHandler* ch, const std::string& name, const std::string& url);
-        static bool VerifyScriptExists(ChatHandler* ch, const std::string& name);
+        bool LoadAIScript(const std::string& name, const std::string& url);
+        bool VerifyScriptExists(const std::string& name);
         void OnBotLogin(Player* const bot);
         void Stay();
 
@@ -107,8 +108,10 @@ class PlayerbotMgr
 
         // lua VM for the bot
         sol::state m_lua;
+        sol::environment m_luaEnvironment;
         std::string m_lastSetupErrorMsg;
         std::string m_lastActErrorMsg;
+        ChatHandler m_masterChatHandler;
 };
 
 #endif
