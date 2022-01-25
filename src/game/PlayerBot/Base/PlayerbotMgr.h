@@ -48,6 +48,7 @@ class PlayerbotMgr
         void InitializeLuaEnvironment();
         bool ValidateLuaScript(const char* script);
         void InitLuaMembers();
+        void InitLuaFunctions();
         void InitLuaPlayerType();
         void InitLuaUnitType();
         void InitLuaCreatureType();

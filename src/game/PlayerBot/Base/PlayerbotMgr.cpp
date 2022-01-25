@@ -175,6 +175,7 @@ void PlayerbotMgr::InitLua()
     InitLuaWorldObjectType();
     InitLuaObjectType();
 	InitLuaMembers();
+    InitLuaFunctions();
 
 	InitializeLuaEnvironment();
 
@@ -271,9 +272,23 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	sol::usertype<WorldObject> game_object_type = m_lua.new_usertype<WorldObject>(
 		"world_object", sol::base_classes, sol::bases<Object>());
 
-	game_object_type["pos_x"] = sol::property(&WorldObject::GetPositionX);
-	game_object_type["pos_y"] = sol::property(&WorldObject::GetPositionY);
-	game_object_type["pos_z"] = sol::property(&WorldObject::GetPositionZ);
+    game_object_type["position"] = [](const WorldObject* obj)
+    {
+        return obj->GetPosition();
+    };
+
+    sol::usertype<WorldObject> position_type = m_lua.new_usertype<Position>(
+        "position");
+
+    position_type["x"] = &Position::x;
+    position_type["y"] = &Position::y;
+    position_type["z"] = &Position::z;
+    position_type["o"] = &Position::o;
+
+	position_type.set_function("distance", [&](const Position* current, const Position* other)
+	{
+		return current->GetDistance(*other);
+	});
 }
 
 void PlayerbotMgr::InitLuaGameObjectType()
@@ -285,6 +300,25 @@ void PlayerbotMgr::InitLuaGameObjectType()
 void PlayerbotMgr::InitLuaMembers()
 {
     m_lua["master"] = GetMaster();
+}
+
+void PlayerbotMgr::InitLuaFunctions()
+{
+	m_lua.set_function("whisper", [&](const Player* from, const Player* to, const char* text)
+	{
+		SendWhisper(text, from, to);
+	});
+
+	m_lua.set_function("party", [&](const Player* from, const char* text)
+	{
+		const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
+		*packet << static_cast<uint32>(CHAT_MSG_PARTY);
+		*packet << static_cast<uint32>(LANG_UNIVERSAL);
+		*packet << from->GetName();
+		*packet << text;
+		from->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
+		// queue the packet to get around race condition
+	});
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
