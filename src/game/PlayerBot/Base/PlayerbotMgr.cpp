@@ -224,12 +224,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 	                                                               sol::base_classes,
 	                                                               sol::bases<Unit, WorldObject, Object>());
 
-	// read-only members
 	player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
 	player_type["hp"] = sol::property(&Player::GetHealth);
 	player_type["name"] = sol::property(&Player::GetName);
 
-	// actions
 	player_type["follow"] = [](Player* player, Unit* target, const float dist = 1, const float angle = 0)
 	{
 		target->GetPosition();
@@ -238,10 +236,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["teleport_to"] = [](Player* player, Player* target)
 	{
-		// refactor this to be instantiated once per bot and kept in the bot map?
-		PlayerbotChatHandler chat_handler(player);
-
-		return chat_handler.Teleport(*target);
+        float x, y, z;
+        player->GetClosePoint(x, y, z, target->GetObjectBoundingRadius());
+        target->TeleportTo(player->GetMapId(), x, y, z, target->GetOrientation());
 	};
 }
 
@@ -272,12 +269,12 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	sol::usertype<WorldObject> game_object_type = m_lua.new_usertype<WorldObject>(
 		"world_object", sol::base_classes, sol::bases<Object>());
 
-    game_object_type["position"] = [](const WorldObject* obj)
-    {
-        return obj->GetPosition();
-    };
+	game_object_type.set("get_pos", [](const WorldObject* obj)
+	{
+		return obj->GetPosition();
+	});
 
-    sol::usertype<WorldObject> position_type = m_lua.new_usertype<Position>(
+    sol::usertype<Position> position_type = m_lua.new_usertype<Position>(
         "position");
 
     position_type["x"] = &Position::x;
@@ -285,9 +282,14 @@ void PlayerbotMgr::InitLuaWorldObjectType()
     position_type["z"] = &Position::z;
     position_type["o"] = &Position::o;
 
-	position_type.set_function("distance", [&](const Position* current, const Position* other)
+	position_type.set_function("distance", [](const Position* self, const Position* other)
 	{
-		return current->GetDistance(*other);
+		return self->GetDistance(*other);
+	});
+
+	position_type.set_function("angle", [](const Position* self, const float x, const float y)
+	{
+		return self->GetAngle(x, y);
 	});
 }
 
