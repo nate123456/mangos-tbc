@@ -239,11 +239,36 @@ void PlayerbotMgr::InitLuaPlayerType()
         player->GetMotionMaster()->Initialize();
     };
 
-    player_type["teleport_to"] = [](Player* player, const Player* target)
+    player_type["teleport_to"] = [](Player* self, const Player* target)
     {
         float x, y, z;
-        target->GetClosePoint(x, y, z, player->GetObjectBoundingRadius());
-        player->TeleportTo(target->GetMapId(), x, y, z, player->GetOrientation());
+        target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
+        self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
+    };
+
+    player_type["whisper"] = [&](const Player* self, const Player* to, const char* text)
+    {
+        SendChatMessage(text, self, CHAT_MSG_WHISPER, to);
+    };
+
+    player_type["tell_party"] = [&](const Player* self, const char* text)
+    {
+        SendChatMessage(text, self, CHAT_MSG_PARTY, GetMaster());
+    };
+
+    player_type["tell_raid"] = [&](const Player* self, const char* text)
+    {
+        SendChatMessage(text, self, CHAT_MSG_RAID, GetMaster());
+    };
+
+    player_type["say"] = [&](const Player* self, const char* text)
+    {
+        SendChatMessage(text, self, CHAT_MSG_SAY, GetMaster());
+    };
+
+    player_type["yell"] = [&](const Player* self, const char* text)
+    {
+        SendChatMessage(text, self, CHAT_MSG_YELL, GetMaster());
     };
 }
 
@@ -252,8 +277,16 @@ void PlayerbotMgr::InitLuaUnitType()
 	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit", sol::base_classes,
 	                                                         sol::bases<WorldObject, Object>());
 
-	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
     unit_type["bounding_radius"] = &Unit::GetObjectBoundingRadius;
+
+    unit_type.set("reachable_with_melee", [](const Unit* self, const Unit* target)
+    {
+        return self->CanReachWithMeleeAttack(target);
+    });
+
+    unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+
+
 }
 
 void PlayerbotMgr::InitLuaCreatureType()
@@ -275,11 +308,34 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
     world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
     world_object_type["name"] = sol::property(&WorldObject::GetName);
+    world_object_type["map_id"] = sol::property(&WorldObject::GetMapId);
+    world_object_type["zone_id"] = sol::property(&WorldObject::GetZoneId);
+    world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
+    world_object_type["gcd"] = sol::property(&WorldObject::GetGCD);
 
-	world_object_type.set("get_pos", [](const WorldObject* obj)
+	world_object_type.set("get_pos", [](const WorldObject* self)
 	{
-		return obj->GetPosition();
+		return self->GetPosition();
 	});
+
+	world_object_type.set("get_angle", [](const WorldObject* self, const WorldObject* obj)
+	{
+		return self->GetAngle(obj);
+	});
+
+	world_object_type.set("get_angle", [](const WorldObject* self, const float x, const float y)
+	{
+		return self->GetAngle(x, y);
+	});
+
+	world_object_type.set("get_close_point",
+	                      [](const WorldObject* self, const float boundingRadius, const float distance,
+	                         const float angle)
+	                      {
+		                      float x, y, z;
+		                      self->GetClosePoint(x, y, z, boundingRadius, distance, angle, self);
+		                      return sol::tie(x, y, z);
+	                      });
 }
 
 void PlayerbotMgr::InitLuaGameObjectType()
@@ -316,32 +372,17 @@ void PlayerbotMgr::InitLuaMembers()
 
 void PlayerbotMgr::InitLuaFunctions()
 {
-	m_lua.set_function("whisper", [&](const Player* from, const Player* to, const char* text)
-	{
-		SendWhisper(text, from, to);
-	});
-
-	m_lua.set_function("party", [&](const Player* from, const char* text)
-	{
-		const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
-		*packet << static_cast<uint32>(CHAT_MSG_PARTY);
-		*packet << static_cast<uint32>(LANG_UNIVERSAL);
-		*packet << from->GetName();
-		*packet << text;
-		from->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
-		// queue the packet to get around race condition
-	});
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
 {
-	SendWhisper(text, fromPlayer, GetMaster());
+	SendChatMessage(text, fromPlayer, CHAT_MSG_WHISPER, GetMaster());
 }
 
-void PlayerbotMgr::SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const
+void PlayerbotMgr::SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 OpCode, const Player* toPlayer = nullptr) const
 {
 	const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
-	*packet << static_cast<uint32>(CHAT_MSG_WHISPER);
+	*packet << OpCode;
 	*packet << static_cast<uint32>(LANG_UNIVERSAL);
 	*packet << fromPlayer->GetName();
 	*packet << text;
