@@ -171,7 +171,9 @@ void PlayerbotMgr::InitLua()
 
 	InitLuaPlayerType();
 	InitLuaUnitType();
-
+    InitLuaGameObjectType();
+    InitLuaWorldObjectType();
+    InitLuaObjectType();
 	InitLuaMembers();
 
 	InitializeLuaEnvironment();
@@ -192,6 +194,12 @@ public:
 void PlayerbotMgr::InitializeLuaEnvironment()
 {
     m_luaEnvironment = sol::environment(m_lua, sol::create, m_lua.globals());
+
+    if (!m_lastSetupErrorMsg.empty())
+        m_lastSetupErrorMsg = "";
+
+    if (!m_lastActErrorMsg.empty())
+        m_lastActErrorMsg = "";
 }
 
 bool PlayerbotMgr::ValidateLuaScript(const char* script)
@@ -207,40 +215,67 @@ bool PlayerbotMgr::ValidateLuaScript(const char* script)
 		return false;
 	}
 
-	fx(&m_luaEnvironment);
+	fx();
 	return true;
 }
 
 void PlayerbotMgr::InitLuaPlayerType()
 {
-    sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
-        sol::constructors<Player(WorldSession* session)>(), sol::base_classes, sol::bases<Unit>());
+	sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
+	                                                               sol::constructors<Player(WorldSession* session)>(),
+	                                                               sol::base_classes, sol::bases<Unit>(),
+	                                                               sol::bases<GameObject>(), sol::bases<WorldObject>(),
+	                                                               sol::bases<Object>());
 
-    // read-only members
-    player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
-    player_type["hp"] = sol::property(&Player::GetHealth);
-    player_type["name"] = sol::property(&Player::GetName);
+	// read-only members
+	player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
+	player_type["hp"] = sol::property(&Player::GetHealth);
+	player_type["name"] = sol::property(&Player::GetName);
 
-    // actions
-    player_type["follow"] = [](Player* player, Unit* target, const float dist = 1, const float angle = 0)
-    {
-	    player->GetMotionMaster()->MoveFollow(target, dist, angle);
-    };
-    
-    player_type["teleport_to"] = [](Player* player, Player* target)
-    {
-        // refactor this to be instantiated once per bot and kept in the bot map?
-        PlayerbotChatHandler chat_handler(player);
+	// actions
+	player_type["follow"] = [](Player* player, Unit* target, const float dist = 1, const float angle = 0)
+	{
+		target->GetPosition();
+		player->GetMotionMaster()->MoveFollow(target, dist, angle);
+	};
 
-        return chat_handler.Teleport(*target);
-    };
+	player_type["teleport_to"] = [](Player* player, Player* target)
+	{
+		// refactor this to be instantiated once per bot and kept in the bot map?
+		PlayerbotChatHandler chat_handler(player);
+
+		return chat_handler.Teleport(*target);
+	};
 }
 
 void PlayerbotMgr::InitLuaUnitType()
 {
-    sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit");
+	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit", sol::bases<GameObject>(),
+	                                                         sol::bases<WorldObject>(), sol::bases<Object>());
 
-    unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+}
+
+void PlayerbotMgr::InitLuaObjectType()
+{
+    sol::usertype<Object> game_object_type = m_lua.new_usertype<Object>(
+        "world_object");
+}
+
+void PlayerbotMgr::InitLuaWorldObjectType()
+{
+	sol::usertype<GameObject> game_object_type = m_lua.new_usertype<WorldObject>(
+		"world_object", sol::base_classes, sol::bases<Object>());
+
+	game_object_type["pos_x"] = sol::property(&WorldObject::GetPositionX);
+	game_object_type["pos_y"] = sol::property(&WorldObject::GetPositionY);
+	game_object_type["pos_z"] = sol::property(&WorldObject::GetPositionZ);
+}
+
+void PlayerbotMgr::InitLuaGameObjectType()
+{
+    sol::usertype<GameObject> game_object_type = m_lua.new_usertype<GameObject>(
+        "game_object", sol::base_classes, sol::bases<WorldObject>(), sol::bases<Object>());
 }
 
 void PlayerbotMgr::InitLuaMembers()
@@ -1296,56 +1331,60 @@ bool PlayerbotMgr::LoadAIScript(const std::string& name, const std::string& url)
 {
 	const cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(false));
 
-    if (response.status_code != 200)
-    {
-        m_masterChatHandler.PSendSysMessage("|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(), static_cast<unsigned int>(response.status_code), response.error.message.c_str());
-        m_masterChatHandler.SetSentErrorMessage(true);
-        return false;
-    }
+	if (response.status_code != 200)
+	{
+		m_masterChatHandler.PSendSysMessage(
+			"|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(),
+			static_cast<unsigned int>(response.status_code), response.error.message.c_str());
+		m_masterChatHandler.SetSentErrorMessage(true);
+		return false;
+	}
 
 	const std::string script = response.text;
 
-    if (ValidateLuaScript(script.c_str()))
-    {
-        if (CharacterDatabase.PExecute(
-            "INSERT INTO scripts (name,script) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
-            name.c_str(), script.c_str(), url.c_str(), script.c_str()))
-        {
-            m_masterChatHandler.PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.", name.c_str());
-        }
-        else
-        {
-            m_masterChatHandler.PSendSysMessage("|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
-            m_masterChatHandler.SetSentErrorMessage(true);
-            return false;
-        }
-    }
+	if (ValidateLuaScript(script.c_str()))
+	{
+		if (CharacterDatabase.PExecute(
+			"INSERT INTO scripts (name, script, url) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
+			name.c_str(), script.c_str(), url.c_str(), script.c_str()))
+		{
+			m_masterChatHandler.PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.",
+			                                    name.c_str());
+		}
+		else
+		{
+			m_masterChatHandler.PSendSysMessage(
+				"|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
+			m_masterChatHandler.SetSentErrorMessage(true);
+			return false;
+		}
+	}
 
-    return true;
+	return true;
 }
 
 bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
 {
-    if (const QueryResult* count_result = CharacterDatabase.PQuery(
-        "SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
-    {
-        const Field* count_result_fields = count_result->Fetch();
+	if (const QueryResult* count_result = CharacterDatabase.PQuery(
+		"SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+	{
+		const Field* count_result_fields = count_result->Fetch();
 
-        if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
-        {            
-            m_masterChatHandler.PSendSysMessage("|cffff0000No script was found by the name '%s'", name.c_str());
-            m_masterChatHandler.SetSentErrorMessage(true);
-            return false;
-        }
-    }
-    else
-    {
-        m_masterChatHandler.PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
-        m_masterChatHandler.SetSentErrorMessage(true);
-        return false;
-    }
+		if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
+		{
+			m_masterChatHandler.PSendSysMessage("|cffff0000No script was found by the name '%s'", name.c_str());
+			m_masterChatHandler.SetSentErrorMessage(true);
+			return false;
+		}
+	}
+	else
+	{
+		m_masterChatHandler.PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
+		m_masterChatHandler.SetSentErrorMessage(true);
+		return false;
+	}
 
-    return true;
+	return true;
 }
 
 bool ChatHandler::HandlePlayerbotCommand(char* args)
@@ -1417,20 +1456,20 @@ reload <NAME>: re-download script from same url)");
 
 		    if (mgr->VerifyScriptExists(name))
 		    {
-                if (const QueryResult* load_result = CharacterDatabase.PQuery(
-                    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
-                {
-                    const Field* load_fields = load_result->Fetch();
+			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
+				    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
+			    {
+				    const Field* load_fields = load_result->Fetch();
 
-                    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
-                        PSendSysMessage("Script '%s' read successfully.", name.c_str());
-                }
+				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
+					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
+			    }
 		    }
 
-            return false;                
+		    return false;
 	    }
 
-        if (rem_cmd.rfind("reload", 0) == 0)
+	    if (rem_cmd.rfind("reload", 0) == 0)
 	    {
 		    std::string name = rem_cmd.substr(4);
 		    boost::algorithm::trim(name);
@@ -1444,19 +1483,19 @@ reload <NAME>: re-download script from same url)");
 
 		    if (mgr->VerifyScriptExists(name))
 		    {
-                if (const QueryResult* load_result = CharacterDatabase.PQuery(
-                    "SELECT url FROM scripts WHERE name = '%s'", name.c_str()))
-                {
-                    if (const Field* load_fields = load_result->Fetch(); !mgr->LoadAIScript(
-	                    name, load_fields[0].GetCppString()))
-                    {
-                        SetSentErrorMessage(true);
-                        return false;
-                    }
-                }
+			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
+				    "SELECT url FROM scripts WHERE name = '%s'", name.c_str()))
+			    {
+				    if (const Field* load_fields = load_result->Fetch(); !mgr->LoadAIScript(
+					    name, load_fields[0].GetCppString()))
+				    {
+					    SetSentErrorMessage(true);
+					    return false;
+				    }
+			    }
 		    }
 
-            return false;                
+		    return false;
 	    }
 
 	    if (rem_cmd.rfind("remove", 0) == 0)
@@ -1473,14 +1512,14 @@ reload <NAME>: re-download script from same url)");
 
 		    if (mgr->VerifyScriptExists(name))
 		    {
-                if (CharacterDatabase.PExecute(
-                    "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
-                {
-                    PSendSysMessage("Script '%s' removed successfully.", name.c_str());
-                }
+			    if (CharacterDatabase.PExecute(
+				    "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
+			    {
+				    PSendSysMessage("Script '%s' removed successfully.", name.c_str());
+			    }
 		    }
 
-            return false;
+		    return false;
 	    }
 
 	    if (rem_cmd.rfind("set", 0) == 0)
@@ -1488,19 +1527,19 @@ reload <NAME>: re-download script from same url)");
 		    std::string rem_set_cmd = rem_cmd.substr(3);
 		    boost::algorithm::trim(rem_set_cmd);
 
-            auto first_space = rem_set_cmd.find_first_of(' ');
+		    auto first_space = rem_set_cmd.find_first_of(' ');
 
-            if (first_space == -1)
-            {
-                PSendSysMessage("|cffff0000No script name or url provided. usage example: .bot ai set <NAME> <URL>");
+		    if (first_space == -1)
+		    {
+			    PSendSysMessage("|cffff0000No script name or url provided. usage example: .bot ai set <NAME> <URL>");
 			    SetSentErrorMessage(true);
 			    return false;
-            }
+		    }
 
 		    std::string name = rem_set_cmd.substr(0, first_space);
 		    boost::algorithm::trim(name);
 
-            std::string url = rem_set_cmd.substr(first_space);
+		    std::string url = rem_set_cmd.substr(first_space);
 		    boost::algorithm::trim(url);
 
 		    if (name.empty())
@@ -1517,7 +1556,7 @@ reload <NAME>: re-download script from same url)");
 			    return false;
 		    }
 
-            return mgr->LoadAIScript(name, url);
+		    return mgr->LoadAIScript(name, url);
 	    }
 
 	    return true;

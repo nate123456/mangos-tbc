@@ -50,6 +50,9 @@ class PlayerbotMgr
         void InitLuaMembers();
         void InitLuaPlayerType();
         void InitLuaUnitType();
+        void InitLuaObjectType();
+        void InitLuaGameObjectType();
+        void InitLuaWorldObjectType();
         void TellMaster(const std::string& text) const;
         void SendWhisper(const std::string& text, Player& player) const;
 
