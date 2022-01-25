@@ -224,7 +224,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 	sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
 	                                                               sol::constructors<Player(WorldSession* session)>(),
 	                                                               sol::base_classes,
-	                                                               sol::bases<Unit>());
+	                                                               sol::bases<Unit, WorldObject, Object>());
 
 	// read-only members
 	player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
@@ -250,7 +250,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 void PlayerbotMgr::InitLuaUnitType()
 {
 	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit", sol::base_classes,
-	                                                         sol::bases<WorldObject>());
+	                                                         sol::bases<WorldObject, Object>());
 
 	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
 }
@@ -258,7 +258,7 @@ void PlayerbotMgr::InitLuaUnitType()
 void PlayerbotMgr::InitLuaCreatureType()
 {
 	sol::usertype<Creature> unit_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
-	                                                                 sol::bases<Unit>());
+	                                                                 sol::bases<Unit, WorldObject, Object>());
 
 	unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
 }
@@ -282,7 +282,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 void PlayerbotMgr::InitLuaGameObjectType()
 {
     sol::usertype<GameObject> game_object_type = m_lua.new_usertype<GameObject>(
-        "game_object", sol::base_classes, sol::bases<WorldObject>());
+        "game_object", sol::base_classes, sol::bases<WorldObject, Object>());
 }
 
 void PlayerbotMgr::InitLuaMembers()
