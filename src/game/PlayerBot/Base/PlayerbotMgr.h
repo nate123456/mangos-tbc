@@ -50,6 +50,7 @@ class PlayerbotMgr
         void InitLuaMembers();
         void InitLuaPlayerType();
         void InitLuaUnitType();
+        void InitLuaCreatureType();
         void InitLuaObjectType();
         void InitLuaGameObjectType();
         void InitLuaWorldObjectType();
