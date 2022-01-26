@@ -436,7 +436,7 @@ void PlayerbotMgr::InitLuaUnitType()
 	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit", sol::base_classes,
 	                                                         sol::bases<WorldObject, Object>());
 
-	unit_type["bounding_radius"] = &Unit::GetObjectBoundingRadius;
+	unit_type["bounding_radius"] = sol::property(&Unit::GetObjectBoundingRadius);
 
     // doesn't seem to be useful- all NPCs are always moving, always false for IRL player
 	//unit_type["is_moving"] = sol::property([](const Unit* self)
