@@ -512,12 +512,12 @@ void PlayerbotMgr::InitLuaUnitType()
         return self->CanReachWithMeleeAttack(target);
     };
 
-    unit_type["can_attack"] = [](const Unit* self, const Unit* target)
+    unit_type["is_enemy"] = [](const Unit* self, const Unit* target)
     {
         return self->CanAttack(target);
     };
 
-    unit_type["can_assist"] = [](const Unit* self, const Unit* target)
+    unit_type["is_friendly"] = [](const Unit* self, const Unit* target)
     {
         return self->CanAssist(target);
     };
