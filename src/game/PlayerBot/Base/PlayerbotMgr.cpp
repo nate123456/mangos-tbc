@@ -257,7 +257,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->GetMotionMaster()->Initialize();
 	};
 
-	player_type["teleport_to"] = [](Player* self, const Player* target)
+	player_type["teleport_to"] = [](Player* self, const Unit* target)
 	{
 		float x, y, z;
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
@@ -299,7 +299,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->ClearSelectionGuid();
 	};
 
-	player_type["is_spell_ready"] = [](const Player* self, const uint32 spellId)
+	player_type["can_cast"] = [](const Player* self, const uint32 spellId)
 	{
 		// verify player has spell
 		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
@@ -441,15 +441,15 @@ void PlayerbotMgr::InitLuaUnitType()
 		return self->HasAura(spellId, EFFECT_INDEX_0);
 	};
 
-	unit_type["is_moving"] = [](const Unit* self)
+	unit_type["is_moving"] = sol::property([](const Unit* self)
 	{
 		return !self->IsStopped();
-	};
+	});
 
-	unit_type["get_raid_icon"] = [&](const Unit* self)
+	unit_type["raid_icon"] = sol::property([&](const Unit* self)
 	{
 		return GetMaster()->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
-	};
+	});
 
 	unit_type["target"] = sol::property(&Unit::GetTarget);
 	unit_type["is_alive"] = sol::property(&Unit::IsAlive);

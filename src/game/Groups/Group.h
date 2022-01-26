@@ -235,7 +235,7 @@ class Group
                 SendUpdate();
         }
 
-        ObjectGuid* Group::GetTargetFromIcon(const uint8 id);
+        ObjectGuid* GetTargetFromIcon(const uint8 id);
         uint8 GetIconFromTarget(ObjectGuid targetGuid) const;
 
         void SetTargetIcon(uint8 id, ObjectGuid targetGuid);
