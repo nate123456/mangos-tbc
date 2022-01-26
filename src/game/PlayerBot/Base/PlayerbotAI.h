@@ -465,7 +465,7 @@ class PlayerbotAI
         void findNearbyCorpse();
         bool IsElite(Unit* target, bool isWorldBoss = false) const;
         std::string& GetLastMessage() { return m_lastMessage; }
-        void ResetLastMessage() { m_lastMessage = nullptr; }
+        void ResetLastMessage() { m_lastMessage = ""; }
         // Used by bots to check if their target is neutralized (polymorph, shackle or the like). Useful to avoid breaking crowd control
         static bool IsNeutralized(Unit* target);
         // Make the bots face their target

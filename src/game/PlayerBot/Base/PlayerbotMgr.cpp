@@ -450,7 +450,11 @@ void PlayerbotMgr::InitLuaUnitType()
         return 0.0f;
     });
 
-	unit_type["target"] = sol::property(&Unit::GetTarget);
+	unit_type["target"] = sol::property([](const Unit* self)
+    {
+        return self->GetTarget();
+    });
+
 	unit_type["is_alive"] = sol::property(&Unit::IsAlive);
 	unit_type["crowd_controlled"] = sol::property(&Unit::IsCrowdControlled);
 	unit_type["health"] = sol::property(&Unit::GetHealth);
