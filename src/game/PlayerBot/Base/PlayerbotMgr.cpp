@@ -561,15 +561,20 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		return self->GetPosition();
 	});
 
-	world_object_type["get_angle"] = [](const WorldObject* self, const WorldObject* obj)
+	world_object_type["get_angle_of_obj"] = [](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
 	};
 
-	world_object_type["get_angle"] = [](const WorldObject* self, const float x, const float y)
+	world_object_type["get_angle_of_pos"] = [](const WorldObject* self, const Position* pos)
 	{
-		return self->GetAngle(x, y);
+		return self->GetAngle(pos->x, pos->y);
 	};
+
+    world_object_type["get_angle_of_xy"] = [](const WorldObject* self, const float x, const float y)
+    {
+        return self->GetAngle(x, y);
+    };
 
 	world_object_type["get_close_point"] =
 		[](const WorldObject* self, const float boundingRadius, const float distance,
