@@ -500,9 +500,9 @@ void PlayerbotMgr::InitLuaUnitType()
         return self->CanAssist(target);
     };
 
-    unit_type["has_aura"] = [](const Unit* self, const uint32 spellId)
+    unit_type["has_aura"] = [](const Unit* self, const uint32 auraId)
     {
-        return self->HasAura(spellId, EFFECT_INDEX_0);
+        return self->HasAura(auraId, EFFECT_INDEX_0);
     };
 }
 
@@ -652,15 +652,15 @@ void PlayerbotMgr::InitLuaPositionType()
 	position_type["z"] = &Position::z;
 	position_type["o"] = &Position::o;
 
-	position_type.set_function("distance", [](const Position* self, const Position* other)
-	{
-		return self->GetDistance(*other);
-	});
+    position_type["distance"] = [](const Position* self, const Position* other)
+    {
+        return self->GetDistance(*other);
+    };
 
-	position_type.set_function("angle", [](const Position* self, const float x, const float y)
+	position_type["angle"] = [](const Position* self, const float x, const float y)
 	{
 		return self->GetAngle(x, y);
-	});
+	};
 }
 
 void PlayerbotMgr::InitLuaMembers()
