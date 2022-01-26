@@ -531,6 +531,24 @@ void Group::Disband(bool hideDestroy)
     m_leaderName.clear();
 }
 
+ObjectGuid* Group::GetTargetFromIcon(const uint8 id)
+{
+    if (id >= TARGET_ICON_COUNT || id < 0)
+        return nullptr;
+
+    return &m_targetIcons[id];
+}
+
+uint8 Group::GetIconFromTarget(const ObjectGuid targetGuid) const
+{
+    if (targetGuid)
+        for (int i = 0; i < TARGET_ICON_COUNT; ++i)
+            if (m_targetIcons[i] == targetGuid)
+                return i;
+
+    return -1;
+}
+
 void Group::SetTargetIcon(uint8 id, ObjectGuid targetGuid)
 {
     if (id >= TARGET_ICON_COUNT)

@@ -97,8 +97,7 @@ PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper
     m_taxiMaster(ObjectGuid()),
     m_ignoreNeutralizeEffect(false),
     m_bDebugCommandChat(false),
-    m_debugWhisper(debugWhisper),
-	m_lua(lua)
+    m_debugWhisper(debugWhisper)
 {
     // set bot state
     m_botState = BOTSTATE_LOADING;    
@@ -1983,7 +1982,8 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
                     // do not listen to other bots
                     if (sender != m_bot && sender->GetPlayerbotAI())
                         return;
-                    HandleCommand(text, *sender);
+
+                    m_lastMessage = text;
                     return;
                 }
                 default:
@@ -5436,13 +5436,15 @@ SpellCastResult PlayerbotAI::CastSpell(uint32 spellId)
     if (res != SPELL_CAST_OK)
         return res;
 
-    // set target
+    // set spell target to current target 
     ObjectGuid targetGUID = m_bot->GetSelectionGuid();
     Unit* pTarget = ObjectAccessor::GetUnit(*m_bot, targetGUID);
 
+    // set spell target to self i no current target
     if (!pTarget)
         pTarget = m_bot;
 
+    // set target to self if spell is positive and target is enemy
     if (IsPositiveSpell(spellId))
     {
         if (pTarget && m_bot->CanAttack(pTarget))

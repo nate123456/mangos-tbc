@@ -56,6 +56,8 @@ class PlayerbotMgr
         void InitLuaPositionType();
         void InitLuaGameObjectType();
         void InitLuaWorldObjectType();
+        void InitLuaGroupType();
+        void InitLuaMapType();
         void TellMaster(const std::string& text, const Player* fromPlayer) const;
         void SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 OpCode, const Player* toPlayer) const;
 

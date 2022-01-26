@@ -109,7 +109,13 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	if (const sol::protected_function_result setup_result = setup_func(time); !setup_result.valid())
+    std::vector<Player*> bots;
+    bots.reserve(m_playerBots.size());
+
+    for (auto& [id, bot] : m_playerBots)
+        bots.push_back(bot);
+
+	if (const sol::protected_function_result setup_result = setup_func(time, bots); !setup_result.valid())
 	{
 		const sol::error error = setup_result;
 
@@ -119,7 +125,7 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 			m_lastSetupErrorMsg = error_msg;
 		}
 
-        return;
+		return;
 	}
 
 	const sol::protected_function act_func = m_luaEnvironment["act"];
@@ -130,11 +136,11 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 			error_msg)
 		{
 			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
-            m_lastActErrorMsg = error_msg;
+			m_lastActErrorMsg = error_msg;
 		}
 	}
 
-	for (auto& [id, bot] : m_playerBots)
+	for (auto& bot : bots)
 	{
 		if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
 		{
@@ -145,9 +151,12 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 				m_lastActErrorMsg = error_msg;
 			}
 		}
+
+        // message should be cleared after AI has had a chance to process it
+		bot->GetPlayerbotAI()->ResetLastMessage();
 	}
 
-    // reset error message members if no errors occurred.
+	// reset error message members if no errors occurred.
 	if (!m_lastSetupErrorMsg.empty())
 		m_lastSetupErrorMsg = "";
 
@@ -169,6 +178,8 @@ void PlayerbotMgr::InitLua()
 		                   [this](const std::string& t) { ChatHandler(m_master).PSendSysMessage("[AI] %s", t.c_str()); }
 	                   ));
 
+    InitLuaGroupType();
+    InitLuaMapType();
 	InitLuaPlayerType();
 	InitLuaUnitType();
     InitLuaGameObjectType();
@@ -225,51 +236,182 @@ void PlayerbotMgr::InitLuaPlayerType()
 	                                                               sol::base_classes,
 	                                                               sol::bases<Unit, WorldObject, Object>());
 
-	player_type["max_hp"] = sol::property(&Player::GetMaxHealth);
-	player_type["hp"] = sol::property(&Player::GetHealth);
+	player_type["last_message"] = sol::property([](Player* self)
+	{
+		const auto ai = self->GetPlayerbotAI();
 
-	player_type["follow"] = [](Player* player, Unit* target, const float dist = 1, const float angle = 0)
+		if (!ai)
+			return "";
+
+		return ai->GetLastMessage().c_str();
+	});
+
+	player_type["follow"] = [](Player* self, Unit* target, const float dist = 1, const float angle = 0)
 	{
 		target->GetPosition();
-		player->GetMotionMaster()->MoveFollow(target, dist, angle);
+		self->GetMotionMaster()->MoveFollow(target, dist, angle);
 	};
 
-    player_type["stop"] = [](Player* player)
-    {
-        player->GetMotionMaster()->Initialize();
-    };
+	player_type["stop"] = [](Player* self)
+	{
+		self->GetMotionMaster()->Initialize();
+	};
 
-    player_type["teleport_to"] = [](Player* self, const Player* target)
-    {
-        float x, y, z;
-        target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-        self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
-    };
+	player_type["teleport_to"] = [](Player* self, const Player* target)
+	{
+		float x, y, z;
+		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
+		self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
+	};
 
-    player_type["whisper"] = [&](const Player* self, const Player* to, const char* text)
-    {
-        SendChatMessage(text, self, CHAT_MSG_WHISPER, to);
-    };
+	player_type["whisper"] = [&](const Player* self, const Player* to, const char* text)
+	{
+		SendChatMessage(text, self, CHAT_MSG_WHISPER, to);
+	};
 
-    player_type["tell_party"] = [&](const Player* self, const char* text)
-    {
-        SendChatMessage(text, self, CHAT_MSG_PARTY, GetMaster());
-    };
+	player_type["tell_party"] = [&](const Player* self, const char* text)
+	{
+		SendChatMessage(text, self, CHAT_MSG_PARTY, GetMaster());
+	};
 
-    player_type["tell_raid"] = [&](const Player* self, const char* text)
-    {
-        SendChatMessage(text, self, CHAT_MSG_RAID, GetMaster());
-    };
+	player_type["tell_raid"] = [&](const Player* self, const char* text)
+	{
+		SendChatMessage(text, self, CHAT_MSG_RAID, GetMaster());
+	};
 
-    player_type["say"] = [&](const Player* self, const char* text)
-    {
-        SendChatMessage(text, self, CHAT_MSG_SAY, GetMaster());
-    };
+	player_type["say"] = [&](const Player* self, const char* text)
+	{
+		SendChatMessage(text, self, CHAT_MSG_SAY, GetMaster());
+	};
 
-    player_type["yell"] = [&](const Player* self, const char* text)
-    {
-        SendChatMessage(text, self, CHAT_MSG_YELL, GetMaster());
-    };
+	player_type["yell"] = [&](const Player* self, const char* text)
+	{
+		SendChatMessage(text, self, CHAT_MSG_YELL, GetMaster());
+	};
+
+	player_type["set_target"] = [](Player* self, const Unit* target)
+	{
+		self->SetSelectionGuid(target->GetObjectGuid());
+	};
+
+	player_type["clear_target"] = [](Player* self, const Unit* target)
+	{
+		self->ClearSelectionGuid();
+	};
+
+	player_type["is_spell_ready"] = [](const Player* self, const uint32 spellId)
+	{
+		// verify player has spell
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+
+		if (!p_spell_info)
+			return false;
+
+		return self->IsSpellReady(*p_spell_info);
+	};
+
+	player_type["remove_stealth"] = [](Player* self)
+	{
+		self->RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
+	};
+
+	player_type["face_target"] = [](Player* self, const Unit* target)
+	{
+		if (!target)
+			return;
+
+		if (!self->HasInArc(target))
+			self->SetFacingTo(self->GetAngle(target));
+	};
+
+	player_type["face"] = [](Player* self, const float orientation)
+	{
+		self->SetFacingTo(orientation);
+	};
+
+	player_type["has_power_to_cast"] = [](Player* self, const uint32 spellId)
+	{
+		// verify player has spell
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+
+		if (!p_spell_info)
+			return false;
+
+		// verify sufficient power to cast
+		const auto tmp_spell = new Spell(self, p_spell_info, false);
+
+		return tmp_spell->CheckPower(true) == SPELL_CAST_OK;
+	};
+
+	player_type["cast"] = [&](Player* self, const uint32 spellId)
+	{
+		// verify player has spell
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+		if (!p_spell_info)
+		{
+			return SPELL_NOT_FOUND;
+		}
+
+		// verify spell is ready
+		if (!self->IsSpellReady(*p_spell_info))
+			return SPELL_FAILED_NOT_READY;
+
+		// verify sufficient power to cast
+		const auto tmp_spell = new Spell(self, p_spell_info, false);
+
+		if (const SpellCastResult power_check_result = tmp_spell->CheckPower(true); power_check_result != SPELL_CAST_OK)
+			return power_check_result;
+
+		// set spell target to current target 
+		const ObjectGuid target_guid = self->GetSelectionGuid();
+		Unit* p_target = ObjectAccessor::GetUnit(*self, target_guid);
+
+		// set spell target to self i no current target
+		if (!p_target)
+			p_target = self;
+
+		// set target to self if spell is positive and target is enemy
+		if (IsPositiveSpell(spellId))
+		{
+			if (p_target && self->CanAttack(p_target))
+				p_target = self;
+		}
+		else
+		{
+			// Can't cast hostile spell on friendly unit
+			if (p_target && self->CanAssist(p_target))
+				return SPELL_FAILED_TARGET_FRIENDLY;
+
+			self->SetInFront(p_target);
+		}
+
+		float cast_time = 0.0f;
+
+		// stop movement to prevent cancel spell casting
+		if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
+			LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
+		{
+			if (cast_time_entry->CastTime > 0)
+				self->StopMoving();
+		}
+
+		// Check line of sight
+		if (!self->IsWithinLOSInMap(p_target))
+			return SPELL_FAILED_LINE_OF_SIGHT;
+
+		const SpellRangeEntry* temp_range = GetSpellRangeStore()->LookupEntry(p_spell_info->rangeIndex);
+
+		//Spell has invalid range store so we can't use it
+		if (!temp_range)
+			return SPELL_FAILED_OUT_OF_RANGE;
+
+		if (!(temp_range->minRange == 0.0f && temp_range->maxRange == 0.0f))
+			//Unit is out of range of this spell
+			if (!self->IsInRange(p_target, temp_range->minRange, temp_range->maxRange))
+				return SPELL_FAILED_OUT_OF_RANGE;
+
+		return self->CastSpell(p_target, p_spell_info, TRIGGERED_NONE);
+	};
 }
 
 void PlayerbotMgr::InitLuaUnitType()
@@ -277,22 +419,103 @@ void PlayerbotMgr::InitLuaUnitType()
 	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit", sol::base_classes,
 	                                                         sol::bases<WorldObject, Object>());
 
-    unit_type["bounding_radius"] = &Unit::GetObjectBoundingRadius;
+	unit_type["bounding_radius"] = &Unit::GetObjectBoundingRadius;
 
-    unit_type.set("reachable_with_melee", [](const Unit* self, const Unit* target)
-    {
-        return self->CanReachWithMeleeAttack(target);
-    });
+	unit_type["reachable_with_melee"] = [](const Unit* self, const Unit* target)
+	{
+		return self->CanReachWithMeleeAttack(target);
+	};
 
-    unit_type["reachable_with_melee"] = &Unit::CanReachWithMeleeAttack;
+	unit_type["can_attack"] = [](const Unit* self, const Unit* target)
+	{
+		return self->CanAttack(target);
+	};
 
+	unit_type["can_assist"] = [](const Unit* self, const Unit* target)
+	{
+		return self->CanAssist(target);
+	};
 
+	unit_type["has_aura"] = [](const Unit* self, const uint32 spellId)
+	{
+		return self->HasAura(spellId, EFFECT_INDEX_0);
+	};
+
+	unit_type["is_moving"] = [](const Unit* self)
+	{
+		return !self->IsStopped();
+	};
+
+	unit_type["get_raid_icon"] = [&](const Unit* self)
+	{
+		return GetMaster()->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
+	};
+
+	unit_type["target"] = sol::property(&Unit::GetTarget);
+	unit_type["is_alive"] = sol::property(&Unit::IsAlive);
+	unit_type["crowd_controlled"] = sol::property(&Unit::IsCrowdControlled);
+	unit_type["health"] = sol::property(&Unit::GetHealth);
+	unit_type["max_health"] = sol::property(&Unit::GetMaxHealth);
+	unit_type["power"] = sol::property([](const Unit* self, const Powers power)
+	{
+		return self->GetPower(power);
+	});
+	unit_type["max_power"] = sol::property([](const Unit* self, const Powers power)
+	{
+		return self->GetMaxPower(power);
+	});
+	unit_type["get_threat"] = [](Unit* self, const Unit* target)
+	{
+		HostileReference* ref = self->getHostileRefManager().getFirst();
+
+		while (ref)
+		{
+			if (ThreatManager* threat_mgr = ref->getSource(); threat_mgr->getOwner() == target && threat_mgr->getOwner()
+				->GetVictim() == self)
+			{
+				return threat_mgr->getThreat(self);
+			}
+			ref = ref->next();
+		}
+
+		return 0.0f;
+	};
+	unit_type["get_attackers"] = [](Unit* self)
+	{
+		HostileRefManager ref_mgr = self->getHostileRefManager();
+
+		HostileReference* ref = ref_mgr.getFirst();
+		std::vector<Unit*> attackers;
+		attackers.reserve(ref_mgr.getSize());
+
+		while (ref)
+		{
+			const ThreatManager* threat_mgr = ref->getSource();
+
+			attackers.push_back(threat_mgr->getOwner());
+			ref = ref->next();
+		}
+
+		return 0.0f;
+	};
 }
 
 void PlayerbotMgr::InitLuaCreatureType()
 {
 	sol::usertype<Creature> creature_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
 	                                                                     sol::bases<Unit, WorldObject, Object>());
+
+	creature_type["is_elite"] = sol::property(&Creature::IsElite);
+	creature_type["is_world_boss"] = sol::property(&Creature::IsWorldBoss);
+	creature_type["can_aggro"] = sol::property(&Creature::CanAggro);
+	creature_type["is_totem"] = sol::property(&Creature::IsTotem);
+	creature_type["is_invisible"] = sol::property(&Creature::IsInvisible);
+	creature_type["is_civilian"] = sol::property(&Creature::IsCivilian);
+	creature_type["is_critter"] = sol::property(&Creature::IsCritter);
+	creature_type["is_corpse"] = sol::property(&Creature::IsCorpse);
+	creature_type["is_pet"] = sol::property(&Creature::IsPet);
+	creature_type["is_regen_hp"] = sol::property(&Creature::IsRegeneratingHealth);
+	creature_type["is_regen_power"] = sol::property(&Creature::IsRegeneratingHealth);
 }
 
 void PlayerbotMgr::InitLuaObjectType()
@@ -306,36 +529,105 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	sol::usertype<WorldObject> world_object_type = m_lua.new_usertype<WorldObject>(
 		"world_object", sol::base_classes, sol::bases<Object>());
 
-    world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
-    world_object_type["name"] = sol::property(&WorldObject::GetName);
-    world_object_type["map_id"] = sol::property(&WorldObject::GetMapId);
-    world_object_type["zone_id"] = sol::property(&WorldObject::GetZoneId);
-    world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
-    world_object_type["gcd"] = sol::property(&WorldObject::GetGCD);
-
-	world_object_type.set("get_pos", [](const WorldObject* self)
+	world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
+	world_object_type["name"] = sol::property(&WorldObject::GetName);
+	world_object_type["map_id"] = sol::property(&WorldObject::GetMapId);
+	world_object_type["zone_id"] = sol::property(&WorldObject::GetZoneId);
+	world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
+	world_object_type["gcd"] = sol::property(&WorldObject::GetGCD);
+	world_object_type["position"] = sol::property([](const WorldObject* self)
 	{
 		return self->GetPosition();
 	});
 
-	world_object_type.set("get_angle", [](const WorldObject* self, const WorldObject* obj)
+	world_object_type["get_angle"] = [](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
-	});
+	};
 
-	world_object_type.set("get_angle", [](const WorldObject* self, const float x, const float y)
+	world_object_type["get_angle"] = [](const WorldObject* self, const float x, const float y)
 	{
 		return self->GetAngle(x, y);
+	};
+
+	world_object_type["get_close_point"] =
+		[](const WorldObject* self, const float boundingRadius, const float distance,
+		   const float angle)
+		{
+			float x, y, z;
+			self->GetClosePoint(x, y, z, boundingRadius, distance, angle, self);
+			return sol::tie(x, y, z);
+		};
+
+	world_object_type["has_in_arc"] = [](const WorldObject* self, const Unit* target)
+	{
+		return self->HasInArc(target);
+	};
+
+	world_object_type["is_within_los"] = [](const WorldObject* self, const Unit* target)
+	{
+		return self->IsWithinLOSInMap(target);
+	};
+
+	world_object_type["is_in_range_of_spell"] = [](const WorldObject* self, const Unit* target, const uint32 spellId)
+	{
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+		if (!p_spell_info)
+		{
+			return SPELL_NOT_FOUND;
+		}
+
+		const SpellRangeEntry* temp_range = GetSpellRangeStore()->LookupEntry(p_spell_info->rangeIndex);
+
+		//Spell has invalid range store so we can't use it
+		if (!temp_range)
+			return SPELL_FAILED_OUT_OF_RANGE;
+
+		if (temp_range->minRange == 0.0f && temp_range->maxRange == 0.0f)
+			return SPELL_FAILED_OUT_OF_RANGE;
+
+		//Unit is out of range of this spell
+		if (!self->IsInRange(target, temp_range->minRange, temp_range->maxRange))
+			return SPELL_FAILED_OUT_OF_RANGE;
+	};
+}
+
+void PlayerbotMgr::InitLuaGroupType()
+{
+	sol::usertype<Group> group_type = m_lua.new_usertype<Group>("group");
+
+	group_type["is_raid"] = sol::property(&Group::IsRaidGroup);
+	group_type["leader"] = sol::property([&](const Group* self)
+	{
+		const ObjectGuid guid = self->GetLeaderGuid();
+		return GetMaster()->GetMap()->GetPlayer(guid);
 	});
 
-	world_object_type.set("get_close_point",
-	                      [](const WorldObject* self, const float boundingRadius, const float distance,
-	                         const float angle)
-	                      {
-		                      float x, y, z;
-		                      self->GetClosePoint(x, y, z, boundingRadius, distance, angle, self);
-		                      return sol::tie(x, y, z);
-	                      });
+	group_type["members"] = sol::property([&](const Group* self)
+	{
+		const Group::MemberSlotList& slots = self->GetMemberSlots();
+
+		std::vector<Player*> members;
+		members.reserve(slots.size());
+
+		Map* map = GetMaster()->GetMap();
+
+		for (auto [guid, name, group, assistant, lastMap] : slots)
+			members.push_back(map->GetPlayer(guid));
+
+		return members;
+	});
+}
+
+void PlayerbotMgr::InitLuaMapType()
+{
+	sol::usertype<Map> map_type = m_lua.new_usertype<Map>("map");
+
+	map_type["players"] = sol::property(&Map::GetPlayers);
+	map_type["is_heroic"] = sol::property([&](const Map* self)
+	{
+		return self->GetDifficulty() == DUNGEON_DIFFICULTY_HEROIC;
+	});
 }
 
 void PlayerbotMgr::InitLuaGameObjectType()
@@ -367,11 +659,45 @@ void PlayerbotMgr::InitLuaPositionType()
 
 void PlayerbotMgr::InitLuaMembers()
 {
-    m_lua["master"] = GetMaster();
+	m_lua["master"] = GetMaster();
 }
 
 void PlayerbotMgr::InitLuaFunctions()
 {
+	m_lua["get_raid_icon"] = [&](const uint8 i)
+	{
+		const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(i);
+
+		Unit* unit = nullptr;
+
+		if (guid)
+			unit = GetMaster()->GetMap()->GetUnit(*guid);
+
+		return unit;
+	};
+
+	m_lua["spell_exists"] = [](const uint32 spellId)
+	{
+		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
+	};
+
+	m_lua["spell_is_positive"] = [](const uint32 spellId)
+	{
+		return IsPositiveSpell(spellId);
+	};
+
+	m_lua["spell_cast_time"] = [](const uint32 spellId)
+	{
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+		if (!p_spell_info)
+			return -1;
+
+		if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
+			LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
+			return cast_time_entry->CastTime;
+
+		return -1;
+	};
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
@@ -379,7 +705,8 @@ void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer)
 	SendChatMessage(text, fromPlayer, CHAT_MSG_WHISPER, GetMaster());
 }
 
-void PlayerbotMgr::SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 OpCode, const Player* toPlayer = nullptr) const
+void PlayerbotMgr::SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 OpCode,
+                                   const Player* toPlayer = nullptr) const
 {
 	const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
 	*packet << OpCode;
@@ -524,20 +851,8 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
             LogoutAllBots();
             return;
         }
-
-        // If master inspects one of his bots, give the master useful info in chat window
-        // such as inventory that can be equipped
+        
         case CMSG_INSPECT:
-        {
-            WorldPacket p(packet);
-            p.rpos(0); // reset reader
-            ObjectGuid guid;
-            p >> guid;
-            Player* const bot = GetPlayerBot(guid);
-            if (bot) bot->GetPlayerbotAI()->SendNotEquipList(*bot);
-            return;
-        }
-
         // handle emotes from the master
         //case CMSG_EMOTE:
         case CMSG_TEXT_EMOTE:
@@ -832,49 +1147,20 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
             p >> itemSlot;          //loot index
             p >> rollType;          //need,greed or pass on roll
 
-            for (PlayerBotMap::const_iterator it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)
+            for (auto it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)
             {
-                uint32 choice = 0;
-
                 Player* const bot = it->second;
                 if (!bot)
                     return;
 
-                Group* group = bot->GetGroup();
-                if (!group)
+                if (Group* group = bot->GetGroup(); !group)
                     return;
 
                 // check that the bot did not already vote
                 if (rollType >= ROLL_NOT_EMITED_YET)
                     return;
-
-                Loot* loot = sLootMgr.GetLoot(bot, Guid);
-
-                if (!loot)
-                {
-                    sLog.outError("LootMgr::PlayerVote> Error cannot get loot object info!");
-                    return;
-                }
-
-                LootItem* lootItem = loot->GetLootItemInSlot(itemSlot);
-
-                ItemPrototype const* pProto = lootItem->itemProto;
-                if (!pProto)
-                    return;
-
-                if (bot->GetPlayerbotAI()->CanStore())
-                {
-                    if (bot->CanUseItem(pProto) == EQUIP_ERR_OK && bot->GetPlayerbotAI()->IsItemUseful(lootItem->itemId))
-                        choice = 1; // Need
-                    else if (bot->HasSkill(SKILL_ENCHANTING))
-                        choice = 3; // Disenchant
-                    else
-                        choice = 2; // Greed
-                }
-                else
-                    choice = 0;     // Pass
-
-                sLootMgr.PlayerVote(bot, Guid, itemSlot, RollVote(choice));
+                
+                sLootMgr.PlayerVote(bot, Guid, itemSlot, static_cast<RollVote>(0));
             }
             return;
         }
@@ -1037,112 +1323,105 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 
 void PlayerbotMgr::HandleMasterOutgoingPacket(const WorldPacket& packet)
 {
-    switch (packet.GetOpcode())
-    {
-        // If a change in speed was detected for the master
-        // make sure we have the same mount status
-        case SMSG_FORCE_RUN_SPEED_CHANGE:
-        {
-            WorldPacket p(packet);
-            ObjectGuid guid;
+	switch (packet.GetOpcode())
+	{
+	// If a change in speed was detected for the master
+	// make sure we have the same mount status
+	case SMSG_FORCE_RUN_SPEED_CHANGE:
+		{
+			WorldPacket p(packet);
+			ObjectGuid guid;
 
-            // Only adjust speed and mount if this is master that did so
-            p >> guid.ReadAsPacked();
-            if (guid != GetMaster()->GetObjectGuid())
-                return;
+			// Only adjust speed and mount if this is master that did so
+			p >> guid.ReadAsPacked();
+			if (guid != GetMaster()->GetObjectGuid())
+				return;
 
-            for (auto it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)
-            {
-                Player* const bot = it->second;
-                if (GetMaster()->IsMounted() && !bot->IsMounted())
-                {
-                    // Player Part
-                    if (!GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).empty())
-                    {
-                        int32 master_speed1 = 0;
-                        int32 master_speed2 = 0;
-                        master_speed1 = GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->EffectBasePoints[1];
-                        master_speed2 = GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->EffectBasePoints[2];
+			for (auto it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)
+			{
+				Player* const bot = it->second;
+				if (GetMaster()->IsMounted() && !bot->IsMounted())
+				{
+					// Player Part
+					if (!GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).empty())
+					{
+						int32 master_speed1 = 0;
+						int32 master_speed2 = 0;
+						master_speed1 = GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->
+						                             EffectBasePoints[1];
+						master_speed2 = GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->
+						                             EffectBasePoints[2];
 
-                        // Bot Part
-                        // Step 1: find spell in bot spellbook that matches the speed change from master
-                        uint32 spellMount = 0;
-                        for (auto & itr : bot->GetSpellMap())
-                        {
-                            uint32 spellId = itr.first;
-                            if (itr.second.state == PLAYERSPELL_REMOVED || itr.second.disabled || IsPassiveSpell(spellId))
-                                continue;
-                            const SpellEntry* pSpellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-                            if (!pSpellInfo)
-                                continue;
+						// Bot Part
+						// Step 1: find spell in bot spellbook that matches the speed change from master
+						uint32 spellMount = 0;
+						for (auto& itr : bot->GetSpellMap())
+						{
+							uint32 spellId = itr.first;
+							if (itr.second.state == PLAYERSPELL_REMOVED || itr.second.disabled || IsPassiveSpell(
+								spellId))
+								continue;
+							const SpellEntry* pSpellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+							if (!pSpellInfo)
+								continue;
 
-                            if (pSpellInfo->EffectApplyAuraName[0] == SPELL_AURA_MOUNTED)
-                            {
-                                if (pSpellInfo->EffectApplyAuraName[1] == SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
-                                {
-                                    if (pSpellInfo->EffectBasePoints[1] == master_speed1)
-                                    {
-                                        spellMount = spellId;
-                                        continue;
-                                    }
-                                }
-                                else if (pSpellInfo->EffectApplyAuraName[2] == SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
-                                    if (pSpellInfo->EffectBasePoints[2] == master_speed2)
-                                    {
-                                        spellMount = spellId;
-                                        continue;
-                                    }
-                            }
-                        }
-                        if (spellMount > 0 && bot->CastSpell(bot, spellMount, TRIGGERED_NONE) == SPELL_CAST_OK)
-                            continue;
+							if (pSpellInfo->EffectApplyAuraName[0] == SPELL_AURA_MOUNTED)
+							{
+								if (pSpellInfo->EffectApplyAuraName[1] == SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
+								{
+									if (pSpellInfo->EffectBasePoints[1] == master_speed1)
+									{
+										spellMount = spellId;
+									}
+								}
+								else if (pSpellInfo->EffectApplyAuraName[2] == SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
+									if (pSpellInfo->EffectBasePoints[2] == master_speed2)
+									{
+										spellMount = spellId;
+									}
+							}
+						}
+						if (spellMount > 0 && bot->CastSpell(bot, spellMount, TRIGGERED_NONE) == SPELL_CAST_OK)
+							continue;
 
-                        // Step 2: no spell found or cast failed -> search for an item in inventory (mount)
-                        // We start with the fastest mounts as bot will not be able to outrun its master since it is following him/her
-                        uint32 skillLevels[] = {375, 300, 225, 150, 75};
-                        for (uint32 level: skillLevels)
-                        {
-                            Item* mount = bot->GetPlayerbotAI()->FindMount(level);
-                            if (mount)
-                            {
-                                bot->GetPlayerbotAI()->UseItem(mount);
-                                continue;
-                            }
-                        }
-                    }
-                }
-                // If master dismounted, do so
-                else if (!GetMaster()->IsMounted() && bot->IsMounted())    // only execute code if master is the one who dismounted
-                {
-                    WorldPacket emptyPacket;
-                    bot->GetSession()->HandleCancelMountAuraOpcode(emptyPacket);  //updated code
-                }
-            }
-        }
-        // maybe our bots should only start looting after the master loots?
-        //case SMSG_LOOT_RELEASE_RESPONSE: {}
-        case SMSG_NAME_QUERY_RESPONSE:
-        case SMSG_MONSTER_MOVE:
-        case SMSG_COMPRESSED_UPDATE_OBJECT:
-        case SMSG_DESTROY_OBJECT:
-        case SMSG_UPDATE_OBJECT:
-        case SMSG_STANDSTATE_UPDATE:
-        case MSG_MOVE_HEARTBEAT:
-        case SMSG_QUERY_TIME_RESPONSE:
-        case SMSG_CREATURE_QUERY_RESPONSE:
-        case SMSG_GAMEOBJECT_QUERY_RESPONSE:
-        return;
-        default:
-        {
-/*            const char* oc = LookupOpcodeName(packet.GetOpcode());
-
-            std::ostringstream out;
-            out << "masterout: " << oc;
-            sLog.outError(out.str().c_str());
-*/
-            return;
-        }
-    }
+						// Step 2: no spell found or cast failed -> search for an item in inventory (mount)
+						// We start with the fastest mounts as bot will not be able to outrun its master since it is following him/her
+						uint32 skillLevels[] = {375, 300, 225, 150, 75};
+						for (uint32 level : skillLevels)
+						{
+							Item* mount = bot->GetPlayerbotAI()->FindMount(level);
+							if (mount)
+							{
+								bot->GetPlayerbotAI()->UseItem(mount);
+							}
+						}
+					}
+				}
+				// If master dismounted, do so
+				else if (!GetMaster()->IsMounted() && bot->IsMounted())
+				// only execute code if master is the one who dismounted
+				{
+					WorldPacket emptyPacket;
+					bot->GetSession()->HandleCancelMountAuraOpcode(emptyPacket); //updated code
+				}
+			}
+		}
+	// maybe our bots should only start looting after the master loots?
+	//case SMSG_LOOT_RELEASE_RESPONSE: {}
+	case SMSG_NAME_QUERY_RESPONSE:
+	case SMSG_MONSTER_MOVE:
+	case SMSG_COMPRESSED_UPDATE_OBJECT:
+	case SMSG_DESTROY_OBJECT:
+	case SMSG_UPDATE_OBJECT:
+	case SMSG_STANDSTATE_UPDATE:
+	case MSG_MOVE_HEARTBEAT:
+	case SMSG_QUERY_TIME_RESPONSE:
+	case SMSG_CREATURE_QUERY_RESPONSE:
+	case SMSG_GAMEOBJECT_QUERY_RESPONSE:
+	default:
+		{
+		}
+	}
 }
 
 void PlayerbotMgr::RemoveBots()
