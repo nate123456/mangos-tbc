@@ -59,7 +59,8 @@ class PlayerbotMgr
         void InitLuaGroupType();
         void InitLuaMapType();
         void TellMaster(const std::string& text, const Player* fromPlayer) const;
-        void SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 OpCode, const Player* toPlayer) const;
+        void SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const;
+        void SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 opCode) const;
 
         // remove marked bot
         // should be called from worldsession::Update only to avoid possible problem with invalid session or player pointer

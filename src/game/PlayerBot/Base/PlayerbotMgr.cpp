@@ -266,27 +266,27 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["whisper"] = [&](const Player* self, const Player* to, const char* text)
 	{
-		SendChatMessage(text, self, CHAT_MSG_WHISPER, to);
+		SendWhisper(text, self, to);
 	};
 
 	player_type["tell_party"] = [&](const Player* self, const char* text)
 	{
-		SendChatMessage(text, self, CHAT_MSG_PARTY, GetMaster());
+		SendChatMessage(text, self, CHAT_MSG_PARTY);
 	};
 
 	player_type["tell_raid"] = [&](const Player* self, const char* text)
 	{
-		SendChatMessage(text, self, CHAT_MSG_RAID, GetMaster());
+		SendChatMessage(text, self, CHAT_MSG_RAID);
 	};
 
 	player_type["say"] = [&](const Player* self, const char* text)
 	{
-		SendChatMessage(text, self, CHAT_MSG_SAY, GetMaster());
+		SendChatMessage(text, self, CHAT_MSG_SAY);
 	};
 
 	player_type["yell"] = [&](const Player* self, const char* text)
 	{
-		SendChatMessage(text, self, CHAT_MSG_YELL, GetMaster());
+		SendChatMessage(text, self, CHAT_MSG_YELL);
 	};
 
 	player_type["set_target"] = [](Player* self, const Unit* target)
@@ -294,7 +294,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->SetSelectionGuid(target->GetObjectGuid());
 	};
 
-	player_type["clear_target"] = [](Player* self, const Unit* target)
+	player_type["clear_target"] = [](Player* self)
 	{
 		self->ClearSelectionGuid();
 	};
@@ -342,6 +342,17 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return tmp_spell->CheckPower(true) == SPELL_CAST_OK;
 	};
+
+    player_type["get_cast_time"] = [](Player* self, const uint32 spellId)
+    {
+        const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+        if (!p_spell_info)
+            return static_cast<uint32>(-1);
+
+        const auto spell = new Spell(self, p_spell_info, TRIGGERED_NONE);
+
+        return GetSpellCastTime(p_spell_info, self, spell);
+    };
 
 	player_type["cast"] = [&](Player* self, const uint32 spellId)
 	{
@@ -695,36 +706,30 @@ void PlayerbotMgr::InitLuaFunctions()
 	{
 		return IsPositiveSpell(spellId);
 	};
-
-	m_lua["spell_cast_time"] = [](const uint32 spellId)
-	{
-		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-		if (!p_spell_info)
-			return -1;
-
-		if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
-			LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
-			return cast_time_entry->CastTime;
-
-		return -1;
-	};
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
 {
-	SendChatMessage(text, fromPlayer, CHAT_MSG_WHISPER, GetMaster());
+    SendWhisper(text, fromPlayer, GetMaster());
 }
 
-void PlayerbotMgr::SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 OpCode,
-                                   const Player* toPlayer = nullptr) const
+void PlayerbotMgr::SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const
 {
 	const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
-	*packet << OpCode;
+	*packet << CHAT_MSG_WHISPER;
 	*packet << static_cast<uint32>(LANG_UNIVERSAL);
 	*packet << fromPlayer->GetName();
 	*packet << text;
 	toPlayer->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
-	// queue the packet to get around race condition
+}
+
+void PlayerbotMgr::SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 opCode) const
+{
+    const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
+    *packet << opCode;
+    *packet << static_cast<uint32>(LANG_UNIVERSAL);
+    *packet << text;
+    fromPlayer->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
 }
 
 void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
