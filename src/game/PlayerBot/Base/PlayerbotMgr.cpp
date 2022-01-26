@@ -652,12 +652,12 @@ void PlayerbotMgr::InitLuaPositionType()
 	position_type["z"] = &Position::z;
 	position_type["o"] = &Position::o;
 
-    position_type["distance"] = [](const Position* self, const Position* other)
+    position_type["get_distance_between"] = [](const Position* self, const Position* other)
     {
         return self->GetDistance(*other);
     };
 
-	position_type["angle"] = [](const Position* self, const float x, const float y)
+	position_type["get_angle"] = [](const Position* self, const float x, const float y)
 	{
 		return self->GetAngle(x, y);
 	};
