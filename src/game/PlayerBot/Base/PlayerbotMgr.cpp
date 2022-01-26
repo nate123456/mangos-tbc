@@ -291,7 +291,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["set_target"] = [](Player* self, const Unit* target)
 	{
-		self->SetSelectionGuid(target->GetObjectGuid());
+        self->SetSelectionGuid(target->GetSelectionGuid());
 	};
 
 	player_type["clear_target"] = [](Player* self)
@@ -396,12 +396,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 			self->SetInFront(p_target);
 		}
 
-		float cast_time = 0.0f;
-
 		// stop movement to prevent cancel spell casting
 		if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
 			LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
 		{
+            // only stop moving if spell is not instant
 			if (cast_time_entry->CastTime > 0)
 				self->StopMoving();
 		}
@@ -677,9 +676,9 @@ void PlayerbotMgr::InitLuaPositionType()
         return self->GetDistance(*other);
     };
 
-	position_type["get_angle"] = [](const Position* self, const float x, const float y)
+	position_type["get_angle"] = [](const Position* self, const Position* pos)
 	{
-		return self->GetAngle(x, y);
+		return self->GetAngle(pos->x, pos->y);
 	};
 }
 
