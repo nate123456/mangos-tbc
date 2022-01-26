@@ -421,26 +421,6 @@ void PlayerbotMgr::InitLuaUnitType()
 
 	unit_type["bounding_radius"] = &Unit::GetObjectBoundingRadius;
 
-	unit_type["reachable_with_melee"] = [](const Unit* self, const Unit* target)
-	{
-		return self->CanReachWithMeleeAttack(target);
-	};
-
-	unit_type["can_attack"] = [](const Unit* self, const Unit* target)
-	{
-		return self->CanAttack(target);
-	};
-
-	unit_type["can_assist"] = [](const Unit* self, const Unit* target)
-	{
-		return self->CanAssist(target);
-	};
-
-	unit_type["has_aura"] = [](const Unit* self, const uint32 spellId)
-	{
-		return self->HasAura(spellId, EFFECT_INDEX_0);
-	};
-
 	unit_type["is_moving"] = sol::property([](const Unit* self)
 	{
 		return !self->IsStopped();
@@ -451,19 +431,42 @@ void PlayerbotMgr::InitLuaUnitType()
 		return GetMaster()->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
 	});
 
+    unit_type["get_attackers"] = sol::property([](Unit* self)
+    {
+        HostileRefManager ref_mgr = self->getHostileRefManager();
+
+        HostileReference* ref = ref_mgr.getFirst();
+        std::vector<Unit*> attackers;
+        attackers.reserve(ref_mgr.getSize());
+
+        while (ref)
+        {
+            const ThreatManager* threat_mgr = ref->getSource();
+
+            attackers.push_back(threat_mgr->getOwner());
+            ref = ref->next();
+        }
+
+        return 0.0f;
+    });
+
 	unit_type["target"] = sol::property(&Unit::GetTarget);
 	unit_type["is_alive"] = sol::property(&Unit::IsAlive);
 	unit_type["crowd_controlled"] = sol::property(&Unit::IsCrowdControlled);
 	unit_type["health"] = sol::property(&Unit::GetHealth);
 	unit_type["max_health"] = sol::property(&Unit::GetMaxHealth);
-	unit_type["power"] = sol::property([](const Unit* self, const Powers power)
+
+	unit_type["power"] = sol::property([](const Unit* self)
 	{
-		return self->GetPower(power);
+		const Powers power = self->GetPowerType();
+        return self->GetPower(power);
 	});
+
 	unit_type["max_power"] = sol::property([](const Unit* self, const Powers power)
 	{
 		return self->GetMaxPower(power);
 	});
+
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
 	{
 		HostileReference* ref = self->getHostileRefManager().getFirst();
@@ -480,24 +483,26 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return 0.0f;
 	};
-	unit_type["get_attackers"] = [](Unit* self)
-	{
-		HostileRefManager ref_mgr = self->getHostileRefManager();
 
-		HostileReference* ref = ref_mgr.getFirst();
-		std::vector<Unit*> attackers;
-		attackers.reserve(ref_mgr.getSize());
+    unit_type["reachable_with_melee"] = [](const Unit* self, const Unit* target)
+    {
+        return self->CanReachWithMeleeAttack(target);
+    };
 
-		while (ref)
-		{
-			const ThreatManager* threat_mgr = ref->getSource();
+    unit_type["can_attack"] = [](const Unit* self, const Unit* target)
+    {
+        return self->CanAttack(target);
+    };
 
-			attackers.push_back(threat_mgr->getOwner());
-			ref = ref->next();
-		}
+    unit_type["can_assist"] = [](const Unit* self, const Unit* target)
+    {
+        return self->CanAssist(target);
+    };
 
-		return 0.0f;
-	};
+    unit_type["has_aura"] = [](const Unit* self, const uint32 spellId)
+    {
+        return self->HasAura(spellId, EFFECT_INDEX_0);
+    };
 }
 
 void PlayerbotMgr::InitLuaCreatureType()
