@@ -1,4 +1,5 @@
 /*
+/*
  * This file is part of the CMaNGOS Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify
@@ -294,16 +295,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 		SendChatMessage(text, self, CHAT_MSG_YELL);
 	};
 
-	player_type["set_target"] = [](const Player* self, const Unit* target)
+	player_type["set_target"] = [](Player* self, WorldObject* target)
 	{
-        const auto packet = new WorldPacket(CMSG_SET_SELECTION, 4);
-        *packet << target->GetObjectGuid();
-        self->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
+        self->SetTarget(target);
 	};
 
 	player_type["clear_target"] = [](Player* self)
 	{
-		self->ClearSelectionGuid();
+		self->SetSelectionGuid(ObjectGuid());
 	};
 
 	player_type["can_cast"] = [](const Player* self, const uint32 spellId)
@@ -737,9 +736,9 @@ void PlayerbotMgr::SendWhisper(const std::string& text, const Player* fromPlayer
 	const auto packet = new WorldPacket(CMSG_MESSAGECHAT, 200);
 	*packet << CHAT_MSG_WHISPER;
 	*packet << static_cast<uint32>(LANG_UNIVERSAL);
-	*packet << fromPlayer->GetName();
+    *packet << toPlayer ->GetName();
 	*packet << text;
-	toPlayer->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
+	fromPlayer->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
 }
 
 void PlayerbotMgr::SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 opCode) const
