@@ -246,6 +246,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 		return ai->GetLastMessage().c_str();
 	});
 
+    player_type["pet"] = sol::property([](const Player* self)
+    {
+        return self->GetPet();
+    });
+
 	player_type["follow"] = [](Player* self, Unit* target, const float dist = 1, const float angle = 0)
 	{
 		target->GetPosition();
@@ -289,9 +294,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 		SendChatMessage(text, self, CHAT_MSG_YELL);
 	};
 
-	player_type["set_target"] = [](Player* self, const Unit* target)
+	player_type["set_target"] = [](const Player* self, const Unit* target)
 	{
-        self->SetSelectionGuid(target->GetSelectionGuid());
+        const auto packet = new WorldPacket(CMSG_SET_SELECTION, 4);
+        *packet << target->GetSelectionGuid();
+        self->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
 	};
 
 	player_type["clear_target"] = [](Player* self)
@@ -431,10 +438,11 @@ void PlayerbotMgr::InitLuaUnitType()
 
 	unit_type["bounding_radius"] = &Unit::GetObjectBoundingRadius;
 
-	unit_type["is_moving"] = sol::property([](const Unit* self)
-	{
-		return !self->IsStopped();
-	});
+    // doesn't seem to be useful- all NPCs are always moving, always false for IRL player
+	//unit_type["is_moving"] = sol::property([](const Unit* self)
+	//{
+	//	return !self->IsStopped();
+	//});
 
 	unit_type["raid_icon"] = sol::property([&](const Unit* self)
 	{
@@ -536,6 +544,9 @@ void PlayerbotMgr::InitLuaCreatureType()
 	creature_type["is_pet"] = sol::property(&Creature::IsPet);
 	creature_type["is_regen_hp"] = sol::property(&Creature::IsRegeneratingHealth);
 	creature_type["is_regen_power"] = sol::property(&Creature::IsRegeneratingHealth);
+    creature_type["can_walk"] = sol::property(&Creature::CanWalk);
+    creature_type["can_swim"] = sol::property(&Creature::CanSwim);
+    creature_type["can_fly"] = sol::property(&Creature::CanFly);
 }
 
 void PlayerbotMgr::InitLuaObjectType()
