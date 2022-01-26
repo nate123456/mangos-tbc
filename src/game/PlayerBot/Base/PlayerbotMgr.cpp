@@ -297,7 +297,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 	player_type["set_target"] = [](const Player* self, const Unit* target)
 	{
         const auto packet = new WorldPacket(CMSG_SET_SELECTION, 4);
-        *packet << target->GetSelectionGuid();
+        *packet << target->GetObjectGuid();
         self->GetSession()->QueuePacket(std::move(std::unique_ptr<WorldPacket>(packet)));
 	};
 
@@ -533,7 +533,11 @@ void PlayerbotMgr::InitLuaCreatureType()
 	sol::usertype<Creature> creature_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
 	                                                                     sol::bases<Unit, WorldObject, Object>());
 
-	creature_type["is_elite"] = sol::property(&Creature::IsElite);
+    creature_type["is_elite"] = [](const Creature* self)
+    {
+        return self->IsElite();
+    };
+
 	creature_type["is_world_boss"] = sol::property(&Creature::IsWorldBoss);
 	creature_type["can_aggro"] = sol::property(&Creature::CanAggro);
 	creature_type["is_totem"] = sol::property(&Creature::IsTotem);
