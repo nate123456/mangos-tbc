@@ -247,11 +247,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 		return ai->GetLastMessage().c_str();
 	});
 
-    player_type["pet"] = sol::property([](const Player* self)
-    {
-        return self->GetPet();
-    });
-
 	player_type["follow"] = [](Player* self, Unit* target, const float dist = 1, const float angle = 0)
 	{
 		target->GetPosition();
@@ -437,6 +432,11 @@ void PlayerbotMgr::InitLuaUnitType()
 
 	unit_type["bounding_radius"] = sol::property(&Unit::GetObjectBoundingRadius);
 
+    unit_type["pet"] = sol::property([](const Unit* self)
+    {
+        return self->GetPet();
+    });
+
     // doesn't seem to be useful- all NPCs are always moving, always false for IRL player
 	//unit_type["is_moving"] = sol::property([](const Unit* self)
 	//{
@@ -467,9 +467,17 @@ void PlayerbotMgr::InitLuaUnitType()
         return 0.0f;
     });
 
-	unit_type["target"] = sol::property([](const Unit* self)
+	unit_type["target"] = sol::property([](const Unit* self)->Unit*
     {
-        return self->GetTarget();
+	    const auto target = self->GetTarget();
+
+        if (target->IsCreature())
+            return dynamic_cast<Creature*>(target);
+
+        if (target->IsPlayer())
+            return dynamic_cast<Player*>(target);
+
+        return target;
     });
 
 	unit_type["is_alive"] = sol::property(&Unit::IsAlive);
@@ -532,11 +540,7 @@ void PlayerbotMgr::InitLuaCreatureType()
 	sol::usertype<Creature> creature_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
 	                                                                     sol::bases<Unit, WorldObject, Object>());
 
-    creature_type["is_elite"] = [](const Creature* self)
-    {
-        return self->IsElite();
-    };
-
+    creature_type["is_elite"] = sol::property(&Creature::IsElite);
 	creature_type["is_world_boss"] = sol::property(&Creature::IsWorldBoss);
 	creature_type["can_aggro"] = sol::property(&Creature::CanAggro);
 	creature_type["is_totem"] = sol::property(&Creature::IsTotem);
