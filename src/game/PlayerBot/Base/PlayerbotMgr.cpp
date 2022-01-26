@@ -462,9 +462,10 @@ void PlayerbotMgr::InitLuaUnitType()
         return self->GetPower(power);
 	});
 
-	unit_type["max_power"] = sol::property([](const Unit* self, const Powers power)
+	unit_type["max_power"] = sol::property([](const Unit* self)
 	{
-		return self->GetMaxPower(power);
+        const Powers power = self->GetPowerType();
+        return self->GetMaxPower(power);
 	});
 
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
