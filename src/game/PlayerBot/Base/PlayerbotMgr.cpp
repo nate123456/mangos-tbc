@@ -186,9 +186,6 @@ void PlayerbotMgr::InitializeLuaEnvironment()
 {
 	m_luaEnvironment = sol::environment(m_lua, sol::create, m_lua.globals());
 
-	if (!m_lastSetupErrorMsg.empty())
-		m_lastSetupErrorMsg = "";
-
 	if (!m_lastActErrorMsg.empty())
 		m_lastActErrorMsg = "";
 }
