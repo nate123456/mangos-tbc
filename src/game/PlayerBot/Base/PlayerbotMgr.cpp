@@ -513,8 +513,11 @@ void PlayerbotMgr::InitLuaPlayerType()
         return GetSpellCastTime(p_spell_info, self, spell);
     };
 
-	player_type["cast"] = [&](Player* self, const uint32 spellId)
+	player_type["cast"] = [&](Player* self, Unit* target, const uint32 spellId)
 	{
+        if (!target)
+            return SPELL_FAILED_BAD_TARGETS;
+
         if (spellId == 0)
             return SPELL_NOT_FOUND;
 
@@ -537,29 +540,22 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (const SpellCastResult power_check_result = tmp_spell->CheckPower(true); power_check_result != SPELL_CAST_OK)
 			return power_check_result;
-
-		// set spell target to current target 
-		const ObjectGuid target_guid = self->GetSelectionGuid();
-		Unit* p_target = ObjectAccessor::GetUnit(*self, target_guid);
-
-		// set spell target to self i no current target
-		if (!p_target)
-			p_target = self;
-
+        
 		// set target to self if spell is positive and target is enemy
 		if (IsPositiveSpell(spellId))
 		{
-			if (p_target && self->CanAttack(p_target))
-				p_target = self;
+            if (target && self->CanAttack(target))
+                return SPELL_FAILED_TARGET_ENEMY;
 		}
 		else
 		{
 			// Can't cast hostile spell on friendly unit
-			if (p_target && self->CanAssist(p_target))
+			if (target && self->CanAssist(target))
 				return SPELL_FAILED_TARGET_FRIENDLY;
-
-			self->SetInFront(p_target);
 		}
+
+        if (!self->HasInArc(target))
+            self->SetFacingTo(self->GetAngle(target));
 
 		// stop movement to prevent cancel spell casting
 		if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
@@ -571,7 +567,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 
 		// Check line of sight
-		if (!self->IsWithinLOSInMap(p_target))
+		if (!self->IsWithinLOSInMap(target))
 			return SPELL_FAILED_LINE_OF_SIGHT;
 
 		const SpellRangeEntry* temp_range = GetSpellRangeStore()->LookupEntry(p_spell_info->rangeIndex);
@@ -582,10 +578,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (!(temp_range->minRange == 0.0f && temp_range->maxRange == 0.0f))
 			//Unit is out of range of this spell
-			if (!self->IsInRange(p_target, temp_range->minRange, temp_range->maxRange))
+			if (!self->IsInRange(target, temp_range->minRange, temp_range->maxRange))
 				return SPELL_FAILED_OUT_OF_RANGE;
 
-		return self->CastSpell(p_target, p_spell_info, TRIGGERED_NONE);
+		return self->CastSpell(target, p_spell_info, TRIGGERED_NONE);
 	};
 }
 
