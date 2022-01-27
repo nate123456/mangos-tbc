@@ -56,6 +56,7 @@ class PlayerbotMgr
         void InitLuaPositionType();
         void InitLuaGameObjectType();
         void InitLuaWorldObjectType();
+        void InitLuaPetType();
         void InitLuaGroupType();
         void InitLuaMapType();
         void TellMaster(const std::string& text, const Player* fromPlayer) const;
@@ -75,7 +76,7 @@ class PlayerbotMgr
         // For a list of opcodes that can be caught see Opcodes.cpp (CMSG_* opcodes only)
         // Notice: that this is static which means it is called once for all bots of the master.
         void HandleMasterIncomingPacket(const WorldPacket& packet);
-        void HandleMasterOutgoingPacket(const WorldPacket& packet);
+        void HandleMasterOutgoingPacket(const WorldPacket& packet) const;
 
         void LoginPlayerBot(ObjectGuid guid);
         void LogoutPlayerBot(ObjectGuid guid);          // mark bot to be removed on next update
