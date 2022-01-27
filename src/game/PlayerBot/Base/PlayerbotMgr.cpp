@@ -249,6 +249,16 @@ void PlayerbotMgr::InitLuaPlayerType()
 		return ai->GetLastMessage().c_str();
 	});
 
+    player_type["group"] = sol::property([](Player* self)
+    {
+        return self->GetGroup();
+    });
+
+    player_type["map"] = sol::property([](const Player* self)
+    {
+        return self->GetMap();
+    });
+
 	player_type["follow"] = [](Player* self, Unit* target, const float dist = 1, const float angle = 0)
 	{
         if (!self)
@@ -712,7 +722,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 	world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
 	world_object_type["name"] = sol::property(&WorldObject::GetName);
-	world_object_type["map_id"] = sol::property(&WorldObject::GetMapId);
+	world_object_type["map"] = sol::property(&WorldObject::GetMap);
 	world_object_type["zone_id"] = sol::property(&WorldObject::GetZoneId);
 	world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
 	world_object_type["gcd"] = sol::property(&WorldObject::GetGCD);
