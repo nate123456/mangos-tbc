@@ -1115,10 +1115,6 @@ void PlayerbotMgr::InitLuaAuraType()
     aura_type["duration"] = sol::property(&SpellAuraHolder::GetAuraDuration);
     aura_type["max_duration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
     aura_type["charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
-    aura_type["is_present"] = sol::property([](const SpellAuraHolder* self)
-    {
-        return self->GetStackAmount() > 0;
-    });
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
