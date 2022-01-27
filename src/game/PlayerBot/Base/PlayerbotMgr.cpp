@@ -792,7 +792,7 @@ void PlayerbotMgr::InitLuaPositionType()
 void PlayerbotMgr::InitLuaPetType()
 {
     sol::usertype<Pet> pet_type = m_lua.new_usertype<Pet>(
-        "pet");
+        "pet", sol::base_classes, sol::bases<Creature, Unit, WorldObject, Object>());
 
     pet_type["pet_owner"] = &Pet::GetSpellModOwner;
     pet_type["happiness"] = &Pet::GetHappinessState;
@@ -801,9 +801,12 @@ void PlayerbotMgr::InitLuaPetType()
         return self->HasAura(1738 /*PET_FEED*/, EFFECT_INDEX_0);
     });
 
-    pet_type["set_autocast"] = [](Pet* self, const uint32 spellId, const bool state)
+    pet_type["react_state"] = sol::property([](Pet* self)
     {
-	    const auto player = self->GetSpellModOwner();
+        return self->AI()->GetReactState();
+    }, [](Pet* self, const int state)
+    {
+        const auto player = self->GetSpellModOwner();
 
         if (!player)
             return;
@@ -811,7 +814,33 @@ void PlayerbotMgr::InitLuaPetType()
         if (player->GetPlayerbotAI())
             return;
 
-        self->ToggleAutocast(spellId, state);
+        self->AI()->SetReactState(static_cast<ReactStates>(state));
+    });
+
+    pet_type["set_autocast"] = [](Pet* self, const uint32 spellId, const bool enable)
+    {
+        if (spellId != 0 && self->HasSpell(spellId))
+        {
+	        if (const auto itr = self->m_spells.find(spellId); itr != self->m_spells.end())
+            {
+                if (itr->second.active == ACT_ENABLED)
+                {
+                    if (enable)
+                        return;
+
+                    self->ToggleAutocast(spellId, false);
+                    if (self->HasAura(spellId))
+                        self->RemoveAurasByCasterSpell(spellId, self->GetObjectGuid());
+                }
+                else
+                {
+                    if (!enable)
+                        return;
+
+                    self->ToggleAutocast(spellId, true);
+                }
+            }
+        }
     };
 
     pet_type["summon"] = [](Pet* self)
