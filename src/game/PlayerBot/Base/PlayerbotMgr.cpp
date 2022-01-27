@@ -251,6 +251,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["follow"] = [](Player* self, Unit* target, const float dist = 1, const float angle = 0)
 	{
+        if (!self)
+            return;
+
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -268,6 +271,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["teleport_to"] = [](Player* self, const Unit* target)
 	{
+        if (!target)
+            return;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -278,6 +284,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
+        if (!to || !text || !text[0] || self == to)
+            return;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -286,6 +295,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["tell_party"] = [&](Player* self, const char* text)
 	{
+        if (!text || !text[0])
+            return;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -294,6 +306,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["tell_raid"] = [&](Player* self, const char* text)
 	{
+        if (!text || !text[0])
+            return;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -302,6 +317,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["say"] = [&](Player* self, const char* text)
 	{
+        if (!text || !text[0])
+            return;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -310,6 +328,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["yell"] = [&](Player* self, const char* text)
 	{
+        if (!text || !text[0])
+            return;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -318,6 +339,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["set_target"] = [](Player* self, WorldObject* target)
 	{
+        if (!target)
+            return;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -334,6 +358,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["can_cast"] = [](const Player* self, const uint32 spellId)
 	{
+        if (spellId == 0)
+            return false;
+
 		// verify player has spell
 		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
 
@@ -353,11 +380,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["face_target"] = [](Player* self, const Unit* target)
 	{
-        if (const auto ai = self->GetPlayerbotAI(); !ai)
+        if (!target)
             return;
 
-		if (!target)
-			return;
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return;
 
 		if (!self->HasInArc(target))
 			self->SetFacingTo(self->GetAngle(target));
@@ -373,6 +400,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["has_power_to_cast"] = [](Player* self, const uint32 spellId)
 	{
+        if (spellId == 0)
+            return false;
+
 		// verify player has spell
 		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
 
@@ -387,6 +417,12 @@ void PlayerbotMgr::InitLuaPlayerType()
 
     player_type["get_cast_time"] = [](Player* self, const uint32 spellId)
     {
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return static_cast<uint32>(-1);
+
+        if (spellId == 0)
+            return static_cast<uint32>(-1);
+
         const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
         if (!p_spell_info)
             return static_cast<uint32>(-1);
@@ -398,6 +434,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	player_type["cast"] = [&](Player* self, const uint32 spellId)
 	{
+        if (spellId == 0)
+            return SPELL_NOT_FOUND;
+
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return SPELL_NOT_FOUND; // no good option here
 
@@ -475,12 +514,9 @@ void PlayerbotMgr::InitLuaUnitType()
 	                                                         sol::bases<WorldObject, Object>());
 
 	unit_type["bounding_radius"] = sol::property(&Unit::GetObjectBoundingRadius);
-
-    unit_type["pet"] = sol::property([](const Unit* self)
-    {
-        return self->GetPet();
-    });
-
+    unit_type["pet"] = sol::property(&Unit::GetPet);
+    unit_type["in_combat"] = sol::property(&Unit::IsInCombat);
+    
     // doesn't seem to be useful- all NPCs are always moving, always false for IRL player
 	//unit_type["is_moving"] = sol::property([](const Unit* self)
 	//{
@@ -492,12 +528,24 @@ void PlayerbotMgr::InitLuaUnitType()
 		return GetMaster()->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
 	});
 
-    unit_type["get_attackers"] = sol::property([](Unit* self)
+    unit_type["attacked_by"] = [](const Unit* self, Unit* target)
     {
+        if (!target)
+            return false;
+
+        return self->IsAttackedBy(target);
+    };
+
+    unit_type["attackers"] = sol::property([](Unit* self)
+    {
+        std::vector<Unit*> attackers;
+
+        if (!self)
+            return attackers;
+
         HostileRefManager ref_mgr = self->getHostileRefManager();
 
         HostileReference* ref = ref_mgr.getFirst();
-        std::vector<Unit*> attackers;
         attackers.reserve(ref_mgr.getSize());
 
         while (ref)
@@ -508,7 +556,7 @@ void PlayerbotMgr::InitLuaUnitType()
             ref = ref->next();
         }
 
-        return 0.0f;
+        return attackers;
     });
 
 	unit_type["target"] = sol::property([](const Unit* self)->Unit*
@@ -535,6 +583,9 @@ void PlayerbotMgr::InitLuaUnitType()
 
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
 	{
+        if (!target)
+            return -1.0f;
+
 		HostileReference* ref = self->getHostileRefManager().getFirst();
 
 		while (ref)
@@ -552,21 +603,33 @@ void PlayerbotMgr::InitLuaUnitType()
 
     unit_type["reachable_with_melee"] = [](const Unit* self, const Unit* target)
     {
+        if (!target)
+            return false;
+
         return self->CanReachWithMeleeAttack(target);
     };
 
     unit_type["is_enemy"] = [](const Unit* self, const Unit* target)
     {
+        if (!target)
+            return false;
+
         return self->CanAttack(target);
     };
 
     unit_type["is_friendly"] = [](const Unit* self, const Unit* target)
     {
+        if (!target)
+            return false;
+
         return self->CanAssist(target);
     };
 
     unit_type["has_aura"] = [](const Unit* self, const uint32 auraId)
     {
+        if (auraId == 0)
+            return false;
+
         return self->HasAura(auraId, EFFECT_INDEX_0);
     };
 }
@@ -684,34 +747,45 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 	world_object_type["has_in_arc"] = [](const WorldObject* self, const Unit* target)
 	{
+        if (!target)
+            return false;
+
 		return self->HasInArc(target);
 	};
 
 	world_object_type["is_within_los"] = [](const WorldObject* self, const Unit* target)
 	{
+		if (!target)
+			return false;
+
 		return self->IsWithinLOSInMap(target);
 	};
 
-	world_object_type["is_in_range_of_spell"] = [](const WorldObject* self, const Unit* target, const uint32 spellId)
+	world_object_type["is_in_range"] = [](const WorldObject* self, const Unit* target, const uint32 spellId)
 	{
+        if (!target || spellId == 0)
+            return false;
+
 		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
 		if (!p_spell_info)
 		{
-			return SPELL_NOT_FOUND;
+			return false;
 		}
 
 		const SpellRangeEntry* temp_range = GetSpellRangeStore()->LookupEntry(p_spell_info->rangeIndex);
 
 		//Spell has invalid range store so we can't use it
 		if (!temp_range)
-			return SPELL_FAILED_OUT_OF_RANGE;
+			return false;
 
 		if (temp_range->minRange == 0.0f && temp_range->maxRange == 0.0f)
-			return SPELL_FAILED_OUT_OF_RANGE;
+			return false;
 
 		//Unit is out of range of this spell
 		if (!self->IsInRange(target, temp_range->minRange, temp_range->maxRange))
-			return SPELL_FAILED_OUT_OF_RANGE;
+			return false;
+
+        return true;
 	};
 }
 
@@ -819,7 +893,18 @@ void PlayerbotMgr::InitLuaPetType()
 
     pet_type["set_autocast"] = [](Pet* self, const uint32 spellId, const bool enable)
     {
-        if (spellId != 0 && self->HasSpell(spellId))
+        const auto player = self->GetSpellModOwner();
+
+        if (!player)
+            return;
+
+        if (player->GetPlayerbotAI())
+            return;
+
+        if (spellId == 0)
+            return;
+
+        if (self->HasSpell(spellId))
         {
 	        if (const auto itr = self->m_spells.find(spellId); itr != self->m_spells.end())
             {
@@ -923,25 +1008,30 @@ void PlayerbotMgr::InitLuaMembers()
 
 void PlayerbotMgr::InitLuaFunctions()
 {
-	m_lua["get_raid_icon"] = [&](const uint8 i)
+	m_lua["get_raid_icon"] = [&](const uint8 iconIndex)->Unit*
 	{
-		const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(i);
+        if (iconIndex < 0 || iconIndex > 7)
+            return nullptr;
 
-		Unit* unit = nullptr;
+        if (const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(iconIndex))
+			return GetMaster()->GetMap()->GetUnit(*guid);
 
-		if (guid)
-			unit = GetMaster()->GetMap()->GetUnit(*guid);
-
-		return unit;
+        return nullptr;
 	};
 
 	m_lua["spell_exists"] = [](const uint32 spellId)
 	{
+        if (spellId == 0)
+            return false;
+
 		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
 	};
 
 	m_lua["spell_is_positive"] = [](const uint32 spellId)
 	{
+        if (spellId == 0)
+            return false;
+
 		return IsPositiveSpell(spellId);
 	};
 }
