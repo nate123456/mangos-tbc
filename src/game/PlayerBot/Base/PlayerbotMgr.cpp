@@ -635,22 +635,20 @@ void PlayerbotMgr::InitLuaUnitType()
 
     unit_type["current_cast"] = sol::property([](const Unit* self)
     {
-        const auto currentSpell = self->GetCurrentSpell(CURRENT_GENERIC_SPELL);
+        const auto current_spell = self->GetCurrentSpell(CURRENT_GENERIC_SPELL);
 
-        if (!currentSpell)
+        if (!current_spell)
             return 0;
 
-        const auto currentSpellInfo->m_spellInfo;
+        const auto current_spell_info = current_spell->m_spellInfo;
 
-        if (!currentSpellInfo)     
+        if (!current_spell_info)     
             return 0;
 
-	    const auto id = currentSpellInfo->Id;
+	    return static_cast<int>(current_spell_info->Id);
 
         // if (id == 0)
 		// 	return self->GetCurrentSpell(CURRENT_CHANNELED_SPELL)->m_spellInfo->Id;
-
-        return id;
     });
 
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
