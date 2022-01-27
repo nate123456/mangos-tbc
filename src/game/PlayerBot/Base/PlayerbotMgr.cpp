@@ -163,6 +163,7 @@ void PlayerbotMgr::InitLua()
     InitLuaObjectType();
     InitLuaPositionType();
     InitLuaPetType();
+    InitLuaAuraType();
 
 	InitLuaMembers();
     InitLuaFunctions();
