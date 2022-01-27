@@ -95,72 +95,47 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 	if (!m_luaEnvironment)
 		return;
-
-	const sol::protected_function setup_func = m_luaEnvironment["setup"];
-
-	if (!setup_func.valid())
-	{
-		if (const auto error_msg = "No 'setup' function with time parameter is defined."; m_lastSetupErrorMsg !=
-			error_msg)
-		{
-			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
-			m_lastSetupErrorMsg = error_msg;
-		}
-
-		return;
-	}
-
+    
     std::vector<Player*> bots;
     bots.reserve(m_playerBots.size());
-
+    
     for (auto& [id, bot] : m_playerBots)
         bots.push_back(bot);
 
-	if (const sol::protected_function_result setup_result = setup_func(time, bots); !setup_result.valid())
-	{
-		const sol::error error = setup_result;
-
-		if (const char* error_msg = error.what(); m_lastSetupErrorMsg != error_msg)
-		{
-			m_masterChatHandler.PSendSysMessage("|cffff0000Setup script failed:\n%s", error_msg);
-			m_lastSetupErrorMsg = error_msg;
-		}
-
-		return;
-	}
-
-	const sol::protected_function act_func = m_luaEnvironment["act"];
+    const sol::protected_function act_func = m_luaEnvironment["act"];
 
 	if (!act_func.valid())
 	{
-		if (const auto error_msg = "No 'act' function with player parameter is defined."; m_lastActErrorMsg !=
+		if (const auto error_msg = "No 'act' function with correct parameters defined."; m_lastActErrorMsg !=
 			error_msg)
 		{
 			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
 			m_lastActErrorMsg = error_msg;
 		}
+
+        return;
 	}
 
-	for (auto& bot : bots)
-	{
-		if (const sol::protected_function_result act_result = act_func(bot); !act_result.valid())
-		{
-			const sol::error error = act_result;
-			if (const char* error_msg = error.what(); m_lastActErrorMsg != error_msg)
-			{
-				m_masterChatHandler.PSendSysMessage("|cffff0000Act script failed:\n%s", error_msg);
-				m_lastActErrorMsg = error_msg;
-			}
-		}
+    if (const sol::protected_function_result act_result = act_func(time, bots, m_lastManagerMessage); !act_result.valid())
+    {
+        const sol::error error = act_result;
 
-        // message should be cleared after AI has had a chance to process it
-		bot->GetPlayerbotAI()->ResetLastMessage();
-	}
+        if (const char* error_msg = error.what(); m_lastActErrorMsg != error_msg)
+        {
+            m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
+            m_lastActErrorMsg = error_msg;
+        }
+
+        return;
+    }
+
+    // messages should be cleared after AI has had a chance to process it
+	for (const auto& bot : bots)
+        bot->GetPlayerbotAI()->ResetLastMessage();
+
+    ResetLuaMasterMessage();
 
 	// reset error message members if no errors occurred.
-	if (!m_lastSetupErrorMsg.empty())
-		m_lastSetupErrorMsg = "";
-
 	if (!m_lastActErrorMsg.empty())
 		m_lastActErrorMsg = "";
 }
@@ -2304,6 +2279,16 @@ reload <NAME>: re-download script from same url)");
 
 		    return false;
 	    }
+
+        if (rem_cmd.rfind("write", 0) == 0)
+        {
+            std::string message = rem_cmd.substr(5);
+            boost::algorithm::trim(message);
+
+            mgr->SetLuaMasterMessage(message);
+
+            return false;
+        }
 
 	    if (rem_cmd.rfind("set", 0) == 0)
 	    {

@@ -92,6 +92,8 @@ class PlayerbotMgr
         bool VerifyScriptExists(const std::string& name);
         void OnBotLogin(Player* const bot);
         void Stay();
+        void SetLuaMasterMessage(const std::string& message) { m_lastManagerMessage = message; }
+        void ResetLuaMasterMessage() { m_lastManagerMessage = ""; }
 
     public:
         // config variables
@@ -119,8 +121,8 @@ class PlayerbotMgr
         // lua VM for the bot
         sol::state m_lua;
         sol::environment m_luaEnvironment;
-        std::string m_lastSetupErrorMsg;
         std::string m_lastActErrorMsg;
+        std::string m_lastManagerMessage;
         ChatHandler m_masterChatHandler;
 };
 
