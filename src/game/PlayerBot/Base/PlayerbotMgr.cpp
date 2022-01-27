@@ -676,12 +676,12 @@ void PlayerbotMgr::InitLuaUnitType()
         return self->CanAssist(target);
     };
 
-    unit_type["has_aura"] = [](const Unit* self, const uint32 auraId)
+    unit_type["get_aura"] = [](const Unit* self, const uint32 auraId)->SpellAuraHolder*
     {
         if (auraId == 0)
-            return false;
+            return nullptr;
 
-        return self->HasAura(auraId, EFFECT_INDEX_0);
+        return self->GetSpellAuraHolder(auraId);
     };
 }
 
@@ -1084,6 +1084,20 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return IsPositiveSpell(spellId);
 	};
+}
+
+void PlayerbotMgr::InitLuaAuraType()
+{
+    sol::usertype<SpellAuraHolder> aura_type = m_lua.new_usertype<SpellAuraHolder>("aura");
+
+    aura_type["stacks"] = sol::property(&SpellAuraHolder::GetStackAmount);
+    aura_type["duration"] = sol::property(&SpellAuraHolder::GetAuraDuration);
+    aura_type["max_duration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
+    aura_type["charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
+    aura_type["is_present"] = sol::property([](const SpellAuraHolder* self)
+    {
+        return self->GetStackAmount() > 0;
+    });
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
