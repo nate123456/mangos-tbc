@@ -259,7 +259,21 @@ void PlayerbotMgr::InitLuaPlayerType()
         return self->GetMap();
     });
 
-	player_type["follow"] = [](Player* self, Unit* target, const float dist = 1, const float angle = 0)
+    player_type["destination"] = sol::property([](Player* self)
+    {
+        float x, y, z;
+
+        if (self)
+        {
+            if (const auto ai = self->GetPlayerbotAI(); ai)
+            {
+                self->GetMotionMaster()->GetDestination(x, y, z);
+            }
+        }
+        return sol::tie(x, y, z);
+    });
+
+	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
 	{
         if (!self)
             return;
@@ -270,6 +284,63 @@ void PlayerbotMgr::InitLuaPlayerType()
 		target->GetPosition();
 		self->GetMotionMaster()->MoveFollow(target, dist, angle);
 	};
+
+    player_type["move_to_pos"] = [](Player* self, const Position* pos)
+    {
+        if (!self || !pos)
+            return;
+
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return;
+
+        self->GetMotionMaster()->MovePoint(0, *pos);
+    };
+
+    player_type["move_to_point"] = [](Player* self, const float x, const float y, const float z)
+    {
+	    if (!self)
+		    return;
+
+	    if (const auto ai = self->GetPlayerbotAI(); !ai)
+		    return;
+
+	    self->GetMotionMaster()->MovePoint(0, x, y, z);
+    };    
+
+    player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
+    {
+        if (!self || !target)
+            return;
+
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return;
+
+        self->GetMotionMaster()->MoveChase(target, distance, angle);
+    };
+
+    player_type["set_chase_distance"] = [](Player* self, const float distance)
+    {
+        if (!self)
+            return;
+
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return;
+
+        self->GetMotionMaster()->DistanceYourself(distance);        
+    };
+
+    player_type["move_to_target"] = [](Player* self, const Unit* target)
+    {
+        if (!self || !target)
+            return;
+
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return;
+
+        float x, y, z;
+        target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
+        self->GetMotionMaster()->MovePoint(0, x, y, z);
+    };
 
 	player_type["stop"] = [](Player* self)
 	{
