@@ -524,7 +524,7 @@ void PlayerbotMgr::InitLuaPlayerType()
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return SPELL_NOT_FOUND; // no good option here
 
-		// verify player has spell
+		// verify spell exists
 		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
 		if (!p_spell_info)
 		{
@@ -535,8 +535,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!self->IsSpellReady(*p_spell_info))
 			return SPELL_FAILED_NOT_READY;
 
-		// verify sufficient power to cast
-		const auto tmp_spell = new Spell(self, p_spell_info, false);
+        // verify caster can afford to cast
+        const auto tmp_spell = new Spell(self, p_spell_info, false);
+        if (const SpellCastResult res = tmp_spell->CheckPower(true); res != SPELL_CAST_OK)
+            return res;
 
 		if (const SpellCastResult power_check_result = tmp_spell->CheckPower(true); power_check_result != SPELL_CAST_OK)
 			return power_check_result;
@@ -737,7 +739,6 @@ void PlayerbotMgr::InitLuaObjectType()
 
     object_type["is_player"] = sol::property(&Object::IsPlayer);
     object_type["is_creature"] = sol::property(&Object::IsCreature);
-    object_type["is_corpse"] = sol::property(&Object::IsCorpse);
     object_type["is_game_object"] = sol::property(&Object::IsGameObject);
     object_type["is_unit"] = sol::property(&Object::IsUnit);
 
