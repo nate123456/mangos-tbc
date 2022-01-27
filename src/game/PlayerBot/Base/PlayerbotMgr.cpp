@@ -632,6 +632,16 @@ void PlayerbotMgr::InitLuaUnitType()
         return self->GetMaxPower(power);
 	});
 
+    unit_type["current_cast"] = sol::property([](const Unit* self)
+    {
+	    const auto id = self->GetCurrentSpell(CURRENT_GENERIC_SPELL)->m_spellInfo->Id;
+
+        if (id == 0)
+			return self->GetCurrentSpell(CURRENT_CHANNELED_SPELL)->m_spellInfo->Id;
+
+        return id;
+    });
+
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
 	{
         if (!target)
