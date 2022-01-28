@@ -294,10 +294,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 	{
 		return self->GetGroup();
 	});
-	player_type["map"] = sol::property([](const Player* self)
-	{
-		return self->GetMap();
-	});
 	player_type["destination"] = sol::property([](Player* self)
 	{
 		float x, y, z;
@@ -311,6 +307,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 		return sol::tie(x, y, z);
 	});
+
 	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
 	{
 		if (!self)
@@ -346,6 +343,18 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->GetMotionMaster()->MovePoint(0, x, y, z);
 	};
+	player_type["move_to_target"] = [](Player* self, const Unit* target)
+	{
+		if (!target)
+			return;
+
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		float x, y, z;
+		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
+		self->GetMotionMaster()->MovePoint(0, x, y, z);
+	};
 	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
 	{
 		if (!target)
@@ -362,18 +371,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return;
 
 		self->GetMotionMaster()->DistanceYourself(distance);
-	};
-	player_type["move_to_target"] = [](Player* self, const Unit* target)
-	{
-		if (!target)
-			return;
-
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		float x, y, z;
-		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-		self->GetMotionMaster()->MovePoint(0, x, y, z);
 	};
 	player_type["reset_movement"] = [](Player* self)
 	{
@@ -470,19 +467,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->SetSelectionGuid(ObjectGuid());
 	};
-	player_type["can_cast"] = [](const Player* self, const uint32 spellId)
-	{
-		if (spellId == 0)
-			return false;
-
-		// verify player has spell
-		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-
-		if (!p_spell_info)
-			return false;
-
-		return self->IsSpellReady(*p_spell_info);
-	};
 	player_type["clear_stealth"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -498,7 +482,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		if (!self->HasInArc(target))
+		if (!self->HasInArc(target, M_PI_F / 2))
 			self->SetFacingTo(self->GetAngle(target));
 	};
 	player_type["face_orientation"] = [](Player* self, const float orientation)
@@ -523,6 +507,19 @@ void PlayerbotMgr::InitLuaPlayerType()
 		const auto tmp_spell = new Spell(self, p_spell_info, false);
 
 		return tmp_spell->CheckPower(true) == SPELL_CAST_OK;
+	};
+	player_type["can_cast"] = [](const Player* self, const uint32 spellId)
+	{
+		if (spellId == 0)
+			return false;
+
+		// verify player has spell
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+
+		if (!p_spell_info)
+			return false;
+
+		return self->IsSpellReady(*p_spell_info);
 	};
 	player_type["get_cast_time"] = [](Player* self, const uint32 spellId)
 	{
@@ -626,6 +623,13 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		UseItem(self, item, TARGET_FLAG_UNIT, target->GetObjectGuid());
 	};
+	player_type["use_item_self"] = [&](Player* self, Item* item)
+	{
+		if (!item)
+			return;
+
+		UseItem(self, item, TARGET_FLAG_UNIT, self->GetObjectGuid());
+	};
 	player_type["use_item_on_equip_slot"] = [&](Player* self, const uint8 slot)
 	{
 		if (slot >= EQUIPMENT_SLOT_END)
@@ -672,13 +676,6 @@ void PlayerbotMgr::InitLuaUnitType()
 	{
 		return GetMaster()->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
 	});
-	unit_type["attacked_by"] = [](const Unit* self, Unit* target)
-	{
-		if (!target)
-			return false;
-
-		return self->IsAttackedBy(target);
-	};
 	unit_type["attackers"] = sol::property([](Unit* self)
 	{
 		std::vector<Unit*> attackers;
@@ -761,6 +758,14 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return static_cast<int>(current_spell_info->Id);
 	});
+
+	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
+	{
+		if (!target)
+			return false;
+
+		return self->IsAttackedBy(target);
+	};
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
 	{
 		if (!target)
@@ -838,6 +843,7 @@ void PlayerbotMgr::InitLuaObjectType()
 	object_type["is_creature"] = sol::property(&Object::IsCreature);
 	object_type["is_game_object"] = sol::property(&Object::IsGameObject);
 	object_type["is_unit"] = sol::property(&Object::IsUnit);
+
 	object_type["as_player"] = [](Object* self)-> Player*
 	{
 		if (!self->IsPlayer())
@@ -851,13 +857,6 @@ void PlayerbotMgr::InitLuaObjectType()
 			return nullptr;
 
 		return dynamic_cast<Creature*>(self);
-	};
-	object_type["as_corpse"] = [](Object* self)-> Corpse*
-	{
-		if (!self->IsCorpse())
-			return nullptr;
-
-		return dynamic_cast<Corpse*>(self);
 	};
 	object_type["as_game_object"] = [](Object* self)-> GameObject*
 	{
@@ -890,6 +889,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	{
 		return self->GetPosition();
 	});
+
 	world_object_type["get_angle_of_obj"] = [](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
@@ -915,7 +915,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		if (!target)
 			return false;
 
-		return self->HasInArc(target);
+		return self->HasInArc(target, M_PI_F / 2);
 	};
 	world_object_type["is_within_los"] = [](const WorldObject* self, const Unit* target)
 	{
@@ -983,6 +983,7 @@ void PlayerbotMgr::InitLuaMapType()
 	sol::usertype<Map> map_type = m_lua.new_usertype<Map>("map");
 
 	map_type["players"] = sol::property(&Map::GetPlayers);
+	map_type["map_name"] = sol::property(&Map::GetMapName);
 	map_type["is_heroic"] = sol::property([&](const Map* self)
 	{
 		return self->GetDifficulty() == DUNGEON_DIFFICULTY_HEROIC;
@@ -994,9 +995,9 @@ void PlayerbotMgr::InitLuaGameObjectType()
 	sol::usertype<GameObject> game_object_type = m_lua.new_usertype<GameObject>(
 		"game_object", sol::base_classes, sol::bases<WorldObject, Object>());
 
-	game_object_type["in_use"] = &GameObject::IsInUse;
-	game_object_type["owner"] = &GameObject::GetOwner;
-	game_object_type["level"] = &GameObject::GetLevel;
+	game_object_type["in_use"] = sol::property(&GameObject::IsInUse);
+	game_object_type["owner"] = sol::property(&GameObject::GetOwner);
+	game_object_type["level"] = sol::property(&GameObject::GetLevel);
 }
 
 void PlayerbotMgr::InitLuaPositionType()
@@ -1008,6 +1009,7 @@ void PlayerbotMgr::InitLuaPositionType()
 	position_type["y"] = &Position::y;
 	position_type["z"] = &Position::z;
 	position_type["o"] = &Position::o;
+
 	position_type["get_distance_between"] = [](const Position* self, const Position* other)
 	{
 		return self->GetDistance(*other);
@@ -1027,8 +1029,8 @@ void PlayerbotMgr::InitLuaPetType()
 	sol::usertype<Pet> pet_type = m_lua.new_usertype<Pet>(
 		"pet", sol::base_classes, sol::bases<Creature, Unit, WorldObject, Object>());
 
-	pet_type["pet_owner"] = &Pet::GetSpellModOwner;
-	pet_type["happiness"] = &Pet::GetHappinessState;
+	pet_type["pet_owner"] = sol::property(&Pet::GetSpellModOwner);
+	pet_type["happiness"] = sol::property(&Pet::GetHappinessState);
 	pet_type["is_feeding"] = sol::property([](const Pet* self)
 	{
 		return self->HasAura(1738 /*PET_FEED*/, EFFECT_INDEX_0);
@@ -1046,6 +1048,7 @@ void PlayerbotMgr::InitLuaPetType()
 
 		                                        self->AI()->SetReactState(static_cast<ReactStates>(state));
 	                                        });
+	
 	pet_type["set_autocast"] = [](Pet* self, const uint32 spellId, const bool enable)
 	{
 		const auto player = self->GetSpellModOwner();
