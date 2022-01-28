@@ -260,7 +260,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
     player_type["move_to_pos"] = [](Player* self, const Position* pos)
     {
-        if (!self || !pos)
+        if (!pos)
             return;
 
         if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -269,11 +269,16 @@ void PlayerbotMgr::InitLuaPlayerType()
         self->GetMotionMaster()->MovePoint(0, *pos);
     };
 
+    player_type["interrupt"] = [](Player* self)
+    {
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return;
+
+        self->InterruptSpell(CURRENT_GENERIC_SPELL);
+    };
+
     player_type["move_to_point"] = [](Player* self, const float x, const float y, const float z)
     {
-	    if (!self)
-		    return;
-
 	    if (const auto ai = self->GetPlayerbotAI(); !ai)
 		    return;
 
@@ -282,7 +287,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
     player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
     {
-        if (!self || !target)
+        if (!target)
             return;
 
         if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -293,9 +298,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 
     player_type["set_chase_distance"] = [](Player* self, const float distance)
     {
-        if (!self)
-            return;
-
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
@@ -304,7 +306,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
     player_type["move_to_target"] = [](Player* self, const Unit* target)
     {
-        if (!self || !target)
+        if (!target)
             return;
 
         if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -532,15 +534,6 @@ void PlayerbotMgr::InitLuaPlayerType()
         if (!self->HasInArc(target))
             self->SetFacingTo(self->GetAngle(target));
 
-		// stop movement to prevent cancel spell casting
-		if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
-			LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
-		{
-            // only stop moving if spell is not instant
-			if (cast_time_entry->CastTime > 0)
-				self->StopMoving();
-		}
-
 		// Check line of sight
 		if (!self->IsWithinLOSInMap(target))
 			return SPELL_FAILED_LINE_OF_SIGHT;
@@ -555,6 +548,15 @@ void PlayerbotMgr::InitLuaPlayerType()
 			//Unit is out of range of this spell
 			if (!self->IsInRange(target, temp_range->minRange, temp_range->maxRange))
 				return SPELL_FAILED_OUT_OF_RANGE;
+
+        // stop movement to prevent cancel spell casting
+        if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
+            LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
+        {
+            // only stop moving if spell is not instant
+            if (cast_time_entry->CastTime > 0)
+                self->StopMoving();
+        }
 
 		return self->CastSpell(target, p_spell_info, TRIGGERED_NONE);
 	};
@@ -650,6 +652,36 @@ void PlayerbotMgr::InitLuaUnitType()
         // if (id == 0)
 		// 	return self->GetCurrentSpell(CURRENT_CHANNELED_SPELL)->m_spellInfo->Id;
     });
+
+    unit_type["current_auto_attack"] = sol::property([](const Unit* self)
+    {
+        const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
+
+        if (!current_spell)
+            return 0;
+
+        const auto current_spell_info = current_spell->m_spellInfo;
+
+        if (!current_spell_info)
+            return 0;
+
+        return static_cast<int>(current_spell_info->Id);
+    });
+
+    unit_type["current_channel"] = sol::property([](const Unit* self)
+        {
+            const auto current_spell = self->GetCurrentSpell(CURRENT_CHANNELED_SPELL);
+
+            if (!current_spell)
+                return 0;
+
+            const auto current_spell_info = current_spell->m_spellInfo;
+
+            if (!current_spell_info)
+                return 0;
+
+            return static_cast<int>(current_spell_info->Id);
+        });
 
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
 	{
