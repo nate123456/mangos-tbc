@@ -211,7 +211,7 @@ bool PlayerbotMgr::ValidateLuaScript(const char* script)
 
 void PlayerbotMgr::InitLuaMembers()
 {
-	m_lua["master"] = GetMaster();
+	m_lua["Master"] = GetMaster();
 }
 
 void PlayerbotMgr::InitLuaFunctions()
