@@ -615,47 +615,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 			self->SetFacingTo(self->GetAngle(target));
 
 		return self->CastSpell(target, p_spell_info, TRIGGERED_NONE);
-	};
-	player_type["use_item"] = [&](Player* self, Item* item, const Unit* target)
-	{
-		if (!item || !target)
-			return;
-
-		UseItem(self, item, TARGET_FLAG_UNIT, target->GetObjectGuid());
-	};
-	player_type["use_item_self"] = [&](Player* self, Item* item)
-	{
-		if (!item)
-			return;
-
-		UseItem(self, item, TARGET_FLAG_UNIT, self->GetObjectGuid());
-	};
-	player_type["use_item_on_equip_slot"] = [&](Player* self, const uint8 slot)
-	{
-		if (slot >= EQUIPMENT_SLOT_END)
-			return;
-
-		Item* const item = self->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
-
-		if (!item)
-			return;
-
-		UseItem(self, item, TARGET_FLAG_ITEM, item->GetObjectGuid());
-	};
-	player_type["use_item_on_item"] = [&](Player* self, Item* item, const Item* target)
-	{
-		if (!item || !target)
-			return;
-
-		UseItem(self, item, TARGET_FLAG_ITEM, target->GetObjectGuid());
-	};
-	player_type["use_item_on_game_object"] = [&](Player* self, Item* item, GameObject* obj)
-	{
-		if (!obj || !item)
-			return;
-
-		UseItem(self, item, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
-	};
+	};	
 };
 
 void PlayerbotMgr::InitLuaUnitType()
@@ -1172,7 +1132,7 @@ void PlayerbotMgr::InitLuaItemType()
 {
 	sol::usertype<Item> item_type = m_lua.new_usertype<Item>("item", sol::base_classes, sol::bases<Object>());
 
-	item_type["stack"] = sol::property(&Item::GetCount);
+	item_type["stack_count"] = sol::property(&Item::GetCount);
 	item_type["is_potion"] = sol::property(&Item::IsPotion);
 	item_type["max_stack_count"] = sol::property(&Item::GetMaxStackCount);
 	item_type["id"] = sol::property([](const Item* self)
@@ -1190,6 +1150,70 @@ void PlayerbotMgr::InitLuaItemType()
 				return self->GetProto()->Spells[i].SpellId;
 		return static_cast<uint32>(0);
 	});
+	item_type["ready"] = sol::property([](const Item* self)
+	{
+		const auto spell_id = self->GetSpell();
+
+		if (!spell_id)
+			return false;
+
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
+
+		if (!p_spell_info)
+			return false;		
+
+		return self->GetOwner()->IsSpellReady(*p_spell_info);
+	});
+	item_type["use_on_self"] = [&](Item* self)
+	{
+		Player* owner = self->GetOwner();
+
+		if (const auto ai = owner->GetPlayerbotAI(); !ai)
+			return;
+
+		UseItem(owner, self, TARGET_FLAG_UNIT, self->GetOwnerGuid());
+	};
+	item_type["use_on_equip_slot"] = [&](Item* self, const uint8 slot)
+	{
+		if (slot >= EQUIPMENT_SLOT_END || slot < EQUIPMENT_SLOT_START)
+			return;
+
+		Player* owner = self->GetOwner();
+
+		if (const auto ai = owner->GetPlayerbotAI(); !ai)
+			return;
+
+		Item* const item = owner->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+
+		if (!item)
+			return;
+
+		UseItem(owner, self, TARGET_FLAG_ITEM, item->GetObjectGuid());
+	};
+	item_type["use_on_item"] = [&](Item* self, const Item* target)
+	{
+		if (!target)
+			return;
+
+		Player* owner = self->GetOwner();
+
+		if (const auto ai = owner->GetPlayerbotAI(); !ai)
+			return;
+
+		UseItem(owner, self, TARGET_FLAG_ITEM, target->GetObjectGuid());
+	};
+	item_type["use_on_game_object"] = [&](Item* self, GameObject* obj)
+	{
+		if (!obj)
+			return;
+
+		Player* owner = self->GetOwner();
+
+		if (const auto ai = owner->GetPlayerbotAI(); !ai)
+			return;
+
+		UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
+	};
 }
 
 void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const ObjectGuid targetGuid) const
