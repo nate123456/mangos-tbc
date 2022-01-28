@@ -47,19 +47,24 @@ class PlayerbotMgr
         void InitLua();
         void InitializeLuaEnvironment();
         bool ValidateLuaScript(const char* script);
+
         void InitLuaMembers();
         void InitLuaFunctions();
+
         void InitLuaPlayerType();
         void InitLuaUnitType();
         void InitLuaCreatureType();
         void InitLuaObjectType();
-        void InitLuaPositionType();
-        void InitLuaGameObjectType();
         void InitLuaWorldObjectType();
-        void InitLuaPetType();
         void InitLuaGroupType();
         void InitLuaMapType();
+        void InitLuaGameObjectType();
+        void InitLuaPositionType();
+        void InitLuaPetType();
         void InitLuaAuraType();
+        void InitLuaItemType();
+
+        void UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
         void TellMaster(const std::string& text, const Player* fromPlayer) const;
         void SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const;
         void SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 opCode) const;
