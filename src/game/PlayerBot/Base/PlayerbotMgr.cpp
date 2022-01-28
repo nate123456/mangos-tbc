@@ -317,13 +317,21 @@ void PlayerbotMgr::InitLuaPlayerType()
         self->GetMotionMaster()->MovePoint(0, x, y, z);
     };
 
-	player_type["stop"] = [](Player* self)
+	player_type["reset_movement"] = [](Player* self)
 	{
         if (const auto ai = self->GetPlayerbotAI(); !ai)
             return;
 
 		self->GetMotionMaster()->Initialize();
 	};
+
+    player_type["stop"] = [](Player* self)
+    {
+        if (const auto ai = self->GetPlayerbotAI(); !ai)
+            return;
+
+        self->StopMoving();
+    };
 
 	player_type["teleport_to"] = [](Player* self, const Unit* target)
 	{
