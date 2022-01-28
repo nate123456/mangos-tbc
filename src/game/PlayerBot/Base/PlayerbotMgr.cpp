@@ -1175,7 +1175,21 @@ void PlayerbotMgr::InitLuaItemType()
 	item_type["stack"] = sol::property(&Item::GetCount);
 	item_type["is_potion"] = sol::property(&Item::IsPotion);
 	item_type["max_stack_count"] = sol::property(&Item::GetMaxStackCount);
-	item_type["spell_id"] = sol::property(&Item::GetSpell);
+	item_type["id"] = sol::property([](const Item* self)
+	{
+		return self->GetProto()->ItemId;
+	});
+	item_type["name"] = sol::property([](const Item* self)
+	{
+		return self->GetProto()->Name1;
+	});
+	item_type["spell_id"] = sol::property([](const Item* self)
+	{
+		for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+			if (self->GetProto()->Spells[i].SpellId > 0)
+				return self->GetProto()->Spells[i].SpellId;
+		return static_cast<uint32>(0);
+	});
 }
 
 void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const ObjectGuid targetGuid) const
