@@ -316,6 +316,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
+		self->GetMotionMaster()->Clear();
+
 		target->GetPosition();
 		self->GetMotionMaster()->MoveFollow(target, dist, angle);
 	};
@@ -326,6 +328,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
+
+		self->GetMotionMaster()->Clear();
 
 		self->GetMotionMaster()->MovePoint(0, *pos, FORCED_MOVEMENT_RUN);
 	};
@@ -342,6 +346,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
+		self->GetMotionMaster()->Clear();
+
 		self->GetMotionMaster()->MovePoint(0, x, y, z);
 	};
 	player_type["move_to_target"] = [](Player* self, const Unit* target)
@@ -351,6 +357,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
+
+		self->GetMotionMaster()->Clear();
 
 		float x, y, z;
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
@@ -363,6 +371,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
+
+		self->GetMotionMaster()->Clear();
 
 		self->GetMotionMaster()->MoveChase(target, distance, angle);
 	};
