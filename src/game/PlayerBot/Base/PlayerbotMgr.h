@@ -64,6 +64,8 @@ class PlayerbotMgr
         void InitLuaAuraType();
         void InitLuaItemType();
 
+        SpellCastResult Cast(Player* bot, Unit* target, uint32 spellId) const;
+        static uint32 CurrentCast(const Unit* unit, CurrentSpellTypes type);
         void UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
         void TellMaster(const std::string& text, const Player* fromPlayer) const;
         void SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const;

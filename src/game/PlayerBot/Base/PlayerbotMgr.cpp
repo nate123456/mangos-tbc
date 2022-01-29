@@ -33,7 +33,7 @@
 #include "../../Spells/SpellMgr.h"
 #include "../../Tools/Language.h"
 #include "../../World/World.h"
-#include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string.hpp>
 
 class LoginQueryHolder;
 class CharacterHandler;
@@ -537,84 +537,44 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return GetSpellCastTime(p_spell_info, self, spell);
 	};
-	player_type["get_item_in_equip_slot"] = sol::property([](const Player* self, const uint8 slot)-> Item*
+	player_type["get_item_in_equip_slot"] = [](const Player* self, const uint8 slot)-> Item*
 	{
 		if (slot < EQUIPMENT_SLOT_START || slot > EQUIPMENT_SLOT_END)
 			return nullptr;
 
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
-	});
+	};
+	player_type["get_item_by_name"] = [](const Player* self, const std::string& name)-> Item*
+	{
+		// list out items in main backpack
+		for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; slot++)
+			if (Item* const p_item = self->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+				if (p_item && name.find(p_item->GetProto()->Name1) != std::string::npos)
+					return p_item;
+
+		// list out items in other removable backpacks
+		for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
+			if (const Bag* const p_bag = dynamic_cast<Bag*>(self->GetItemByPos(INVENTORY_SLOT_BAG_0, bag)))
+				for (uint32 slot = 0; slot < p_bag->GetBagSize(); ++slot)
+					if (Item* const p_item = self->GetItemByPos(bag, slot))
+						if (p_item && name.find(p_item->GetProto()->Name1) != std::string::npos)
+							return p_item;
+
+		return nullptr;
+	};
 	player_type["cast"] = [&](Player* self, Unit* target, const uint32 spellId)
 	{
-		if (!target)
-			return SPELL_FAILED_BAD_TARGETS;
-
-		if (spellId == 0)
-			return SPELL_NOT_FOUND;
-
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return SPELL_NOT_FOUND; // no good option here
-
-		// verify spell exists
-		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-		if (!p_spell_info)
-		{
-			return SPELL_NOT_FOUND;
-		}
-
-		// verify spell is ready
-		if (!self->IsSpellReady(*p_spell_info))
+		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
 			return SPELL_FAILED_NOT_READY;
 
-		// verify caster can afford to cast
-		const auto tmp_spell = new Spell(self, p_spell_info, false);
-		if (const SpellCastResult res = tmp_spell->CheckPower(true); res != SPELL_CAST_OK)
-			return res;
+		return Cast(self, target, spellId);
+	};
+	player_type["force_cast"] = [&](Player* self, Unit* target, const uint32 spellId)
+	{
+		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
+			return SPELL_FAILED_NOT_READY;
 
-		if (const SpellCastResult power_check_result = tmp_spell->CheckPower(true); power_check_result != SPELL_CAST_OK)
-			return power_check_result;
-
-		// set target to self if spell is positive and target is enemy
-		if (IsPositiveSpell(spellId))
-		{
-			if (target && self->CanAttack(target))
-				return SPELL_FAILED_TARGET_ENEMY;
-		}
-		else
-		{
-			// Can't cast hostile spell on friendly unit
-			if (target && self->CanAssist(target))
-				return SPELL_FAILED_TARGET_FRIENDLY;
-		}
-
-		// Check line of sight
-		if (!self->IsWithinLOSInMap(target))
-			return SPELL_FAILED_LINE_OF_SIGHT;
-
-		const SpellRangeEntry* temp_range = GetSpellRangeStore()->LookupEntry(p_spell_info->rangeIndex);
-
-		//Spell has invalid range store so we can't use it
-		if (!temp_range)
-			return SPELL_FAILED_OUT_OF_RANGE;
-
-		if (!(temp_range->minRange == 0.0f && temp_range->maxRange == 0.0f))
-			//Unit is out of range of this spell
-			if (!self->IsInRange(target, temp_range->minRange, temp_range->maxRange))
-				return SPELL_FAILED_OUT_OF_RANGE;
-
-		// stop movement to prevent cancel spell casting
-		if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
-			LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
-		{
-			// only stop moving if spell is not instant
-			if (cast_time_entry->CastTime > 0)
-				self->StopMoving();
-		}
-
-		if (!self->HasInArc(target, M_PI_F / 2))
-			self->SetFacingTo(self->GetAngle(target));
-
-		return self->CastSpell(target, p_spell_info, TRIGGERED_NONE);
+		return Cast(self, target, spellId);
 	};	
 };
 
@@ -676,49 +636,18 @@ void PlayerbotMgr::InitLuaUnitType()
 		const Powers power = self->GetPowerType();
 		return self->GetMaxPower(power);
 	});
-	unit_type["current_cast"] = sol::property([](const Unit* self)
+	unit_type["current_cast"] = sol::property([&](const Unit* self)
 	{
-		const auto current_spell = self->GetCurrentSpell(CURRENT_GENERIC_SPELL);
-
-		if (!current_spell)
-			return 0;
-
-		const auto current_spell_info = current_spell->m_spellInfo;
-
-		if (!current_spell_info)
-			return 0;
-
-		return static_cast<int>(current_spell_info->Id);
+		return CurrentCast(self, CURRENT_GENERIC_SPELL);
 	});
-	unit_type["current_auto_attack"] = sol::property([](const Unit* self)
+	unit_type["current_auto_attack"] = sol::property([&](const Unit* self)
 	{
-		const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
-
-		if (!current_spell)
-			return 0;
-
-		const auto current_spell_info = current_spell->m_spellInfo;
-
-		if (!current_spell_info)
-			return 0;
-
-		return static_cast<int>(current_spell_info->Id);
+			return CurrentCast(self, CURRENT_AUTOREPEAT_SPELL);
 	});
-	unit_type["current_channel"] = sol::property([](const Unit* self)
+	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
-		const auto current_spell = self->GetCurrentSpell(CURRENT_CHANNELED_SPELL);
-
-		if (!current_spell)
-			return 0;
-
-		const auto current_spell_info = current_spell->m_spellInfo;
-
-		if (!current_spell_info)
-			return 0;
-
-		return static_cast<int>(current_spell_info->Id);
+			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
 	});
-
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
 		if (!target)
@@ -1216,6 +1145,94 @@ void PlayerbotMgr::InitLuaItemType()
 	};
 }
 
+SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId) const
+{
+	if (!target)
+		return SPELL_FAILED_BAD_TARGETS;
+
+	if (spellId == 0)
+		return SPELL_NOT_FOUND;
+
+	if (const auto ai = bot->GetPlayerbotAI(); !ai)
+		return SPELL_FAILED_ERROR; // no good option here
+
+	// verify spell exists
+	const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+	if (!p_spell_info)
+	{
+		return SPELL_NOT_FOUND;
+	}
+
+	// verify spell is ready
+	if (!bot->IsSpellReady(*p_spell_info))
+		return SPELL_FAILED_NOT_READY;
+
+	// verify caster can afford to cast
+	const auto tmp_spell = new Spell(bot, p_spell_info, false);
+	if (const SpellCastResult res = tmp_spell->CheckPower(true); res != SPELL_CAST_OK)
+		return res;
+
+	if (const SpellCastResult power_check_result = tmp_spell->CheckPower(true); power_check_result != SPELL_CAST_OK)
+		return power_check_result;
+
+	// set target to self if spell is positive and target is enemy
+	if (IsPositiveSpell(spellId))
+	{
+		if (target && bot->CanAttack(target))
+			return SPELL_FAILED_TARGET_ENEMY;
+	}
+	else
+	{
+		// Can't cast hostile spell on friendly unit
+		if (target && bot->CanAssist(target))
+			return SPELL_FAILED_TARGET_FRIENDLY;
+	}
+
+	// Check line of sight
+	if (!bot->IsWithinLOSInMap(target))
+		return SPELL_FAILED_LINE_OF_SIGHT;
+
+	const SpellRangeEntry* temp_range = GetSpellRangeStore()->LookupEntry(p_spell_info->rangeIndex);
+
+	//Spell has invalid range store so we can't use it
+	if (!temp_range)
+		return SPELL_FAILED_OUT_OF_RANGE;
+
+	if (!(temp_range->minRange == 0.0f && temp_range->maxRange == 0.0f))
+		//Unit is out of range of this spell
+		if (!bot->IsInRange(target, temp_range->minRange, temp_range->maxRange))
+			return SPELL_FAILED_OUT_OF_RANGE;
+
+	// stop movement to prevent cancel spell casting
+	if (const SpellCastTimesEntry* cast_time_entry = sSpellCastTimesStore.
+		LookupEntry(p_spell_info->CastingTimeIndex); cast_time_entry && cast_time_entry->CastTime)
+	{
+		// only stop moving if spell is not instant
+		if (cast_time_entry->CastTime > 0)
+			bot->StopMoving();
+	}
+
+	if (!bot->HasInArc(target, M_PI_F / 2))
+		bot->SetFacingTo(bot->GetAngle(target));
+
+	return bot->CastSpell(target, p_spell_info, TRIGGERED_NONE);
+}
+
+uint32 PlayerbotMgr::CurrentCast(const Unit* unit, const CurrentSpellTypes type)
+{
+	const auto current_spell = unit->GetCurrentSpell(type);
+
+	if (!current_spell)
+		return 0;
+
+	const auto current_spell_info = current_spell->m_spellInfo;
+
+	if (!current_spell_info)
+		return 0;
+
+	return static_cast<int>(current_spell_info->Id);
+}
+
 void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const ObjectGuid targetGuid) const
 {
 	if (!item)
@@ -1330,6 +1347,8 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 {
     switch (packet.GetOpcode())
     {
+		case CMSG_CAST_SPELL:
+
         case CMSG_OFFER_PETITION:
         {
             WorldPacket p(packet);
