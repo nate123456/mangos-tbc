@@ -1354,15 +1354,23 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 		case CMSG_USE_ITEM:
 		{
 			WorldPacket p(packet);
+			p.rpos(0); // reset reader
 			uint8 bag_index, slot;
 			uint8 spell_index;                                      // item spell index which should be used
 			uint8 cast_count;                                       // next cast if exists (single or not)
 			ObjectGuid item_guid;
 
 			p >> bag_index >> slot >> spell_index >> cast_count >> item_guid;
-			if (item_guid == 100000)
+
+			Item* p_item = GetMaster()->GetItemByPos(bag_index, slot);
+			if (!p_item)
+				return;
+
+			if (p_item->GetObjectGuid() != item_guid)
+				return;
+
+			if (p_item->GetProto()->ItemId == 100000)
 			{
-				// client provided targets
 				SpellCastTargets targets;
 
 				p >> targets.ReadForCaster(GetMaster());
