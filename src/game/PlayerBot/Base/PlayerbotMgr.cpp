@@ -1099,17 +1099,22 @@ void PlayerbotMgr::InitLuaItemType()
 	});
 	item_type["ready"] = sol::property([](const Item* self)
 	{
-		const auto spell_id = self->GetSpell();
+		for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+		{
+			if (self->GetProto()->Spells[i].SpellId > 0)
+			{
+				const auto spell_id = self->GetProto()->Spells[i].SpellId;
 
-		if (!spell_id)
-			return false;
+				const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
 
-		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
+				if (!p_spell_info)
+					return false;
 
-		if (!p_spell_info)
-			return false;		
+				return self->GetOwner()->IsSpellReady(*p_spell_info);
+			}
+		}
 
-		return self->GetOwner()->IsSpellReady(*p_spell_info);
+		return false;
 	});
 	item_type["use_on_self"] = [&](Item* self)
 	{
@@ -1390,6 +1395,8 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 				p >> targets.ReadForCaster(GetMaster());
 
 				m_lastCommandPosition = targets.m_destPos;
+
+				m_master->GetMotionMaster()->MoveIdle();
 			}
 		}
 
