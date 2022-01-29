@@ -149,6 +149,9 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	// reset 'single-use' things
 	if (!m_lastActErrorMsg.empty())
 		m_lastActErrorMsg = "";
+
+	if (!m_lastCommandPosition.IsEmpty())
+		m_lastCommandPosition = Position();
 }
 
 void PlayerbotMgr::InitLua()
@@ -898,10 +901,11 @@ void PlayerbotMgr::InitLuaPositionType()
 	sol::usertype<Position> position_type = m_lua.new_usertype<Position>(
 		"position");
 
-	position_type["x"] = &Position::x;
-	position_type["y"] = &Position::y;
-	position_type["z"] = &Position::z;
-	position_type["o"] = &Position::o;
+	position_type["x"] = sol::property(&Position::x);
+	position_type["y"] = sol::property(&Position::y);
+	position_type["z"] = sol::property(&Position::z);
+	position_type["o"] = sol::property(&Position::o);
+	position_type["empty"] = sol::property(&Position::IsEmpty);
 
 	position_type["get_distance_between"] = [](const Position* self, const Position* other)
 	{
