@@ -327,7 +327,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->GetMotionMaster()->MovePoint(0, *pos);
+		self->GetMotionMaster()->MovePoint(0, *pos, FORCED_MOVEMENT_RUN);
 	};
 	player_type["interrupt"] = [](Player* self)
 	{
