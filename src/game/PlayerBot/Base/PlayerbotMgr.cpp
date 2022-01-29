@@ -580,6 +580,13 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return Cast(self, target, spellId);
 	};
+	player_type["cast_self"] = [&](Player* self, const uint32 spellId)
+	{
+		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
+			return SPELL_FAILED_NOT_READY;
+
+		return Cast(self, self, spellId);
+	};
 	player_type["force_cast"] = [&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (!target)
@@ -592,6 +599,16 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 
 		return Cast(self, target, spellId);
+	};
+	player_type["force_cast_self"] = [&](Player* self, const uint32 spellId)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return SPELL_FAILED_ERROR;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+		return Cast(self, self, spellId);
 	};
 };
 
