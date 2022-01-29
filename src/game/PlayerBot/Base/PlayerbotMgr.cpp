@@ -1356,14 +1356,16 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 {
     switch (packet.GetOpcode())
     {
-		case CMSG_CAST_SPELL:
+		case CMSG_USE_ITEM:
 		{
 			WorldPacket p(packet);
-			uint32 spell_id;
-			uint8  cast_count;
-			p >> spell_id;
-			p >> cast_count;
-			if (spell_id == 100000)
+			uint8 bag_index, slot;
+			uint8 spell_index;                                      // item spell index which should be used
+			uint8 cast_count;                                       // next cast if exists (single or not)
+			ObjectGuid item_guid;
+
+			p >> bag_index >> slot >> spell_index >> cast_count >> item_guid;
+			if (item_guid == 100000)
 			{
 				// client provided targets
 				SpellCastTargets targets;
