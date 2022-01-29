@@ -129,9 +129,9 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	if (const sol::protected_function_result act_result = act_func(time, bots, m_lastManagerMessage,
-	                                                               m_lastCommandPosition); !act_result.
-		valid())
+	const auto test = m_lastCommandPosition->IsEmpty() ? nullptr : m_lastCommandPosition;
+
+	if (const auto act_result = act_func(time, bots, m_lastManagerMessage, test); !act_result.valid())
 	{
 		const sol::error error = act_result;
 
