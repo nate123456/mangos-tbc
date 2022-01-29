@@ -1116,18 +1116,18 @@ void PlayerbotMgr::InitLuaItemType()
 	});
 	item_type["ready"] = sol::property([](const Item* self)
 	{
-		for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+		for (const auto& spell : self->GetProto()->Spells)
 		{
-			if (self->GetProto()->Spells[i].SpellId > 0)
+			if (spell.SpellId > 0)
 			{
-				const auto spell_id = self->GetProto()->Spells[i].SpellId;
+				const auto spell_id = spell.SpellId;
 
 				const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
 
 				if (!p_spell_info)
 					return false;
 
-				return self->GetOwner()->IsSpellReady(*p_spell_info);
+				return self->GetOwner()->IsSpellReady(*p_spell_info, self->GetProto());
 			}
 		}
 
