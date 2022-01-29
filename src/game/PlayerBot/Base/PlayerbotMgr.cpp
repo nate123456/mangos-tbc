@@ -1362,7 +1362,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 
 			p >> bag_index >> slot >> spell_index >> cast_count >> item_guid;
 
-			Item* p_item = GetMaster()->GetItemByPos(bag_index, slot);
+			Item* p_item = m_master->GetItemByPos(bag_index, slot);
 			if (!p_item)
 				return;
 
