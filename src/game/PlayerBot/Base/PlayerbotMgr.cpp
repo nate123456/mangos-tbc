@@ -336,6 +336,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return;
 
 		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 	};
 	player_type["move_to_point"] = [](Player* self, const float x, const float y, const float z)
 	{
@@ -572,8 +573,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 	};
 	player_type["force_cast"] = [&](Player* self, Unit* target, const uint32 spellId)
 	{
-		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
-			return SPELL_FAILED_NOT_READY;
+		if (!target)
+			return SPELL_FAILED_BAD_TARGETS;
+
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return SPELL_FAILED_ERROR;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 
 		return Cast(self, target, spellId);
 	};
