@@ -101,7 +101,6 @@ class PlayerbotMgr
         void OnBotLogin(Player* const bot);
         void Stay();
         void SetLuaMasterMessage(const std::string& message) { m_lastManagerMessage = message; }
-        void ResetLuaMasterMessage() { m_lastManagerMessage = ""; }
 
     public:
         // config variables
@@ -131,6 +130,7 @@ class PlayerbotMgr
         sol::environment m_luaEnvironment;
         std::string m_lastActErrorMsg;
         std::string m_lastManagerMessage;
+        Position* m_lastCommandPosition;
         ChatHandler m_masterChatHandler;
 };
 

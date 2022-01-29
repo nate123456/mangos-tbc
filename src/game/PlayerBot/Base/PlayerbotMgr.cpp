@@ -146,12 +146,13 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	// messages should be cleared after AI has had a chance to process it
 	for (const auto& bot : bots)
 		bot->GetPlayerbotAI()->ResetLastMessage();
-
-	ResetLuaMasterMessage();
-
-	// reset error message members if no errors occurred.
+	
+	// reset 'single-use' things
 	if (!m_lastActErrorMsg.empty())
 		m_lastActErrorMsg = "";
+
+	if (m_lastCommandPosition)
+		m_lastCommandPosition = nullptr;
 }
 
 void PlayerbotMgr::InitLua()
@@ -575,7 +576,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return SPELL_FAILED_NOT_READY;
 
 		return Cast(self, target, spellId);
-	};	
+	};
 };
 
 void PlayerbotMgr::InitLuaUnitType()
@@ -1348,6 +1349,22 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
     switch (packet.GetOpcode())
     {
 		case CMSG_CAST_SPELL:
+		{
+			WorldPacket p(packet);
+			uint32 spell_id;
+			uint8  cast_count;
+			p >> spell_id;
+			p >> cast_count;
+			if (spell_id == 100000)
+			{
+				// client provided targets
+				SpellCastTargets targets;
+
+				p >> targets.ReadForCaster(GetMaster());
+
+				m_lastCommandPosition = &targets.m_destPos;
+			}
+		}
 
         case CMSG_OFFER_PETITION:
         {
