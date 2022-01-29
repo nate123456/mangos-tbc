@@ -129,9 +129,7 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	const auto test = m_lastCommandPosition->IsEmpty() ? nullptr : m_lastCommandPosition;
-
-	if (const auto act_result = act_func(time, bots, m_lastManagerMessage, test); !act_result.valid())
+	if (const auto act_result = act_func(time, bots, m_lastManagerMessage, m_lastCommandPosition); !act_result.valid())
 	{
 		const sol::error error = act_result;
 
@@ -151,9 +149,6 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	// reset 'single-use' things
 	if (!m_lastActErrorMsg.empty())
 		m_lastActErrorMsg = "";
-
-	if (m_lastCommandPosition)
-		m_lastCommandPosition = nullptr;
 }
 
 void PlayerbotMgr::InitLua()
@@ -1372,7 +1367,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 
 				p >> targets.ReadForCaster(GetMaster());
 
-				m_lastCommandPosition = &targets.m_destPos;
+				m_lastCommandPosition = targets.m_destPos;
 			}
 		}
 

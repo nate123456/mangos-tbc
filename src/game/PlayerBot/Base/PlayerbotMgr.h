@@ -130,7 +130,7 @@ class PlayerbotMgr
         sol::environment m_luaEnvironment;
         std::string m_lastActErrorMsg;
         std::string m_lastManagerMessage;
-        Position* m_lastCommandPosition;
+        Position m_lastCommandPosition;
         ChatHandler m_masterChatHandler;
 };
 
