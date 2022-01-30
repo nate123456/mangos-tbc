@@ -2727,7 +2727,7 @@ reload <NAME>: re-download script from same url)");
             return false;
         }
         CharacterDatabase.DirectPExecute("UPDATE characters SET online = 1 WHERE guid = '%u'", guid.GetCounter());
-        mgr->LoginPlayerBot(guid);
+        mgr->LoginPlayerBot(guid, m_session->GetAccountId());
         PSendSysMessage("Bot added successfully.");
     }
     else if (cmdStr == "remove" || cmdStr == "logout")

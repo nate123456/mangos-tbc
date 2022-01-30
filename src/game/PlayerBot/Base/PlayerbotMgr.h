@@ -86,7 +86,7 @@ class PlayerbotMgr
         void HandleMasterIncomingPacket(const WorldPacket& packet);
         void HandleMasterOutgoingPacket(const WorldPacket& packet) const;
 
-        void LoginPlayerBot(ObjectGuid guid);
+        void LoginPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId);
         void LogoutPlayerBot(ObjectGuid guid);          // mark bot to be removed on next update
         Player* GetPlayerBot(ObjectGuid guid) const;
         Player* GetMaster() const { return m_master; }

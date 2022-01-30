@@ -12497,7 +12497,7 @@ void Player::OnGossipSelect(WorldObject* pSource, uint32 gossipListId, uint32 me
                 if (resultchar)
                 {
                     Field* fields = resultchar->Fetch();
-                    int maxnum = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
+                    int maxnum = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 40);
                     int acctcharcount = fields[0].GetUInt32();
                     if (!(m_session->GetSecurity() > SEC_PLAYER))
                         if (acctcharcount > maxnum)
@@ -12525,7 +12525,7 @@ void Player::OnGossipSelect(WorldObject* pSource, uint32 gossipListId, uint32 me
                 }
                 delete resultlvl;
 
-                GetPlayerbotMgr()->LoginPlayerBot(ObjectGuid(HIGHGUID_PLAYER, guidlo));
+                GetPlayerbotMgr()->LoginPlayerBot(ObjectGuid(HIGHGUID_PLAYER, guidlo), m_session->GetAccountId());
                 this->ModifyMoney(-(int32)cost);
             }
             return;
