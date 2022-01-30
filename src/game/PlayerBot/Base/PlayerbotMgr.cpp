@@ -218,6 +218,10 @@ void PlayerbotMgr::InitLuaMembers()
 {
 	m_lua["Master"] = GetMaster();
 	m_lua["PI"] = M_PI_F;
+	m_lua["Time"] = sol::property([&]()
+	{
+			return static_cast<uint32>(time(nullptr));
+	});
 }
 
 void PlayerbotMgr::InitLuaFunctions()
