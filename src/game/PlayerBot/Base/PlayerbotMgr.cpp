@@ -219,7 +219,7 @@ void PlayerbotMgr::InitLuaMembers()
 	m_lua["PI"] = M_PI_F;
 	m_lua["Time"] = sol::property([&]()
 	{
-			return static_cast<uint32>(time(nullptr));
+		return time(nullptr);
 	});
 }
 
@@ -316,19 +316,43 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 		return sol::tie(x, y, z);
 	});
-
 	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
 	{
-		if (!self)
-			return;
-
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->GetMotionMaster()->Clear();
+		const auto motion_master = self->GetMotionMaster();
+
+		motion_master->Clear();
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		target->GetPosition();
-		self->GetMotionMaster()->MoveFollow(target, dist, angle);
+		motion_master->MoveFollow(target, dist, angle);
+	};
+	player_type["stand"] = [](Player* self)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+	};
+	player_type["sit"] = [](Player* self)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		if (self->getStandState() != UNIT_STAND_STATE_SIT)
+			self->SetStandState(UNIT_STAND_STATE_SIT);
+	};
+	player_type["kneel"] = [](Player* self)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		if (self->getStandState() != UNIT_STAND_STATE_KNEEL)
+			self->SetStandState(UNIT_STAND_STATE_KNEEL);
 	};
 	player_type["move_to_pos"] = [](Player* self, const Position* pos)
 	{
