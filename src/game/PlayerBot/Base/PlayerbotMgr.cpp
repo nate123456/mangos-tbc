@@ -129,7 +129,12 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	if (const auto act_result = act_func(time, bots, m_lastManagerMessage, m_lastCommandPosition); !act_result.valid())
+	m_luaEnvironment["Time"] = time;
+	m_luaEnvironment["Command_message"] = m_lastManagerMessage;
+	m_luaEnvironment["Command_position"] = m_lastCommandPosition;
+	m_luaEnvironment["Bots"] = bots;
+
+	if (const auto act_result = act_func(); !act_result.valid())
 	{
 		const sol::error error = act_result;
 
