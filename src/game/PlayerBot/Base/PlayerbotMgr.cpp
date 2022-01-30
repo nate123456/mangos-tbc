@@ -324,10 +324,12 @@ void PlayerbotMgr::InitLuaPlayerType()
 		const auto motion_master = self->GetMotionMaster();
 
 		motion_master->Clear();
+
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		target->GetPosition();
+
 		motion_master->MoveFollow(target, dist, angle);
 	};
 	player_type["stand"] = [](Player* self)
@@ -362,9 +364,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->GetMotionMaster()->Clear();
+		const auto motion_master = self->GetMotionMaster();
 
-		self->GetMotionMaster()->MovePoint(0, *pos, FORCED_MOVEMENT_RUN);
+		motion_master->Clear();
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+
+		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN);
 	};
 	player_type["interrupt"] = [](Player* self)
 	{
@@ -379,9 +386,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->GetMotionMaster()->Clear();
+		const auto motion_master = self->GetMotionMaster();
 
-		self->GetMotionMaster()->MovePoint(0, x, y, z);
+		motion_master->Clear();
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+
+		motion_master->MovePoint(0, x, y, z);
 	};
 	player_type["move_to_target"] = [](Player* self, const Unit* target)
 	{
@@ -391,11 +403,16 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->GetMotionMaster()->Clear();
+		const auto motion_master = self->GetMotionMaster();
+
+		motion_master->Clear();
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		float x, y, z;
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-		self->GetMotionMaster()->MovePoint(0, x, y, z);
+		motion_master->MovePoint(0, x, y, z);
 	};
 	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
 	{
@@ -405,9 +422,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->GetMotionMaster()->Clear();
+		const auto motion_master = self->GetMotionMaster();
 
-		self->GetMotionMaster()->MoveChase(target, distance, angle);
+		motion_master->Clear();
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+
+		motion_master->MoveChase(target, distance, angle);
 	};
 	player_type["set_chase_distance"] = [](Player* self, const float distance)
 	{
@@ -421,14 +443,22 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
+		const auto motion_master = self->GetMotionMaster();
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+
 		// not sure which one is better yet, clear seem to be used more frequently...
 		// self->GetMotionMaster()->Initialize();
-		self->GetMotionMaster()->Clear();
+		motion_master->Clear();
 	};
 	player_type["stop"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		self->StopMoving();
 	};
@@ -439,6 +469,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		float x, y, z;
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
