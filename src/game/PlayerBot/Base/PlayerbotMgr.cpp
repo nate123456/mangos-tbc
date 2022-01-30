@@ -2654,13 +2654,13 @@ reload <NAME>: re-download script from same url)");
         return false;
     }
 
-    uint32 accountId = sObjectMgr.GetPlayerAccountIdByGUID(guid);
+    /*uint32 accountId = sObjectMgr.GetPlayerAccountIdByGUID(guid);
     if (accountId != m_session->GetAccountId())
     {
         PSendSysMessage("|cffff0000You may only add bots from the same account.");
         SetSentErrorMessage(true);
         return false;
-    }
+    }*/
 
     // create the playerbot manager if it doesn't already exist
     PlayerbotMgr* mgr = m_session->GetPlayer()->GetPlayerbotMgr();
@@ -2675,7 +2675,7 @@ reload <NAME>: re-download script from same url)");
     {
         Field* fields = resultchar->Fetch();
         int acctcharcount = fields[0].GetUInt32();
-        int maxnum = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
+        int maxnum = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 40);
         if (!(m_session->GetSecurity() > SEC_PLAYER))
             if (acctcharcount > maxnum && (cmdStr == "add" || cmdStr == "login"))
             {
