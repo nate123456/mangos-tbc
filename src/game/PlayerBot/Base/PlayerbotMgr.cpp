@@ -1405,15 +1405,13 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 			if (p_item->GetObjectGuid() != item_guid)
 				return;
 
-			if (p_item->GetProto()->ItemId == 100000)
+			if (p_item->GetProto()->ItemId == 666666)
 			{
 				SpellCastTargets targets;
 
 				p >> targets.ReadForCaster(GetMaster());
 
 				m_lastCommandPosition = targets.m_destPos;
-
-				m_master->GetMotionMaster()->MoveIdle();
 			}
 		}
 
