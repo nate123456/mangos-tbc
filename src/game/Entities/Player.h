@@ -1420,7 +1420,7 @@ class Player : public Unit
         /***                   LOAD SYSTEM                     ***/
         /*********************************************************/
 
-        bool LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder);
+        bool LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder, bool checkAccountMatch = true);
 
         static uint32 GetZoneIdFromDB(ObjectGuid guid);
         static uint32 GetLevelFromDB(ObjectGuid guid);
