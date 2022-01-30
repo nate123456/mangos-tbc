@@ -155,7 +155,7 @@ class CharacterHandler
             // The bot's WorldSession is deleted by PlayerbotMgr::LogoutPlayerBot
             WorldSession* botSession = new WorldSession(lqh->GetAccountId(), nullptr, SEC_PLAYER, masterSession->GetExpansion(), 0, DEFAULT_LOCALE, masterSession->GetAccountName(), 0, masterSession->GetRecruitingFriendId(), false);
             botSession->SetNoAnticheat();
-            botSession->HandlePlayerLogin(lqh); // will delete lqh
+            botSession->HandlePlayerLogin(lqh, false); // will delete lqh
             masterSession->GetPlayer()->GetPlayerbotMgr()->OnBotLogin(botSession->GetPlayer());
         }
 #endif
@@ -575,7 +575,7 @@ void PlayerbotMgr::LoginPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId)
 }
 #endif
 
-void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
+void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder, const bool checkAccountMatch)
 {
     ObjectGuid playerGuid = holder->GetGuid();
 
@@ -588,7 +588,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     SetOnline();
 
     // "GetAccountId()==db stored account id" checked in LoadFromDB (prevent login not own character using cheating tools)
-    if (!pCurrChar->LoadFromDB(playerGuid, holder))
+    if (checkAccountMatch && !pCurrChar->LoadFromDB(playerGuid, holder))
     {
         KickPlayer();                                       // disconnect client, player no set to session and it will not deleted or saved at kick
         // also deletes player
