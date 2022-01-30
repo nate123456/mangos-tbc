@@ -14851,7 +14851,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder, const bool chec
 
     // check if the character's account in the db and the logged in account match.
     // player should be able to load/delete character only with correct account!
-    if (!checkAccountMatch && dbAccountId != GetSession()->GetAccountId())
+    if (checkAccountMatch && dbAccountId != GetSession()->GetAccountId())
     {
         sLog.outError("%s loading from wrong account (is: %u, should be: %u)",
                       guid.GetString().c_str(), GetSession()->GetAccountId(), dbAccountId);
