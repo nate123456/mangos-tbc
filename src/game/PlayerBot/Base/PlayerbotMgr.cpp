@@ -129,7 +129,6 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	m_luaEnvironment["Time"] = time;
 	m_luaEnvironment["Command_message"] = m_lastManagerMessage;
 	m_luaEnvironment["Command_position"] = m_lastCommandPosition;
 	m_luaEnvironment["Bots"] = bots;
