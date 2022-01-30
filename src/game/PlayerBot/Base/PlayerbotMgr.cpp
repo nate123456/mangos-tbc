@@ -573,6 +573,24 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return nullptr;
 	};
+	player_type["get_item_by_id"] = [](const Player* self, const uint32 itemId)-> Item*
+	{
+		// list out items in main backpack
+		for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; slot++)
+			if (Item* const p_item = self->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+				if (p_item && p_item->GetProto()->ItemId == itemId)
+					return p_item;
+
+		// list out items in other removable backpacks
+		for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
+			if (const Bag* const p_bag = dynamic_cast<Bag*>(self->GetItemByPos(INVENTORY_SLOT_BAG_0, bag)))
+				for (uint32 slot = 0; slot < p_bag->GetBagSize(); ++slot)
+					if (Item* const p_item = self->GetItemByPos(bag, slot))
+						if (p_item && p_item->GetProto()->ItemId == itemId)
+							return p_item;
+
+		return nullptr;
+	};	
 	player_type["cast"] = [&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
