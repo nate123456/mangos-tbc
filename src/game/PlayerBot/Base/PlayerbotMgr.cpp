@@ -982,6 +982,7 @@ void PlayerbotMgr::InitLuaUnitType()
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
 	});
+
 	unit_type["IsAttackedBy"] = [](const Unit* self, Unit* target)
 	{
 		if (!target)
@@ -1044,7 +1045,7 @@ void PlayerbotMgr::InitLuaCreatureType()
 	                                                                     sol::bases<Unit, WorldObject, Object>());
 
 	creature_type["IsElite"] = sol::property(&Creature::IsElite);
-	creature_type["IsWorld_boss"] = sol::property(&Creature::IsWorldBoss);
+	creature_type["IsWorldBoss"] = sol::property(&Creature::IsWorldBoss);
 	creature_type["CanAggro"] = sol::property(&Creature::CanAggro);
 	creature_type["IsTotem"] = sol::property(&Creature::IsTotem);
 	creature_type["IsInvisible"] = sol::property(&Creature::IsInvisible);
@@ -1426,6 +1427,7 @@ void PlayerbotMgr::InitLuaItemType()
 
 		return false;
 	});
+
 	item_type["Use"] = sol::overload([&](Item* self)
 	{
 		Player* owner = self->GetOwner();
