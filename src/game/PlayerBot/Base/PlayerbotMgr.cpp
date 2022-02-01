@@ -244,7 +244,7 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return IsPositiveSpell(spellId);
 	};
-	m_lua["Time"] = [&]	{ return time(nullptr);	};
+	m_lua["Time"] = sol::property([&] { return time(nullptr);	});
 	m_lua.set_function("print",
 	                   sol::overload(
 		                   [this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
