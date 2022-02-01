@@ -217,20 +217,19 @@ void PlayerbotMgr::InitLuaMembers()
 {
 	m_lua["Master"] = GetMaster();
 	m_lua["PI"] = M_PI_F;
+
+	m_lua["Raid_icons"]["star"] = sol::property([&] {return GetRaidIcon(0); });
+	m_lua["Raid_icons"]["circle"] = sol::property([&] {return GetRaidIcon(1); });
+	m_lua["Raid_icons"]["diamond"] = sol::property([&] {return GetRaidIcon(2); });
+	m_lua["Raid_icons"]["triangle"] = sol::property([&] {return GetRaidIcon(3); });
+	m_lua["Raid_icons"]["moon"] = sol::property([&] {return GetRaidIcon(4); });
+	m_lua["Raid_icons"]["square"] = sol::property([&] {return GetRaidIcon(5); });
+	m_lua["Raid_icons"]["cross"] = sol::property([&] {return GetRaidIcon(6); });
+	m_lua["Raid_icons"]["skull"] = sol::property([&] {return GetRaidIcon(7); m_masterChatHandler.PSendSysMessage("[AI] %s", "Called"); });
 }
 
 void PlayerbotMgr::InitLuaFunctions()
 {
-	m_lua["Get_raid_icon"] = [&](const uint8 iconIndex)-> Unit*
-	{
-		if (iconIndex < 0 || iconIndex > 7)
-			return nullptr;
-
-		if (const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(iconIndex))
-			return GetMaster()->GetMap()->GetUnit(*guid);
-
-		return nullptr;
-	};
 	m_lua["Spell_exists"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
@@ -248,7 +247,7 @@ void PlayerbotMgr::InitLuaFunctions()
 	m_lua["Time"] = [&]	{ return time(nullptr);	};
 	m_lua.set_function("print",
 	                   sol::overload(
-		                   [this](const char* msg) { ChatHandler(m_master).PSendSysMessage("[AI] %s", msg); }
+		                   [this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
 	                   ));
 }
 
@@ -392,6 +391,19 @@ void PlayerbotMgr::InitLuaPlayerType()
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		motion_master->MovePoint(0, x, y, z);
+	}, [](Player* self, const Position* pos)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		const auto motion_master = self->GetMotionMaster();
+
+		motion_master->Clear();
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+
+		motion_master->MovePoint(0, pos->x, pos->y, pos->z);
 	}, [](Player* self, const Unit* target)
 	{
 		if (!target)
@@ -1250,6 +1262,17 @@ void PlayerbotMgr::InitLuaItemType()
 
 		UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
 	});
+}
+
+Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const
+{
+	if (iconIndex < 0 || iconIndex > 7)
+		return nullptr;
+
+	if (const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(iconIndex))
+		return GetMaster()->GetMap()->GetUnit(*guid);
+
+	return nullptr;
 }
 
 SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId) const
