@@ -188,6 +188,8 @@ void PlayerbotMgr::InitLua()
 
 	InitializeLuaEnvironment();
 
+	m_lua.script("str = tostring num = tonumber");
+
 	m_lua.script("print('[DEBUG] LUA has been initialized.')");
 }
 
@@ -237,9 +239,207 @@ void PlayerbotMgr::InitLuaMembers()
 	class_enum[10] = "Paladin";
 	class_enum[11] = "Shaman";
 
+	FlipLuaTable("Class");
+
 	sol::table spell_result_enum = m_lua.create_table("SpellResult");
 
-	spell_result_enum[3] = "Mage";
+	spell_result_enum[0] = "SPELL_FAILED_AFFECTING_COMBAT";
+	spell_result_enum[1] = "SPELL_FAILED_ALREADY_AT_FULL_HEALTH";
+	spell_result_enum[2] = "SPELL_FAILED_ALREADY_AT_FULL_MANA";
+	spell_result_enum[3] = "SPELL_FAILED_ALREADY_AT_FULL_POWER";
+	spell_result_enum[4] = "SPELL_FAILED_ALREADY_BEING_TAMED";
+	spell_result_enum[5] = "SPELL_FAILED_ALREADY_HAVE_CHARM";
+	spell_result_enum[6] = "SPELL_FAILED_ALREADY_HAVE_SUMMON";
+	spell_result_enum[7] = "SPELL_FAILED_ALREADY_OPEN";
+	spell_result_enum[8] = "SPELL_FAILED_AURA_BOUNCED";
+	spell_result_enum[9] = "SPELL_FAILED_AUTOTRACK_INTERRUPTED";
+	spell_result_enum[10] = "SPELL_FAILED_BAD_IMPLICIT_TARGETS";
+	spell_result_enum[11] = "SPELL_FAILED_BAD_TARGETS";
+	spell_result_enum[12] = "SPELL_FAILED_CANT_BE_CHARMED";
+	spell_result_enum[13] = "SPELL_FAILED_CANT_BE_DISENCHANTED";
+	spell_result_enum[14] = "SPELL_FAILED_CANT_BE_DISENCHANTED_SKILL";
+	spell_result_enum[15] = "SPELL_FAILED_CANT_BE_PROSPECTED";
+	spell_result_enum[16] = "SPELL_FAILED_CANT_CAST_ON_TAPPED";
+	spell_result_enum[17] = "SPELL_FAILED_CANT_DUEL_WHILE_INVISIBLE";
+	spell_result_enum[18] = "SPELL_FAILED_CANT_DUEL_WHILE_STEALTHED";
+	spell_result_enum[19] = "SPELL_FAILED_CANT_STEALTH";
+	spell_result_enum[20] = "SPELL_FAILED_CASTER_AURASTATE";
+	spell_result_enum[21] = "SPELL_FAILED_CASTER_DEAD";
+	spell_result_enum[22] = "SPELL_FAILED_CHARMED";
+	spell_result_enum[23] = "SPELL_FAILED_CHEST_IN_USE";
+	spell_result_enum[24] = "SPELL_FAILED_CONFUSED";
+	spell_result_enum[25] = "SPELL_FAILED_DONT_REPORT";
+	spell_result_enum[26] = "SPELL_FAILED_EQUIPPED_ITEM";
+	spell_result_enum[27] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS";
+	spell_result_enum[28] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS_MAINHAND";
+	spell_result_enum[29] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS_OFFHAND";
+	spell_result_enum[30] = "SPELL_FAILED_ERROR";
+	spell_result_enum[31] = "SPELL_FAILED_FIZZLE";
+	spell_result_enum[32] = "SPELL_FAILED_FLEEING";
+	spell_result_enum[33] = "SPELL_FAILED_FOOD_LOWLEVEL";
+	spell_result_enum[34] = "SPELL_FAILED_HIGHLEVEL";
+	spell_result_enum[35] = "SPELL_FAILED_HUNGER_SATIATED";
+	spell_result_enum[36] = "SPELL_FAILED_IMMUNE";
+	spell_result_enum[37] = "SPELL_FAILED_INTERRUPTED";
+	spell_result_enum[38] = "SPELL_FAILED_INTERRUPTED_COMBAT";
+	spell_result_enum[39] = "SPELL_FAILED_ITEM_ALREADY_ENCHANTED";
+	spell_result_enum[40] = "SPELL_FAILED_ITEM_GONE";
+	spell_result_enum[41] = "SPELL_FAILED_ITEM_NOT_FOUND";
+	spell_result_enum[42] = "SPELL_FAILED_ITEM_NOT_READY";
+	spell_result_enum[43] = "SPELL_FAILED_LEVEL_REQUIREMENT";
+	spell_result_enum[44] = "SPELL_FAILED_LINE_OF_SIGHT";
+	spell_result_enum[45] = "SPELL_FAILED_LOWLEVEL";
+	spell_result_enum[46] = "SPELL_FAILED_LOW_CASTLEVEL";
+	spell_result_enum[47] = "SPELL_FAILED_MAINHAND_EMPTY";
+	spell_result_enum[48] = "SPELL_FAILED_MOVING";
+	spell_result_enum[49] = "SPELL_FAILED_NEED_AMMO";
+	spell_result_enum[50] = "SPELL_FAILED_NEED_AMMO_POUCH";
+	spell_result_enum[51] = "SPELL_FAILED_NEED_EXOTIC_AMMO";
+	spell_result_enum[52] = "SPELL_FAILED_NOPATH";
+	spell_result_enum[53] = "SPELL_FAILED_NOT_BEHIND";
+	spell_result_enum[54] = "SPELL_FAILED_NOT_FISHABLE";
+	spell_result_enum[55] = "SPELL_FAILED_NOT_FLYING";
+	spell_result_enum[56] = "SPELL_FAILED_NOT_HERE";
+	spell_result_enum[57] = "SPELL_FAILED_NOT_INFRONT";
+	spell_result_enum[58] = "SPELL_FAILED_NOT_IN_CONTROL";
+	spell_result_enum[59] = "SPELL_FAILED_NOT_KNOWN";
+	spell_result_enum[60] = "SPELL_FAILED_NOT_MOUNTED";
+	spell_result_enum[61] = "SPELL_FAILED_NOT_ON_TAXI";
+	spell_result_enum[62] = "SPELL_FAILED_NOT_ON_TRANSPORT";
+	spell_result_enum[63] = "SPELL_FAILED_NOT_READY";
+	spell_result_enum[64] = "SPELL_FAILED_NOT_SHAPESHIFT";
+	spell_result_enum[65] = "SPELL_FAILED_NOT_STANDING";
+	spell_result_enum[66] = "SPELL_FAILED_NOT_TRADEABLE";
+	spell_result_enum[67] = "SPELL_FAILED_NOT_TRADING";
+	spell_result_enum[68] = "SPELL_FAILED_NOT_UNSHEATHED";
+	spell_result_enum[69] = "SPELL_FAILED_NOT_WHILE_GHOST";
+	spell_result_enum[70] = "SPELL_FAILED_NO_AMMO";
+	spell_result_enum[71] = "SPELL_FAILED_NO_CHARGES_REMAIN";
+	spell_result_enum[72] = "SPELL_FAILED_NO_CHAMPION";
+	spell_result_enum[73] = "SPELL_FAILED_NO_COMBO_POINTS";
+	spell_result_enum[74] = "SPELL_FAILED_NO_DUELING";
+	spell_result_enum[75] = "SPELL_FAILED_NO_ENDURANCE";
+	spell_result_enum[76] = "SPELL_FAILED_NO_FISH";
+	spell_result_enum[77] = "SPELL_FAILED_NO_ITEMS_WHILE_SHAPESHIFTED";
+	spell_result_enum[78] = "SPELL_FAILED_NO_MOUNTS_ALLOWED";
+	spell_result_enum[79] = "SPELL_FAILED_NO_PET";
+	spell_result_enum[80] = "SPELL_FAILED_NO_POWER";
+	spell_result_enum[81] = "SPELL_FAILED_NOTHING_TO_DISPEL";
+	spell_result_enum[82] = "SPELL_FAILED_NOTHING_TO_STEAL";
+	spell_result_enum[83] = "SPELL_FAILED_ONLY_ABOVEWATER";
+	spell_result_enum[84] = "SPELL_FAILED_ONLY_DAYTIME";
+	spell_result_enum[85] = "SPELL_FAILED_ONLY_INDOORS";
+	spell_result_enum[86] = "SPELL_FAILED_ONLY_MOUNTED";
+	spell_result_enum[87] = "SPELL_FAILED_ONLY_NIGHTTIME";
+	spell_result_enum[88] = "SPELL_FAILED_ONLY_OUTDOORS";
+	spell_result_enum[89] = "SPELL_FAILED_ONLY_SHAPESHIFT";
+	spell_result_enum[90] = "SPELL_FAILED_ONLY_STEALTHED";
+	spell_result_enum[91] = "SPELL_FAILED_ONLY_UNDERWATER";
+	spell_result_enum[92] = "SPELL_FAILED_OUT_OF_RANGE";
+	spell_result_enum[93] = "SPELL_FAILED_PACIFIED";
+	spell_result_enum[94] = "SPELL_FAILED_POSSESSED";
+	spell_result_enum[95] = "SPELL_FAILED_REAGENTS";
+	spell_result_enum[96] = "SPELL_FAILED_REQUIRES_AREA";
+	spell_result_enum[97] = "SPELL_FAILED_REQUIRES_SPELL_FOCUS";
+	spell_result_enum[98] = "SPELL_FAILED_ROOTED";
+	spell_result_enum[99] = "SPELL_FAILED_SILENCED";
+	spell_result_enum[100] = "SPELL_FAILED_SPELL_IN_PROGRESS";
+	spell_result_enum[101] = "SPELL_FAILED_SPELL_LEARNED";
+	spell_result_enum[102] = "SPELL_FAILED_SPELL_UNAVAILABLE";
+	spell_result_enum[103] = "SPELL_FAILED_STUNNED";
+	spell_result_enum[104] = "SPELL_FAILED_TARGETS_DEAD";
+	spell_result_enum[105] = "SPELL_FAILED_TARGET_AFFECTING_COMBAT";
+	spell_result_enum[106] = "SPELL_FAILED_TARGET_AURASTATE";
+	spell_result_enum[107] = "SPELL_FAILED_TARGET_DUELING";
+	spell_result_enum[108] = "SPELL_FAILED_TARGET_ENEMY";
+	spell_result_enum[109] = "SPELL_FAILED_TARGET_ENRAGED";
+	spell_result_enum[110] = "SPELL_FAILED_TARGET_FRIENDLY";
+	spell_result_enum[111] = "SPELL_FAILED_TARGET_IN_COMBAT";
+	spell_result_enum[112] = "SPELL_FAILED_TARGET_IS_PLAYER";
+	spell_result_enum[113] = "SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED";
+	spell_result_enum[114] = "SPELL_FAILED_TARGET_NOT_DEAD";
+	spell_result_enum[115] = "SPELL_FAILED_TARGET_NOT_IN_PARTY";
+	spell_result_enum[116] = "SPELL_FAILED_TARGET_NOT_LOOTED";
+	spell_result_enum[117] = "SPELL_FAILED_TARGET_NOT_PLAYER";
+	spell_result_enum[118] = "SPELL_FAILED_TARGET_NO_POCKETS";
+	spell_result_enum[119] = "SPELL_FAILED_TARGET_NO_WEAPONS";
+	spell_result_enum[120] = "SPELL_FAILED_TARGET_UNSKINNABLE";
+	spell_result_enum[121] = "SPELL_FAILED_THIRST_SATIATED";
+	spell_result_enum[122] = "SPELL_FAILED_TOO_CLOSE";
+	spell_result_enum[123] = "SPELL_FAILED_TOO_MANY_OF_ITEM";
+	spell_result_enum[124] = "SPELL_FAILED_TOTEM_CATEGORY";
+	spell_result_enum[125] = "SPELL_FAILED_TOTEMS";
+	spell_result_enum[126] = "SPELL_FAILED_TRAINING_POINTS";
+	spell_result_enum[127] = "SPELL_FAILED_TRY_AGAIN";
+	spell_result_enum[128] = "SPELL_FAILED_UNIT_NOT_BEHIND";
+	spell_result_enum[129] = "SPELL_FAILED_UNIT_NOT_INFRONT";
+	spell_result_enum[130] = "SPELL_FAILED_WRONG_PET_FOOD";
+	spell_result_enum[131] = "SPELL_FAILED_NOT_WHILE_FATIGUED";
+	spell_result_enum[132] = "SPELL_FAILED_TARGET_NOT_IN_INSTANCE";
+	spell_result_enum[133] = "SPELL_FAILED_NOT_WHILE_TRADING";
+	spell_result_enum[134] = "SPELL_FAILED_TARGET_NOT_IN_RAID";
+	spell_result_enum[135] = "SPELL_FAILED_DISENCHANT_WHILE_LOOTING";
+	spell_result_enum[136] = "SPELL_FAILED_PROSPECT_WHILE_LOOTING";
+	spell_result_enum[137] = "SPELL_FAILED_PROSPECT_NEED_MORE";
+	spell_result_enum[138] = "SPELL_FAILED_TARGET_FREEFORALL";
+	spell_result_enum[139] = "SPELL_FAILED_NO_EDIBLE_CORPSES";
+	spell_result_enum[140] = "SPELL_FAILED_ONLY_BATTLEGROUNDS";
+	spell_result_enum[141] = "SPELL_FAILED_TARGET_NOT_GHOST";
+	spell_result_enum[142] = "SPELL_FAILED_TOO_MANY_SKILLS";
+	spell_result_enum[143] = "SPELL_FAILED_TRANSFORM_UNUSABLE";
+	spell_result_enum[144] = "SPELL_FAILED_WRONG_WEATHER";
+	spell_result_enum[145] = "SPELL_FAILED_DAMAGE_IMMUNE";
+	spell_result_enum[146] = "SPELL_FAILED_PREVENTED_BY_MECHANIC";
+	spell_result_enum[147] = "SPELL_FAILED_PLAY_TIME";
+	spell_result_enum[148] = "SPELL_FAILED_REPUTATION";
+	spell_result_enum[149] = "SPELL_FAILED_MIN_SKILL";
+	spell_result_enum[150] = "SPELL_FAILED_NOT_IN_ARENA";
+	spell_result_enum[151] = "SPELL_FAILED_NOT_ON_SHAPESHIFT";
+	spell_result_enum[152] = "SPELL_FAILED_NOT_ON_STEALTHED";
+	spell_result_enum[153] = "SPELL_FAILED_NOT_ON_DAMAGE_IMMUNE";
+	spell_result_enum[154] = "SPELL_FAILED_NOT_ON_MOUNTED";
+	spell_result_enum[155] = "SPELL_FAILED_TOO_SHALLOW";
+	spell_result_enum[156] = "SPELL_FAILED_TARGET_NOT_IN_SANCTUARY";
+	spell_result_enum[157] = "SPELL_FAILED_TARGET_IS_TRIVIAL";
+	spell_result_enum[158] = "SPELL_FAILED_BM_OR_INVISGOD";
+	spell_result_enum[159] = "SPELL_FAILED_EXPERT_RIDING_REQUIREMENT";
+	spell_result_enum[160] = "SPELL_FAILED_ARTISAN_RIDING_REQUIREMENT";
+	spell_result_enum[161] = "SPELL_FAILED_NOT_IDLE";
+	spell_result_enum[162] = "SPELL_FAILED_NOT_INACTIVE";
+	spell_result_enum[163] = "SPELL_FAILED_PARTIAL_PLAYTIME";
+	spell_result_enum[164] = "SPELL_FAILED_NO_PLAYTIME";
+	spell_result_enum[165] = "SPELL_FAILED_NOT_IN_BATTLEGROUND";
+	spell_result_enum[166] = "SPELL_FAILED_ONLY_IN_ARENA";
+	spell_result_enum[167] = "SPELL_FAILED_TARGET_LOCKED_TO_RAID_INSTANCE";
+	spell_result_enum[168] = "SPELL_FAILED_UNKNOWN";
+	spell_result_enum[253] = "SPELL_FAILED_PVP_CHECK";
+	spell_result_enum[254] = "SPELL_NOT_FOUND";
+	spell_result_enum[255] = "SPELL_CAST_OK";
+
+
+	FlipLuaTable("SpellResult");
+
+	sol::table equip_slot_enum = m_lua.create_table("EquipSlot");
+
+	equip_slot_enum["Head"] = 0;
+	equip_slot_enum["Neck"] = 1;
+	equip_slot_enum["Shoulders"] = 2;
+	equip_slot_enum["Chest"] = 4;
+	equip_slot_enum["Waist"] = 5;
+	equip_slot_enum["Legs"] = 6;
+	equip_slot_enum["Feet"] = 7;
+	equip_slot_enum["Wrists"] = 8;
+	equip_slot_enum["Hands"] = 9;
+	equip_slot_enum["Finger1"] = 10;
+	equip_slot_enum["Finger2"] = 11;
+	equip_slot_enum["Trinket1"] = 12;
+	equip_slot_enum["Trinket2"] = 13;
+	equip_slot_enum["Back"] = 14;
+	equip_slot_enum["Main Hand"] = 15;
+	equip_slot_enum["Off Hand"] = 16;
+	equip_slot_enum["Ranged"] = 17;
+
+	FlipLuaTable("EquipSlot");
 }
 
 void PlayerbotMgr::InitLuaFunctions()
@@ -251,13 +451,7 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
 	};
-	m_lua["CurrentTime"] = [](const uint32 spellId)
-	{
-		if (spellId == 0)
-			return false;
-
-		return IsPositiveSpell(spellId);
-	};
+	m_lua["CurrentTime"] = sol::property([&] { return GetMaster()->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
 	m_lua["GetRaidIcon"] = [&](const uint8 iconIndex)-> Unit*
 	{
 		if (iconIndex < 0 || iconIndex > 7)
@@ -268,7 +462,13 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return nullptr;
 	};
-	m_lua["CurrentTime"] = sol::property([&] { return GetMaster()->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
+	m_lua["SpellIsPositive"] = [](const uint32 spellId)
+	{
+		if (spellId == 0)
+			return false;
+
+		return IsPositiveSpell(spellId);
+	};
 	m_lua.set_function("print",
 	                   sol::overload(
 		                   [this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
@@ -458,6 +658,21 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->GetMotionMaster()->DistanceYourself(distance);
 	};
+	player_type["TeleportTo"] = [](Player* self, const Unit* target)
+	{
+		if (!target)
+			return;
+
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+
+		float x, y, z;
+		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
+		self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
+	};
 	player_type["ResetMovement"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -481,21 +696,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		self->StopMoving();
-	};
-	player_type["TeleportTo"] = [](Player* self, const Unit* target)
-	{
-		if (!target)
-			return;
-
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
-
-		float x, y, z;
-		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-		self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
 	};
 	player_type["Whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
@@ -1273,6 +1473,13 @@ void PlayerbotMgr::InitLuaItemType()
 
 		UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
 	});
+}
+
+void PlayerbotMgr::FlipLuaTable(const std::string name)
+{
+	// add to table by making each value a key with the key as the value
+	const std::string script = "for k, v in pairs(" + name + ") do " + name + "[v] = k end";
+	m_lua.script(script);
 }
 
 SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId) const
