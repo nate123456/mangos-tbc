@@ -132,8 +132,8 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	m_luaEnvironment["Command_message"] = m_lastManagerMessage;
-	m_luaEnvironment["Command_position"] = m_lastCommandPosition;
+	m_luaEnvironment["CommandMessage"] = m_lastManagerMessage;
+	m_luaEnvironment["CommandPosition"] = m_lastCommandPosition;
 	m_luaEnvironment["Bots"] = bots;
 
 	if (const auto act_result = act_func(); !act_result.valid())
@@ -268,7 +268,7 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return nullptr;
 	};
-	m_lua["Current_time"] = sol::property([&] { return GetMaster()->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
+	m_lua["CurrentTime"] = sol::property([&] { return GetMaster()->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
 	m_lua.set_function("print",
 	                   sol::overload(
 		                   [this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
