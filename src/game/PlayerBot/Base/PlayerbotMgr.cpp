@@ -225,7 +225,7 @@ void PlayerbotMgr::InitLuaMembers()
 	m_lua["Raid_icons"]["moon"] = sol::property([&] {return GetRaidIcon(4); });
 	m_lua["Raid_icons"]["square"] = sol::property([&] {return GetRaidIcon(5); });
 	m_lua["Raid_icons"]["cross"] = sol::property([&] {return GetRaidIcon(6); });
-	m_lua["Raid_icons"]["skull"] = sol::property([&] {return GetRaidIcon(7); m_masterChatHandler.PSendSysMessage("[AI] %s", "Called"); });
+	m_lua["Raid_icons"]["skull"] = sol::property([&] {m_masterChatHandler.PSendSysMessage("[AI] %s", "Called"); return GetRaidIcon(7); });
 }
 
 void PlayerbotMgr::InitLuaFunctions()
