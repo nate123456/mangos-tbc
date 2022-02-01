@@ -132,9 +132,20 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	m_luaEnvironment["CommandMessage"] = m_lastManagerMessage;
-	m_luaEnvironment["CommandPosition"] = m_lastCommandPosition;
-	m_luaEnvironment["Bots"] = bots;
+	m_luaEnvironment["_CommandMessage"] = m_lastManagerMessage;
+	m_luaEnvironment["_CommandPosition"] = m_lastCommandPosition;
+	m_luaEnvironment["_Bots"] = bots;
+
+	sol::table raid_icons = m_luaEnvironment.create("_RaidIcons");
+
+	raid_icons["Star"] = GetRaidIcon(0);
+	raid_icons["Circle"] = GetRaidIcon(1);
+	raid_icons["Diamond"] = GetRaidIcon(2);
+	raid_icons["Triangle"] = GetRaidIcon(3);
+	raid_icons["Moon"] = GetRaidIcon(4);
+	raid_icons["Square"] = GetRaidIcon(5);
+	raid_icons["Cross"] = GetRaidIcon(6);
+	raid_icons["Skull"] = GetRaidIcon(7);
 
 	if (const auto act_result = act_func(); !act_result.valid())
 	{
@@ -224,10 +235,10 @@ bool PlayerbotMgr::SafeLoadLuaScript(const char* script)
 
 void PlayerbotMgr::InitLuaMembers()
 {
-	m_lua["Master"] = GetMaster();
+	m_lua["Master"] = m_master;
 	m_lua["PI"] = M_PI_F;
 
-	sol::table class_enum = m_lua.create_table("Class");
+	sol::table class_enum = m_lua.create_table("_Class");
 
 	class_enum[3] = "Mage";
 	class_enum[4] = "Warrior";
@@ -241,7 +252,7 @@ void PlayerbotMgr::InitLuaMembers()
 
 	FlipLuaTable("Class");
 
-	sol::table spell_result_enum = m_lua.create_table("SpellResult");
+	sol::table spell_result_enum = m_lua.create_table("_SpellResult");
 
 	spell_result_enum[0] = "SPELL_FAILED_AFFECTING_COMBAT";
 	spell_result_enum[1] = "SPELL_FAILED_ALREADY_AT_FULL_HEALTH";
@@ -416,10 +427,9 @@ void PlayerbotMgr::InitLuaMembers()
 	spell_result_enum[254] = "SPELL_NOT_FOUND";
 	spell_result_enum[255] = "SPELL_CAST_OK";
 
-
 	FlipLuaTable("SpellResult");
 
-	sol::table equip_slot_enum = m_lua.create_table("EquipSlot");
+	sol::table equip_slot_enum = m_lua.create_table("_EquipSlot");
 
 	equip_slot_enum["Head"] = 0;
 	equip_slot_enum["Neck"] = 1;
@@ -451,14 +461,14 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
 	};
-	m_lua["CurrentTime"] = sol::property([&] { return GetMaster()->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
+	m_lua["CurrentTime"] = sol::property([&] { return m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
 	m_lua["GetRaidIcon"] = [&](const uint8 iconIndex)-> Unit*
 	{
 		if (iconIndex < 0 || iconIndex > 7)
 			return nullptr;
 
-		if (const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(iconIndex))
-			return GetMaster()->GetMap()->GetUnit(*guid);
+		if (const auto guid = m_master->GetGroup()->GetTargetFromIcon(iconIndex))
+			return m_master->GetMap()->GetUnit(*guid);
 
 		return nullptr;
 	};
@@ -928,7 +938,7 @@ void PlayerbotMgr::InitLuaUnitType()
 	unit_type["InCombat"] = sol::property(&Unit::IsInCombat);
 	unit_type["RaidIcon"] = sol::property([&](const Unit* self)
 	{
-		return GetMaster()->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
+		return m_master->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
 	});
 	unit_type["Attackers"] = sol::property([](Unit* self)
 	{
@@ -1178,7 +1188,7 @@ void PlayerbotMgr::InitLuaGroupType()
 	group_type["Leader"] = sol::property([&](const Group* self)
 	{
 		const ObjectGuid guid = self->GetLeaderGuid();
-		return GetMaster()->GetMap()->GetPlayer(guid);
+		return m_master->GetMap()->GetPlayer(guid);
 	});
 	group_type["Members"] = sol::property([&](const Group* self)
 	{
@@ -1187,7 +1197,7 @@ void PlayerbotMgr::InitLuaGroupType()
 		std::vector<Player*> members;
 		members.reserve(slots.size());
 
-		Map* map = GetMaster()->GetMap();
+		Map* map = m_master->GetMap();
 
 		for (auto [guid, name, group, assistant, lastMap] : slots)
 			members.push_back(map->GetPlayer(guid));
@@ -1477,6 +1487,17 @@ void PlayerbotMgr::InitLuaItemType()
 	});
 }
 
+Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const
+{
+	if (iconIndex < 0 || iconIndex > 7)
+		return nullptr;
+
+	if (const auto guid = m_master->GetGroup()->GetTargetFromIcon(iconIndex))
+		return m_master->GetMap()->GetUnit(*guid);
+
+	return nullptr;
+};
+
 void PlayerbotMgr::FlipLuaTable(const std::string name)
 {
 	// add to table by making each value a key with the key as the value
@@ -1660,7 +1681,7 @@ void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const Obj
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
 {
-	SendWhisper(text, fromPlayer, GetMaster());
+	SendWhisper(text, fromPlayer, m_master);
 }
 
 void PlayerbotMgr::SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const
@@ -1708,7 +1729,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 			{
 				SpellCastTargets targets;
 
-				p >> targets.ReadForCaster(GetMaster());
+				p >> targets.ReadForCaster(m_master);
 
 				m_lastCommandPosition = targets.m_destPos;
 			}
@@ -1742,7 +1763,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
             }
 
             CharacterDatabase.PExecute("INSERT INTO petition_sign (ownerguid,petitionguid, playerguid, player_account) VALUES ('%u', '%u', '%u','%u')",
-                                       GetMaster()->GetGUIDLow(), petitionLowGuid, player->GetGUIDLow(), GetMaster()->GetSession()->GetAccountId());
+                                       m_master->GetGUIDLow(), petitionLowGuid, player->GetGUIDLow(), m_master->GetSession()->GetAccountId());
 
             p.Initialize(SMSG_PETITION_SIGN_RESULTS, (8 + 8 + 4));
             p << ObjectGuid(petitionGuid);
@@ -1750,7 +1771,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
             p << uint32(PETITION_SIGN_OK);
 
             // close at signer side
-            GetMaster()->GetSession()->SendPacket(p);
+            m_master->GetSession()->SendPacket(p);
 
             return;
         }
@@ -2095,7 +2116,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
                 if (!bot)
                     continue;
 
-                if (bot->IsWithinDistInMap(GetMaster(), 50))
+                if (bot->IsWithinDistInMap(m_master, 50))
                 {
                     p.rpos(0);         // reset reader
                     bot->GetSession()->HandleAreaTriggerOpcode(p);
@@ -2327,22 +2348,22 @@ void PlayerbotMgr::HandleMasterOutgoingPacket(const WorldPacket& packet) const
 
 			// Only adjust speed and mount if this is master that did so
 			p >> guid.ReadAsPacked();
-			if (guid != GetMaster()->GetObjectGuid())
+			if (guid != m_master->GetObjectGuid())
 				return;
 
 			for (auto it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)
 			{
 				Player* const bot = it->second;
-				if (GetMaster()->IsMounted() && !bot->IsMounted())
+				if (m_master->IsMounted() && !bot->IsMounted())
 				{
 					// Player Part
-					if (!GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).empty())
+					if (!m_master->GetAurasByType(SPELL_AURA_MOUNTED).empty())
 					{
 						int32 master_speed1 = 0;
 						int32 master_speed2 = 0;
-						master_speed1 = GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->
+						master_speed1 = m_master->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->
 						                             EffectBasePoints[1];
-						master_speed2 = GetMaster()->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->
+						master_speed2 = m_master->GetAurasByType(SPELL_AURA_MOUNTED).front()->GetSpellProto()->
 						                             EffectBasePoints[2];
 
 						// Bot Part
@@ -2391,7 +2412,7 @@ void PlayerbotMgr::HandleMasterOutgoingPacket(const WorldPacket& packet) const
 					}
 				}
 				// If master dismounted, do so
-				else if (!GetMaster()->IsMounted() && bot->IsMounted())
+				else if (!m_master->IsMounted() && bot->IsMounted())
 				// only execute code if master is the one who dismounted
 				{
 					WorldPacket emptyPacket;
