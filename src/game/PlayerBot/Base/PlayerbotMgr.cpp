@@ -217,6 +217,18 @@ void PlayerbotMgr::InitLuaMembers()
 {
 	m_lua["Master"] = GetMaster();
 	m_lua["PI"] = M_PI_F;
+
+	sol::table class_enum = m_lua.create_table("Class");
+
+	class_enum[3] = "Mage";
+	class_enum[4] = "Warrior";
+	class_enum[5] = "Warlock";
+	class_enum[6] = "Priest";
+	class_enum[7] = "Druid";
+	class_enum[8] = "Rogue";
+	class_enum[9] = "Hunter";
+	class_enum[10] = "Paladin";
+	class_enum[11] = "Shaman";
 }
 
 void PlayerbotMgr::InitLuaFunctions()
@@ -267,6 +279,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return "";
 
 		return ai->GetLastMessage().c_str();
+	});
+	player_type["class"] = sol::property([](const Player* self)
+	{
+		return self->GetSpellClass();
 	});
 	player_type["inventory"] = sol::property([](const Player* self)
 	{
