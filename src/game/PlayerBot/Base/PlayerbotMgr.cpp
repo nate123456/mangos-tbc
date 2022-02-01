@@ -217,15 +217,6 @@ void PlayerbotMgr::InitLuaMembers()
 {
 	m_lua["Master"] = GetMaster();
 	m_lua["PI"] = M_PI_F;
-
-	m_lua["Raid_icons"]["star"] = sol::property([&] {return GetRaidIcon(0); });
-	m_lua["Raid_icons"]["circle"] = sol::property([&] {return GetRaidIcon(1); });
-	m_lua["Raid_icons"]["diamond"] = sol::property([&] {return GetRaidIcon(2); });
-	m_lua["Raid_icons"]["triangle"] = sol::property([&] {return GetRaidIcon(3); });
-	m_lua["Raid_icons"]["moon"] = sol::property([&] {return GetRaidIcon(4); });
-	m_lua["Raid_icons"]["square"] = sol::property([&] {return GetRaidIcon(5); });
-	m_lua["Raid_icons"]["cross"] = sol::property([&] {return GetRaidIcon(6); });
-	m_lua["Raid_icons"]["skull"] = sol::property([&] {m_masterChatHandler.PSendSysMessage("[AI] %s", "Called"); return GetRaidIcon(7); });
 }
 
 void PlayerbotMgr::InitLuaFunctions()
@@ -244,7 +235,7 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return IsPositiveSpell(spellId);
 	};
-	m_lua["Time"] = sol::property([&] { return time(nullptr);	});
+	m_lua["Current_time"] = sol::property([&] { return GetMaster()->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
 	m_lua.set_function("print",
 	                   sol::overload(
 		                   [this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
