@@ -435,8 +435,8 @@ void PlayerbotMgr::InitLuaMembers()
 	equip_slot_enum["Trinket1"] = 12;
 	equip_slot_enum["Trinket2"] = 13;
 	equip_slot_enum["Back"] = 14;
-	equip_slot_enum["Main Hand"] = 15;
-	equip_slot_enum["Off Hand"] = 16;
+	equip_slot_enum["MainHand"] = 15;
+	equip_slot_enum["OffHand"] = 16;
 	equip_slot_enum["Ranged"] = 17;
 
 	FlipLuaTable("EquipSlot");
