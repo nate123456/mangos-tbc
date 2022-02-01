@@ -235,6 +235,16 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return IsPositiveSpell(spellId);
 	};
+	m_lua["Get_raid_icon"] = [&](const uint8 iconIndex)-> Unit*
+	{
+		if (iconIndex < 0 || iconIndex > 7)
+			return nullptr;
+
+		if (const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(iconIndex))
+			return GetMaster()->GetMap()->GetUnit(*guid);
+
+		return nullptr;
+	};
 	m_lua["Current_time"] = sol::property([&] { return GetMaster()->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
 	m_lua.set_function("print",
 	                   sol::overload(
