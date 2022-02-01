@@ -1265,17 +1265,6 @@ void PlayerbotMgr::InitLuaItemType()
 	});
 }
 
-Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const
-{
-	if (iconIndex < 0 || iconIndex > 7)
-		return nullptr;
-
-	if (const auto guid = GetMaster()->GetGroup()->GetTargetFromIcon(iconIndex))
-		return GetMaster()->GetMap()->GetUnit(*guid);
-
-	return nullptr;
-}
-
 SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId) const
 {
 	if (!target)

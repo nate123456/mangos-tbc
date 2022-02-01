@@ -64,7 +64,6 @@ class PlayerbotMgr
         void InitLuaAuraType();
         void InitLuaItemType();
 
-        Unit* GetRaidIcon(uint8 iconIndex) const;
         SpellCastResult Cast(Player* bot, Unit* target, uint32 spellId) const;
         static uint32 CurrentCast(const Unit* unit, CurrentSpellTypes type);
         void UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
