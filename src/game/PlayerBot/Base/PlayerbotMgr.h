@@ -46,7 +46,7 @@ class PlayerbotMgr
 
         void InitLua();
         void InitializeLuaEnvironment();
-        bool ValidateLuaScript(const char* script);
+        bool SafeLoadLuaScript(const char* script);
 
         void InitLuaMembers();
         void InitLuaFunctions();
@@ -130,6 +130,7 @@ class PlayerbotMgr
         sol::environment m_luaEnvironment;
         std::string m_lastActErrorMsg;
         std::string m_lastManagerMessage;
+        bool m_hasLoadedScript;
         Position m_lastCommandPosition;
         ChatHandler m_masterChatHandler;
 };

@@ -109,17 +109,20 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	if (!m_luaEnvironment)
 		return;
 
+	if (!m_hasLoadedScript)
+		return;
+
 	std::vector<Player*> bots;
 	bots.reserve(m_playerBots.size());
 
 	for (auto& [id, bot] : m_playerBots)
 		bots.push_back(bot);
 
-	const sol::protected_function act_func = m_luaEnvironment["act"];
+	const sol::protected_function act_func = m_luaEnvironment["Main"];
 
 	if (!act_func.valid())
 	{
-		if (const auto error_msg = "No 'act' function with correct parameters defined."; m_lastActErrorMsg !=
+		if (const auto error_msg = "No 'Main' function with correct parameters defined."; m_lastActErrorMsg !=
 			error_msg)
 		{
 			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
@@ -197,9 +200,11 @@ void PlayerbotMgr::InitializeLuaEnvironment()
 
 	if (!m_lastManagerMessage.empty())
 		m_lastManagerMessage = "";
+
+	m_hasLoadedScript = false;
 }
 
-bool PlayerbotMgr::ValidateLuaScript(const char* script)
+bool PlayerbotMgr::SafeLoadLuaScript(const char* script)
 {
 	InitializeLuaEnvironment();
 
@@ -209,6 +214,8 @@ bool PlayerbotMgr::ValidateLuaScript(const char* script)
 		ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load ai script:\n%s", error.what());
 		return false;
 	}
+
+	m_hasLoadedScript = true;
 
 	return true;
 }
@@ -229,25 +236,29 @@ void PlayerbotMgr::InitLuaMembers()
 	class_enum[9] = "Hunter";
 	class_enum[10] = "Paladin";
 	class_enum[11] = "Shaman";
+
+	sol::table spell_result_enum = m_lua.create_table("SpellResult");
+
+	spell_result_enum[3] = "Mage";
 }
 
 void PlayerbotMgr::InitLuaFunctions()
 {
-	m_lua["Spell_exists"] = [](const uint32 spellId)
+	m_lua["SpellExists"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
 
 		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
 	};
-	m_lua["Spell_is_positive"] = [](const uint32 spellId)
+	m_lua["CurrentTime"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
 
 		return IsPositiveSpell(spellId);
 	};
-	m_lua["Get_raid_icon"] = [&](const uint8 iconIndex)-> Unit*
+	m_lua["GetRaidIcon"] = [&](const uint8 iconIndex)-> Unit*
 	{
 		if (iconIndex < 0 || iconIndex > 7)
 			return nullptr;
@@ -266,12 +277,12 @@ void PlayerbotMgr::InitLuaFunctions()
 
 void PlayerbotMgr::InitLuaPlayerType()
 {
-	sol::usertype<Player> player_type = m_lua.new_usertype<Player>("player",
+	sol::usertype<Player> player_type = m_lua.new_usertype<Player>("Player",
 	                                                               sol::constructors<Player(WorldSession* session)>(),
 	                                                               sol::base_classes,
 	                                                               sol::bases<Unit, WorldObject, Object>());
 
-	player_type["last_message"] = sol::property([](Player* self)
+	player_type["LastMessage"] = sol::property([](Player* self)
 	{
 		const auto ai = self->GetPlayerbotAI();
 
@@ -280,11 +291,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return ai->GetLastMessage().c_str();
 	});
-	player_type["class"] = sol::property([](const Player* self)
+	player_type["Class"] = sol::property([](const Player* self)
 	{
 		return self->GetSpellClass();
 	});
-	player_type["inventory"] = sol::property([](const Player* self)
+	player_type["Inventory"] = sol::property([](const Player* self)
 	{
 		std::list<Item*> items;
 
@@ -304,19 +315,19 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return items;
 	});
-	player_type["trinket_1"] = sol::property([](const Player* self)
+	player_type["Trinket1"] = sol::property([](const Player* self)
 	{
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_TRINKET1);
 	});
-	player_type["trinket_2"] = sol::property([](const Player* self)
+	player_type["Trinket2"] = sol::property([](const Player* self)
 	{
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_TRINKET2);
 	});
-	player_type["group"] = sol::property([](Player* self)
+	player_type["Group"] = sol::property([](Player* self)
 	{
 		return self->GetGroup();
 	});
-	player_type["destination"] = sol::property([](Player* self)
+	player_type["Destination"] = sol::property([](Player* self)
 	{
 		float x, y, z;
 
@@ -330,7 +341,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		return sol::tie(x, y, z);
 	});
 
-	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
+	player_type["Follow"] = [](Player* self, Unit* target, const float dist, const float angle)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -346,7 +357,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		motion_master->MoveFollow(target, dist, angle);
 	};
-	player_type["stand"] = [](Player* self)
+	player_type["Stand"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -354,7 +365,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 	};
-	player_type["sit"] = [](Player* self)
+	player_type["Sit"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -362,7 +373,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_SIT)
 			self->SetStandState(UNIT_STAND_STATE_SIT);
 	};
-	player_type["kneel"] = [](Player* self)
+	player_type["Kneel"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -370,24 +381,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_KNEEL)
 			self->SetStandState(UNIT_STAND_STATE_KNEEL);
 	};
-	player_type["move_to_pos"] = [](Player* self, const Position* pos)
-	{
-		if (!pos)
-			return;
-
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		const auto motion_master = self->GetMotionMaster();
-
-		motion_master->Clear();
-
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
-
-		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN);
-	};
-	player_type["interrupt"] = [](Player* self)
+	player_type["Interrupt"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -395,7 +389,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_GENERIC_SPELL);
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 	};
-	player_type["move"] = sol::overload([](Player* self, const float x, const float y, const float z)
+	player_type["Move"] = sol::overload([](Player* self, const float x, const float y, const float z)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -440,7 +434,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
 		motion_master->MovePoint(0, x, y, z);
 	});
-	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
+	player_type["Chase"] = [](Player* self, Unit* target, const float distance, const float angle)
 	{
 		if (!target)
 			return;
@@ -457,14 +451,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		motion_master->MoveChase(target, distance, angle);
 	};
-	player_type["set_chase_distance"] = [](Player* self, const float distance)
+	player_type["SetChaseDistance"] = [](Player* self, const float distance)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
 		self->GetMotionMaster()->DistanceYourself(distance);
 	};
-	player_type["reset_movement"] = [](Player* self)
+	player_type["ResetMovement"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -478,7 +472,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		// self->GetMotionMaster()->Initialize();
 		motion_master->Clear();
 	};
-	player_type["stop"] = [](Player* self)
+	player_type["Stop"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -488,7 +482,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->StopMoving();
 	};
-	player_type["teleport_to"] = [](Player* self, const Unit* target)
+	player_type["TeleportTo"] = [](Player* self, const Unit* target)
 	{
 		if (!target)
 			return;
@@ -503,7 +497,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
 		self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
 	};
-	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
+	player_type["Whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
 		if (!to || !text || !text[0] || self == to)
 			return;
@@ -513,7 +507,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendWhisper(text, self, to);
 	};
-	player_type["tell_party"] = [&](Player* self, const char* text)
+	player_type["TellParty"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -523,7 +517,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_PARTY);
 	};
-	player_type["tell_raid"] = [&](Player* self, const char* text)
+	player_type["TellRaid"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -533,7 +527,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_RAID);
 	};
-	player_type["say"] = [&](Player* self, const char* text)
+	player_type["Say"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -543,7 +537,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_SAY);
 	};
-	player_type["yell"] = [&](Player* self, const char* text)
+	player_type["Yell"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -553,7 +547,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_YELL);
 	};
-	player_type["set_target"] = [](Player* self, WorldObject* target)
+	player_type["SetTarget"] = [](Player* self, WorldObject* target)
 	{
 		if (!target)
 			return;
@@ -563,21 +557,21 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->SetTarget(target);
 	};
-	player_type["clear_target"] = [](Player* self)
+	player_type["ClearTarget"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
 		self->SetSelectionGuid(ObjectGuid());
 	};
-	player_type["clear_stealth"] = [](Player* self)
+	player_type["ClearStealth"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
 		self->RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
 	};
-	player_type["face"] = sol::overload([](Player* self, const Unit* target)
+	player_type["Face"] = sol::overload([](Player* self, const Unit* target)
 	{
 		if (!target)
 			return;
@@ -594,7 +588,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->SetFacingTo(orientation);
 	});
-	player_type["has_power_to_cast"] = [](Player* self, const uint32 spellId)
+	player_type["HasPowerToCast"] = [](Player* self, const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
@@ -610,7 +604,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return tmp_spell->CheckPower(true) == SPELL_CAST_OK;
 	};
-	player_type["can_cast"] = [](const Player* self, const uint32 spellId)
+	player_type["CanCast"] = [](const Player* self, const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
@@ -623,7 +617,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return self->IsSpellReady(*p_spell_info);
 	};
-	player_type["get_cast_time"] = [](Player* self, const uint32 spellId)
+	player_type["GetCastTime"] = [](Player* self, const uint32 spellId)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return static_cast<uint32>(-1);
@@ -639,14 +633,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return GetSpellCastTime(p_spell_info, self, spell);
 	};
-	player_type["get_item_in_equip_slot"] = [](const Player* self, const uint8 slot)-> Item*
+	player_type["GetItemInEquipSlot"] = [](const Player* self, const uint8 slot)-> Item*
 	{
 		if (slot < EQUIPMENT_SLOT_START || slot > EQUIPMENT_SLOT_END)
 			return nullptr;
 
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
 	};
-	player_type["get_item"] = sol::overload([](const Player* self, const uint32 itemId)-> Item*
+	player_type["GetItem"] = sol::overload([](const Player* self, const uint32 itemId)-> Item*
 	{
 		// list out items in main backpack
 		for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; slot++)
@@ -681,7 +675,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return nullptr;
 	});
-	player_type["cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
+	player_type["Cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
 			return SPELL_FAILED_NOT_READY;
@@ -694,7 +688,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return Cast(self, self, spellId);
 	});
-	player_type["force_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
+	player_type["ForceCast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (!target)
 			return SPELL_FAILED_BAD_TARGETS;
@@ -720,23 +714,23 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 void PlayerbotMgr::InitLuaUnitType()
 {
-	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("unit", sol::base_classes,
+	sol::usertype<Unit> unit_type = m_lua.new_usertype<Unit>("Unit", sol::base_classes,
 	                                                         sol::bases<WorldObject, Object>());
 
 	// doesn't seem to be useful- all NPCs are always moving, always false for IRL player
-	//unit_type["is_moving"] = sol::property([](const Unit* self)
+	//unit_type["IsMoving"] = sol::property([](const Unit* self)
 	//{
 	//	return !self->IsStopped();
 	//});
 
-	unit_type["bounding_radius"] = sol::property(&Unit::GetObjectBoundingRadius);
-	unit_type["pet"] = sol::property(&Unit::GetPet);
-	unit_type["in_combat"] = sol::property(&Unit::IsInCombat);
-	unit_type["raid_icon"] = sol::property([&](const Unit* self)
+	unit_type["BoundingRadius"] = sol::property(&Unit::GetObjectBoundingRadius);
+	unit_type["Pet"] = sol::property(&Unit::GetPet);
+	unit_type["InCombat"] = sol::property(&Unit::IsInCombat);
+	unit_type["RaidIcon"] = sol::property([&](const Unit* self)
 	{
 		return GetMaster()->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
 	});
-	unit_type["attackers"] = sol::property([](Unit* self)
+	unit_type["Attackers"] = sol::property([](Unit* self)
 	{
 		std::vector<Unit*> attackers;
 
@@ -758,44 +752,44 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return attackers;
 	});
-	unit_type["target"] = sol::property([](const Unit* self)-> Unit*
+	unit_type["Target"] = sol::property([](const Unit* self)-> Unit*
 	{
 		return self->GetTarget();
 	});
-	unit_type["is_alive"] = sol::property(&Unit::IsAlive);
-	unit_type["crowd_controlled"] = sol::property(&Unit::IsCrowdControlled);
-	unit_type["health"] = sol::property(&Unit::GetHealth);
-	unit_type["max_health"] = sol::property(&Unit::GetMaxHealth);
-	unit_type["power"] = sol::property([](const Unit* self)
+	unit_type["IsAlive"] = sol::property(&Unit::IsAlive);
+	unit_type["CrowdControlled"] = sol::property(&Unit::IsCrowdControlled);
+	unit_type["Health"] = sol::property(&Unit::GetHealth);
+	unit_type["MaxHealth"] = sol::property(&Unit::GetMaxHealth);
+	unit_type["Power"] = sol::property([](const Unit* self)
 	{
 		const Powers power = self->GetPowerType();
 		return self->GetPower(power);
 	});
-	unit_type["max_power"] = sol::property([](const Unit* self)
+	unit_type["MaxPower"] = sol::property([](const Unit* self)
 	{
 		const Powers power = self->GetPowerType();
 		return self->GetMaxPower(power);
 	});
-	unit_type["current_cast"] = sol::property([&](const Unit* self)
+	unit_type["CurrentCast"] = sol::property([&](const Unit* self)
 	{
 		return CurrentCast(self, CURRENT_GENERIC_SPELL);
 	});
-	unit_type["current_auto_attack"] = sol::property([&](const Unit* self)
+	unit_type["CurrentAutoAttack"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_AUTOREPEAT_SPELL);
 	});
-	unit_type["current_channel"] = sol::property([&](const Unit* self)
+	unit_type["CurrentChannel"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
 	});
-	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
+	unit_type["IsAttackedBy"] = [](const Unit* self, Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->IsAttackedBy(target);
 	};
-	unit_type["get_threat"] = [](Unit* self, const Unit* target)
+	unit_type["GetThreat"] = [](Unit* self, const Unit* target)
 	{
 		if (!target)
 			return -1.0f;
@@ -814,28 +808,28 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return 0.0f;
 	};
-	unit_type["reachable_with_melee"] = [](const Unit* self, const Unit* target)
+	unit_type["ReachableWithMelee"] = [](const Unit* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->CanReachWithMeleeAttack(target);
 	};
-	unit_type["is_enemy"] = [](const Unit* self, const Unit* target)
+	unit_type["IsEnemy"] = [](const Unit* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->CanAttack(target);
 	};
-	unit_type["is_friendly"] = [](const Unit* self, const Unit* target)
+	unit_type["IsFriendly"] = [](const Unit* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->CanAssist(target);
 	};
-	unit_type["get_aura"] = [](const Unit* self, const uint32 auraId)-> SpellAuraHolder*
+	unit_type["GetAura"] = [](const Unit* self, const uint32 auraId)-> SpellAuraHolder*
 	{
 		if (auraId == 0)
 			return nullptr;
@@ -846,55 +840,55 @@ void PlayerbotMgr::InitLuaUnitType()
 
 void PlayerbotMgr::InitLuaCreatureType()
 {
-	sol::usertype<Creature> creature_type = m_lua.new_usertype<Creature>("creature", sol::base_classes,
+	sol::usertype<Creature> creature_type = m_lua.new_usertype<Creature>("Creature", sol::base_classes,
 	                                                                     sol::bases<Unit, WorldObject, Object>());
 
-	creature_type["is_elite"] = sol::property(&Creature::IsElite);
-	creature_type["is_world_boss"] = sol::property(&Creature::IsWorldBoss);
-	creature_type["can_aggro"] = sol::property(&Creature::CanAggro);
-	creature_type["is_totem"] = sol::property(&Creature::IsTotem);
-	creature_type["is_invisible"] = sol::property(&Creature::IsInvisible);
-	creature_type["is_civilian"] = sol::property(&Creature::IsCivilian);
-	creature_type["is_critter"] = sol::property(&Creature::IsCritter);
-	creature_type["is_regen_hp"] = sol::property(&Creature::IsRegeneratingHealth);
-	creature_type["is_regen_power"] = sol::property(&Creature::IsRegeneratingHealth);
-	creature_type["can_walk"] = sol::property(&Creature::CanWalk);
-	creature_type["can_swim"] = sol::property(&Creature::CanSwim);
-	creature_type["can_fly"] = sol::property(&Creature::CanFly);
+	creature_type["IsElite"] = sol::property(&Creature::IsElite);
+	creature_type["IsWorld_boss"] = sol::property(&Creature::IsWorldBoss);
+	creature_type["CanAggro"] = sol::property(&Creature::CanAggro);
+	creature_type["IsTotem"] = sol::property(&Creature::IsTotem);
+	creature_type["IsInvisible"] = sol::property(&Creature::IsInvisible);
+	creature_type["IsCivilian"] = sol::property(&Creature::IsCivilian);
+	creature_type["IsCritter"] = sol::property(&Creature::IsCritter);
+	creature_type["IsRegenHp"] = sol::property(&Creature::IsRegeneratingHealth);
+	creature_type["IsRegenPower"] = sol::property(&Creature::IsRegeneratingHealth);
+	creature_type["CanWalk"] = sol::property(&Creature::CanWalk);
+	creature_type["CanSwim"] = sol::property(&Creature::CanSwim);
+	creature_type["CanFly"] = sol::property(&Creature::CanFly);
 }
 
 void PlayerbotMgr::InitLuaObjectType()
 {
 	sol::usertype<Object> object_type = m_lua.new_usertype<Object>(
-		"object");
+		"Object");
 
-	object_type["is_player"] = sol::property(&Object::IsPlayer);
-	object_type["is_creature"] = sol::property(&Object::IsCreature);
-	object_type["is_game_object"] = sol::property(&Object::IsGameObject);
-	object_type["is_unit"] = sol::property(&Object::IsUnit);
+	object_type["IsPlayer"] = sol::property(&Object::IsPlayer);
+	object_type["IsCreature"] = sol::property(&Object::IsCreature);
+	object_type["IsGameObject"] = sol::property(&Object::IsGameObject);
+	object_type["IsUnit"] = sol::property(&Object::IsUnit);
 
-	object_type["as_player"] = [](Object* self)-> Player*
+	object_type["AsPlayer"] = [](Object* self)-> Player*
 	{
 		if (!self->IsPlayer())
 			return nullptr;
 
 		return dynamic_cast<Player*>(self);
 	};
-	object_type["as_creature"] = [](Object* self)-> Creature*
+	object_type["AsCreature"] = [](Object* self)-> Creature*
 	{
 		if (!self->IsCreature())
 			return nullptr;
 
 		return dynamic_cast<Creature*>(self);
 	};
-	object_type["as_game_object"] = [](Object* self)-> GameObject*
+	object_type["AsGameObject"] = [](Object* self)-> GameObject*
 	{
 		if (!self->IsGameObject())
 			return nullptr;
 
 		return dynamic_cast<GameObject*>(self);
 	};
-	object_type["as_unit"] = [](Object* self)-> Unit*
+	object_type["AsUnit"] = [](Object* self)-> Unit*
 	{
 		if (!self->IsUnit())
 			return nullptr;
@@ -906,48 +900,48 @@ void PlayerbotMgr::InitLuaObjectType()
 void PlayerbotMgr::InitLuaWorldObjectType()
 {
 	sol::usertype<WorldObject> world_object_type = m_lua.new_usertype<WorldObject>(
-		"world_object", sol::base_classes, sol::bases<Object>());
+		"WorldObject", sol::base_classes, sol::bases<Object>());
 
-	world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
-	world_object_type["name"] = sol::property(&WorldObject::GetName);
-	world_object_type["map"] = sol::property(&WorldObject::GetMap);
-	world_object_type["zone_id"] = sol::property(&WorldObject::GetZoneId);
-	world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
-	world_object_type["gcd"] = sol::property(&WorldObject::GetGCD);
-	world_object_type["position"] = sol::property([](const WorldObject* self)
+	world_object_type["Orientation"] = sol::property(&WorldObject::GetOrientation);
+	world_object_type["Name"] = sol::property(&WorldObject::GetName);
+	world_object_type["Map"] = sol::property(&WorldObject::GetMap);
+	world_object_type["ZoneId"] = sol::property(&WorldObject::GetZoneId);
+	world_object_type["AreaId"] = sol::property(&WorldObject::GetAreaId);
+	world_object_type["GCD"] = sol::property(&WorldObject::GetGCD);
+	world_object_type["Position"] = sol::property([](const WorldObject* self)
 	{
 		return self->GetPosition();
 	});
 
-	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
+	world_object_type["GetAngle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
 	}, [](const WorldObject* self, const Position* pos)
 	{
 		return self->GetAngle(pos->x, pos->y);
 	});
-	world_object_type["get_close_point"] = [](const WorldObject* self, const float boundingRadius, const float distance,
+	world_object_type["GetClosePoint"] = [](const WorldObject* self, const float boundingRadius, const float distance,
 		   const float angle)
 		{
 			float x, y, z;
 			self->GetClosePoint(x, y, z, boundingRadius, distance, angle, self);
 			return sol::tie(x, y, z);
 		};
-	world_object_type["has_in_arc"] = [](const WorldObject* self, const Unit* target)
+	world_object_type["HasInArc"] = [](const WorldObject* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->HasInArc(target, M_PI_F / 2);
 	};
-	world_object_type["is_within_los"] = [](const WorldObject* self, const Unit* target)
+	world_object_type["IsWithinLos"] = [](const WorldObject* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->IsWithinLOSInMap(target);
 	};
-	world_object_type["is_in_range"] = [](const WorldObject* self, const Unit* target, const uint32 spellId)
+	world_object_type["IsInRange"] = [](const WorldObject* self, const Unit* target, const uint32 spellId)
 	{
 		if (!target || spellId == 0)
 			return false;
@@ -977,15 +971,15 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 void PlayerbotMgr::InitLuaGroupType()
 {
-	sol::usertype<Group> group_type = m_lua.new_usertype<Group>("group");
+	sol::usertype<Group> group_type = m_lua.new_usertype<Group>("Group");
 
-	group_type["is_raid"] = sol::property(&Group::IsRaidGroup);
-	group_type["leader"] = sol::property([&](const Group* self)
+	group_type["IsRaid"] = sol::property(&Group::IsRaidGroup);
+	group_type["Leader"] = sol::property([&](const Group* self)
 	{
 		const ObjectGuid guid = self->GetLeaderGuid();
 		return GetMaster()->GetMap()->GetPlayer(guid);
 	});
-	group_type["members"] = sol::property([&](const Group* self)
+	group_type["Members"] = sol::property([&](const Group* self)
 	{
 		const Group::MemberSlotList& slots = self->GetMemberSlots();
 
@@ -1003,11 +997,11 @@ void PlayerbotMgr::InitLuaGroupType()
 
 void PlayerbotMgr::InitLuaMapType()
 {
-	sol::usertype<Map> map_type = m_lua.new_usertype<Map>("map");
+	sol::usertype<Map> map_type = m_lua.new_usertype<Map>("Map");
 
-	map_type["players"] = sol::property(&Map::GetPlayers);
-	map_type["map_name"] = sol::property(&Map::GetMapName);
-	map_type["is_heroic"] = sol::property([&](const Map* self)
+	map_type["Players"] = sol::property(&Map::GetPlayers);
+	map_type["MapName"] = sol::property(&Map::GetMapName);
+	map_type["IsHeroic"] = sol::property([&](const Map* self)
 	{
 		return self->GetDifficulty() == DUNGEON_DIFFICULTY_HEROIC;
 	});
@@ -1016,29 +1010,29 @@ void PlayerbotMgr::InitLuaMapType()
 void PlayerbotMgr::InitLuaGameObjectType()
 {
 	sol::usertype<GameObject> game_object_type = m_lua.new_usertype<GameObject>(
-		"game_object", sol::base_classes, sol::bases<WorldObject, Object>());
+		"GameObject", sol::base_classes, sol::bases<WorldObject, Object>());
 
-	game_object_type["in_use"] = sol::property(&GameObject::IsInUse);
-	game_object_type["owner"] = sol::property(&GameObject::GetOwner);
-	game_object_type["level"] = sol::property(&GameObject::GetLevel);
+	game_object_type["InUse"] = sol::property(&GameObject::IsInUse);
+	game_object_type["Owner"] = sol::property(&GameObject::GetOwner);
+	game_object_type["Level"] = sol::property(&GameObject::GetLevel);
 }
 
 void PlayerbotMgr::InitLuaPositionType()
 {
 	sol::usertype<Position> position_type = m_lua.new_usertype<Position>(
-		"position");
+		"Position");
 
-	position_type["x"] = sol::property(&Position::x);
-	position_type["y"] = sol::property(&Position::y);
-	position_type["z"] = sol::property(&Position::z);
-	position_type["o"] = sol::property(&Position::o);
-	position_type["empty"] = sol::property(&Position::IsEmpty);
+	position_type["X"] = sol::property(&Position::x);
+	position_type["Y"] = sol::property(&Position::y);
+	position_type["Z"] = sol::property(&Position::z);
+	position_type["O"] = sol::property(&Position::o);
+	position_type["Empty"] = sol::property(&Position::IsEmpty);
 
-	position_type["get_distance_between"] = [](const Position* self, const Position* other)
+	position_type["GetDistanceBetween"] = [](const Position* self, const Position* other)
 	{
 		return self->GetDistance(*other);
 	};
-	position_type["get_angle"] = sol::overload([](const Position* self, const Position* pos)
+	position_type["GetAngle"] = sol::overload([](const Position* self, const Position* pos)
 	{
 		return self->GetAngle(pos->x, pos->y);
 	}, [](const Position* self, const float x, const float y)
@@ -1050,15 +1044,15 @@ void PlayerbotMgr::InitLuaPositionType()
 void PlayerbotMgr::InitLuaPetType()
 {
 	sol::usertype<Pet> pet_type = m_lua.new_usertype<Pet>(
-		"pet", sol::base_classes, sol::bases<Creature, Unit, WorldObject, Object>());
+		"Pet", sol::base_classes, sol::bases<Creature, Unit, WorldObject, Object>());
 
-	pet_type["pet_owner"] = sol::property(&Pet::GetSpellModOwner);
-	pet_type["happiness"] = sol::property(&Pet::GetHappinessState);
-	pet_type["is_feeding"] = sol::property([](const Pet* self)
+	pet_type["PetOwner"] = sol::property(&Pet::GetSpellModOwner);
+	pet_type["Happiness"] = sol::property(&Pet::GetHappinessState);
+	pet_type["IsFeeding"] = sol::property([](const Pet* self)
 	{
 		return self->HasAura(1738 /*PET_FEED*/, EFFECT_INDEX_0);
 	});
-	pet_type["react_state"] = sol::property([](Pet* self) { return self->AI()->GetReactState(); },
+	pet_type["ReactState"] = sol::property([](Pet* self) { return self->AI()->GetReactState(); },
 	                                        [](Pet* self, const int state)
 	                                        {
 		                                        const auto player = self->GetSpellModOwner();
@@ -1072,7 +1066,7 @@ void PlayerbotMgr::InitLuaPetType()
 		                                        self->AI()->SetReactState(static_cast<ReactStates>(state));
 	                                        });
 	
-	pet_type["set_autocast"] = [](Pet* self, const uint32 spellId, const bool enable)
+	pet_type["SetAutocast"] = [](Pet* self, const uint32 spellId, const bool enable)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1108,7 +1102,7 @@ void PlayerbotMgr::InitLuaPetType()
 			}
 		}
 	};
-	pet_type["summon"] = [](Pet* self)
+	pet_type["Summon"] = [](Pet* self)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1120,7 +1114,7 @@ void PlayerbotMgr::InitLuaPetType()
 
 		self->AddToWorld();
 	};
-	pet_type["dismiss"] = [](Pet* self)
+	pet_type["Dismiss"] = [](Pet* self)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1132,7 +1126,7 @@ void PlayerbotMgr::InitLuaPetType()
 
 		self->RemoveFromWorld();
 	};
-	pet_type["attempt_feed"] = [](const Pet* self)
+	pet_type["AttemptFeed"] = [](const Pet* self)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1183,37 +1177,37 @@ void PlayerbotMgr::InitLuaPetType()
 
 void PlayerbotMgr::InitLuaAuraType()
 {
-	sol::usertype<SpellAuraHolder> aura_type = m_lua.new_usertype<SpellAuraHolder>("aura");
+	sol::usertype<SpellAuraHolder> aura_type = m_lua.new_usertype<SpellAuraHolder>("Aura");
 
-	aura_type["stacks"] = sol::property(&SpellAuraHolder::GetStackAmount);
-	aura_type["duration"] = sol::property(&SpellAuraHolder::GetAuraDuration);
-	aura_type["max_duration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
-	aura_type["charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
+	aura_type["Stacks"] = sol::property(&SpellAuraHolder::GetStackAmount);
+	aura_type["Duration"] = sol::property(&SpellAuraHolder::GetAuraDuration);
+	aura_type["MaxDuration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
+	aura_type["Charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
 }
 
 void PlayerbotMgr::InitLuaItemType()
 {
-	sol::usertype<Item> item_type = m_lua.new_usertype<Item>("item", sol::base_classes, sol::bases<Object>());
+	sol::usertype<Item> item_type = m_lua.new_usertype<Item>("Item", sol::base_classes, sol::bases<Object>());
 
-	item_type["stack_count"] = sol::property(&Item::GetCount);
-	item_type["is_potion"] = sol::property(&Item::IsPotion);
-	item_type["max_stack_count"] = sol::property(&Item::GetMaxStackCount);
-	item_type["id"] = sol::property([](const Item* self)
+	item_type["StackCount"] = sol::property(&Item::GetCount);
+	item_type["IsPotion"] = sol::property(&Item::IsPotion);
+	item_type["MaxStackCount"] = sol::property(&Item::GetMaxStackCount);
+	item_type["Id"] = sol::property([](const Item* self)
 	{
 		return self->GetProto()->ItemId;
 	});
-	item_type["name"] = sol::property([](const Item* self)
+	item_type["Name"] = sol::property([](const Item* self)
 	{
 		return self->GetProto()->Name1;
 	});
-	item_type["spell_id"] = sol::property([](const Item* self)
+	item_type["SpellId"] = sol::property([](const Item* self)
 	{
 		for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
 			if (self->GetProto()->Spells[i].SpellId > 0)
 				return self->GetProto()->Spells[i].SpellId;
 		return static_cast<uint32>(0);
 	});
-	item_type["ready"] = sol::property([](const Item* self)
+	item_type["Ready"] = sol::property([](const Item* self)
 	{
 		for (const auto& spell : self->GetProto()->Spells)
 		{
@@ -1232,7 +1226,7 @@ void PlayerbotMgr::InitLuaItemType()
 
 		return false;
 	});
-	item_type["use"] = sol::overload([&](Item* self)
+	item_type["Use"] = sol::overload([&](Item* self)
 	{
 		Player* owner = self->GetOwner();
 
@@ -2498,7 +2492,7 @@ bool PlayerbotMgr::LoadAIScript(const std::string& name, const std::string& url)
 
 	const std::string script = response.text;
 
-	if (ValidateLuaScript(script.c_str()))
+	if (SafeLoadLuaScript(script.c_str()))
 	{
 		if (CharacterDatabase.PExecute(
 			"INSERT INTO scripts (name, script, url) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
@@ -2617,7 +2611,7 @@ reload <NAME>: re-download script from same url)");
 			    {
 				    const Field* load_fields = load_result->Fetch();
 
-				    if (const char* script = load_fields[0].GetString(); mgr->ValidateLuaScript(script))
+				    if (const char* script = load_fields[0].GetString(); mgr->SafeLoadLuaScript(script))
 					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
 			    }
 		    }
