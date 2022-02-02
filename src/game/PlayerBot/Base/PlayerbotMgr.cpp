@@ -1592,7 +1592,12 @@ Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const
 	if (iconIndex < 0 || iconIndex > 7)
 		return nullptr;
 
-	if (const auto guid = m_master->GetGroup()->GetTargetFromIcon(iconIndex))
+	const auto group = m_master->GetGroup();
+
+	if (!group)
+		return nullptr;
+
+	if (const auto guid = group->GetTargetFromIcon(iconIndex); guid)
 		return m_master->GetMap()->GetUnit(*guid);
 
 	return nullptr;
