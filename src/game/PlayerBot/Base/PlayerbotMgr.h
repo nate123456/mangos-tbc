@@ -79,7 +79,6 @@ class PlayerbotMgr
 
         // This is called from Unit.cpp and is called every second (I think)
         void UpdateAI(const uint32 time);
-        int LoadFileRequire(lua_State* L);
 
         // This is called whenever the master sends a packet to the server.
         // These packets can be viewed, but not edited.
