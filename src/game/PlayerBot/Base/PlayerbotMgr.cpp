@@ -181,6 +181,9 @@ void PlayerbotMgr::InitLua()
 	                     sol::lib::math,
 	                     sol::lib::table);
 
+	// we don't want lua looking for modules in actual files
+	m_lua["package"]["path"] = "";
+
 	InitLuaMembers();
 	InitLuaFunctions();
 
@@ -239,7 +242,7 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 			std::string module_name = line.substr(require_pos, close_pos);
 			boost::algorithm::trim(module_name);
 
-			if (const auto module = m_lua[module_name]; !module)
+			if (const auto module = m_lua[module_name].get_or(0); !module)
 			{
 				if (const QueryResult* load_result = CharacterDatabase.PQuery(
 					"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
@@ -259,7 +262,7 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 		}
 	}
 
-	if (script.rfind("Main()", 0) == 0)
+	if (script.find("Main()") != std::string::npos)
 	{
 		if (const auto result = m_lua.safe_script(script, m_luaEnvironment); !result.valid())
 		{
@@ -2898,7 +2901,7 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
     boost::algorithm::trim(cmd_string);
 
     // if args starts with ai
-    if (cmd_string.rfind("ai", 0) == 0)
+    if (cmd_string.find("ai") != std::string::npos)
     {
 		const auto account_id = m_session->GetAccountId();
 
@@ -2914,7 +2917,7 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 	    boost::algorithm::trim(rem_cmd);
 
 	    // print help if requested or missing args
-	    if (rem_cmd.empty() || rem_cmd.rfind("help", 0) == 0)
+	    if (rem_cmd.empty() || rem_cmd.find("help") != std::string::npos)
 	    {
 		    PSendSysMessage(
 			    R"(usage: 
@@ -2925,7 +2928,7 @@ reload <NAME>: re-download script from same url)");
 		    return true;
 	    }
 
-	    if (rem_cmd.rfind("load", 0) == 0)
+	    if (rem_cmd.find("load") != std::string::npos)
 	    {
 		    std::string name = rem_cmd.substr(4);
 		    boost::algorithm::trim(name);
@@ -2952,7 +2955,7 @@ reload <NAME>: re-download script from same url)");
 		    return false;
 	    }
 
-	    if (rem_cmd.rfind("reload", 0) == 0)
+	    if (rem_cmd.find("reload") != std::string::npos)
 	    {
 		    std::string name = rem_cmd.substr(6);
 		    boost::algorithm::trim(name);
@@ -2977,7 +2980,7 @@ reload <NAME>: re-download script from same url)");
 		    return false;
 	    }
 
-	    if (rem_cmd.rfind("remove", 0) == 0)
+	    if (rem_cmd.find("remove") != std::string::npos)
 	    {
 		    std::string name = rem_cmd.substr(6);
 		    boost::algorithm::trim(name);
@@ -3001,7 +3004,7 @@ reload <NAME>: re-download script from same url)");
 		    return false;
 	    }
 
-        if (rem_cmd.rfind("write", 0) == 0)
+        if (rem_cmd.find("write") != std::string::npos)
         {
             std::string message = rem_cmd.substr(5);
             boost::algorithm::trim(message);
@@ -3011,7 +3014,7 @@ reload <NAME>: re-download script from same url)");
             return false;
         }
 
-	    if (rem_cmd.rfind("set", 0) == 0)
+	    if (rem_cmd.find("set") != std::string::npos)
 	    {
 		    std::string rem_set_cmd = rem_cmd.substr(3);
 		    boost::algorithm::trim(rem_set_cmd);
