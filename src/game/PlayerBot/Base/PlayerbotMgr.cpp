@@ -238,7 +238,8 @@ void PlayerbotMgr::InitializeLuaEnvironment()
 
 	m_lastCommandPosition = Position();
 
-	m_hasLoadedScript = false;
+	if (!m_lastCommandPosition.IsEmpty())
+		m_lastCommandPosition = Position();
 }
 
 bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string& script)
@@ -253,14 +254,16 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 	std::string line;
 	while (std::getline(f, line))
 	{
-		if (const auto require_pos = line.find("require("); require_pos != std::string::npos)
+		if (const auto require_pos = line.find("require(\""); require_pos != std::string::npos)
 		{
-			const auto close_pos = line.find(')', require_pos);
+			const auto close_pos = line.find("\")", require_pos);
 
 			if (close_pos == std::string::npos)
 				continue;
 
-			std::string module_name = line.substr(require_pos, close_pos);
+			const auto name_start = require_pos + 8;
+
+			std::string module_name = line.substr(name_start, close_pos - name_start);
 			boost::algorithm::trim(module_name);
 
 			if (const auto module_table = m_lua[module_name].get_or(0); !module_table)
