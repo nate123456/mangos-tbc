@@ -122,7 +122,7 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 	if (!act_func.valid())
 	{
-		if (const auto error_msg = "No 'Main' function with correct parameters defined."; m_lastActErrorMsg !=
+		if (const auto error_msg = "No 'Main' function defined."; m_lastActErrorMsg !=
 			error_msg)
 		{
 			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
@@ -217,14 +217,60 @@ void PlayerbotMgr::InitializeLuaEnvironment()
 	m_hasLoadedScript = false;
 }
 
-bool PlayerbotMgr::SafeLoadLuaScript(const char* script)
+bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string& script)
 {
 	InitializeLuaEnvironment();
 
-	if (const auto result = m_lua.safe_script(std::string(script), m_luaEnvironment); !result.valid())
+	const auto account_id = m_master->GetSession()->GetAccountId();
+
+	std::istringstream f(script);
+
+	// ensure each required module dependency is met if possible
+	std::string line;
+	while (std::getline(f, line))
 	{
-		const sol::error error = result;
-		ChatHandler(m_master).PSendSysMessage("|cffff0000failed to load ai script:\n%s", error.what());
+		if (const auto require_pos = line.find_first_of("require("); require_pos != -1)
+		{
+			const auto close_pos = line.find_first_of(')', require_pos);
+
+			if (close_pos == -1)
+				continue;
+
+			std::string module_name = line.substr(require_pos, close_pos);
+			boost::algorithm::trim(module_name);
+
+			if (const auto module = m_lua[module_name]; !module)
+			{
+				if (const QueryResult* load_result = CharacterDatabase.PQuery(
+					"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
+				{
+					const Field* load_fields = load_result->Fetch();
+
+					if (const char* module_script = load_fields[0].GetString(); !SafeLoadLuaScript(module_name, module_script))
+						return false;
+				}
+				else
+				{
+					m_masterChatHandler.PSendSysMessage("|cffff0000AI Script module '%s' not found for script '%s'",
+					                                    module_name.c_str(), name.c_str());
+					return false;
+				}
+			}
+		}
+	}
+
+	if (script.rfind("Main()", 0) == 0)
+	{
+		if (const auto result = m_lua.safe_script(script, m_luaEnvironment); !result.valid())
+		{
+			const sol::error error = result;
+			m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script:\n%s", error.what());
+			return false;
+		}
+	}
+	else if (const auto result = m_lua.require_script(name, script); !result.valid())
+	{
+		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script module- script is not valid.");
 		return false;
 	}
 
@@ -549,6 +595,45 @@ void PlayerbotMgr::InitLuaPlayerType()
 			}
 		}
 		return sol::tie(x, y, z);
+	});
+	player_type["Specialization"] = sol::property([](const Player* self)
+	{
+		uint32 row = 0, spec = 0;
+		uint32 class_mask = self->getClassMask();
+
+		for (unsigned int i = 0; i < sTalentStore.GetNumRows(); ++i)
+		{
+			const TalentEntry* talent_info = sTalentStore.LookupEntry(i);
+
+			if (!talent_info)
+				continue;
+
+			const TalentTabEntry* talent_tab_info = sTalentTabStore.LookupEntry(talent_info->TalentTab);
+
+			if (!talent_tab_info)
+				continue;
+
+			if ((class_mask & talent_tab_info->ClassMask) == 0)
+				continue;
+
+			for (int32 k = MAX_TALENT_RANK - 1; k > -1; --k)
+			{
+				if (talent_info->RankID[k] && self->HasSpell(talent_info->RankID[k]))
+				{
+					if (row == 0 && spec == 0)
+						spec = talent_info->TalentTab;
+
+					if (talent_info->Row > row)
+					{
+						row = talent_info->Row;
+						spec = talent_info->TalentTab;
+					}
+				}
+			}
+		}
+
+		//Return the tree with the deepest talent
+		return spec;
 	});
 
 	player_type["Follow"] = [](Player* self, Unit* target, const float dist, const float angle)
@@ -1118,7 +1203,6 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	world_object_type["Map"] = sol::property(&WorldObject::GetMap);
 	world_object_type["ZoneId"] = sol::property(&WorldObject::GetZoneId);
 	world_object_type["AreaId"] = sol::property(&WorldObject::GetAreaId);
-	world_object_type["GCD"] = sol::property(&WorldObject::GetGCD);
 	world_object_type["Position"] = sol::property([](const WorldObject* self)
 	{
 		return self->GetPosition();
@@ -1177,6 +1261,19 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 			return false;
 
 		return true;
+	};
+	world_object_type["GCD"] = [&](const WorldObject* self, const uint32 spellId)->long
+	{		
+		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+		if (!p_spell_info)
+		{
+			return -1;
+		}
+
+		const auto gcd_time = self->GetGCD(p_spell_info).time_since_epoch().count();
+		const auto current = m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();
+
+		return current - gcd_time;
 	};
 }
 
@@ -1498,7 +1595,7 @@ Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const
 	return nullptr;
 };
 
-void PlayerbotMgr::FlipLuaTable(const std::string name)
+void PlayerbotMgr::FlipLuaTable(const std::string& name)
 {
 	// add to table by making each value a key with the key as the value
 	const std::string script = "for k, v in pairs(" + name + ") do " + name + "[v] = k end";
@@ -1757,7 +1854,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 
             if (result)
             {
-                ChatHandler(m_master).PSendSysMessage("%s has already signed the petition", player->GetName());
+                m_masterChatHandler.PSendSysMessage("%s has already signed the petition", player->GetName());
                 delete result;
                 return;
             }
@@ -2707,7 +2804,7 @@ uint32 Player::GetSpec()
     return spec;
 }
 
-bool PlayerbotMgr::LoadAIScript(const std::string& name, const std::string& url)
+bool PlayerbotMgr::DownloadSaveAndLoadAIScript(const std::string& name, const std::string& url)
 {
 	const cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(false));
 
@@ -2722,11 +2819,13 @@ bool PlayerbotMgr::LoadAIScript(const std::string& name, const std::string& url)
 
 	const std::string script = response.text;
 
-	if (SafeLoadLuaScript(script.c_str()))
+	// 
+
+	if (SafeLoadLuaScript(name, script))
 	{
 		if (CharacterDatabase.PExecute(
-			"INSERT INTO scripts (name, script, url) VALUES ('%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s'",
-			name.c_str(), script.c_str(), url.c_str(), script.c_str()))
+			"INSERT INTO scripts (accountid, name, script, url) VALUES ('%u', '%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s', url = '%s'",
+			 m_master->GetSession()->GetAccountId(), script.c_str(), url.c_str(), script.c_str(), url.c_str()))
 		{
 			m_masterChatHandler.PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.",
 			                                    name.c_str());
@@ -2745,8 +2844,10 @@ bool PlayerbotMgr::LoadAIScript(const std::string& name, const std::string& url)
 
 bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
 {
+	const auto account_id = m_master->GetSession()->GetAccountId();
+
 	if (const QueryResult* count_result = CharacterDatabase.PQuery(
-		"SELECT COUNT(*) FROM scripts WHERE name = '%s'", name.c_str()))
+		"SELECT COUNT(*) FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 	{
 		const Field* count_result_fields = count_result->Fetch();
 
@@ -2837,11 +2938,11 @@ reload <NAME>: re-download script from same url)");
 		    if (mgr->VerifyScriptExists(name))
 		    {
 			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
-				    "SELECT script FROM scripts WHERE name = '%s'", name.c_str()))
+				    "SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str()))
 			    {
 				    const Field* load_fields = load_result->Fetch();
 
-				    if (const char* script = load_fields[0].GetString(); mgr->SafeLoadLuaScript(script))
+				    if (const char* script = load_fields[0].GetString(); mgr->SafeLoadLuaScript(name, script))
 					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
 			    }
 		    }
@@ -2867,7 +2968,7 @@ reload <NAME>: re-download script from same url)");
 				    "SELECT url FROM scripts WHERE name = '%s'", name.c_str()))
 			    {
                     const Field* load_fields = load_result->Fetch();
-                    return mgr->LoadAIScript(name, load_fields[0].GetCppString());
+                    return mgr->DownloadSaveAndLoadAIScript(name, load_fields[0].GetCppString());
 			    }
 		    }
 
@@ -2942,7 +3043,7 @@ reload <NAME>: re-download script from same url)");
 			    return false;
 		    }
 
-		    return mgr->LoadAIScript(name, url);
+		    return mgr->DownloadSaveAndLoadAIScript(name, url);
 	    }
 
 	    return true;

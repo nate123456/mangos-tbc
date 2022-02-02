@@ -46,7 +46,7 @@ class PlayerbotMgr
 
         void InitLua();
         void InitializeLuaEnvironment();
-        bool SafeLoadLuaScript(const char* script);
+        bool SafeLoadLuaScript(const std::string& name, const std::string& script);
 
         void InitLuaMembers();
         void InitLuaFunctions();
@@ -65,7 +65,7 @@ class PlayerbotMgr
         void InitLuaItemType();
 
         Unit* GetRaidIcon(uint8 iconIndex) const;
-        void FlipLuaTable(std::string name);
+        void FlipLuaTable(const std::string& name);
         SpellCastResult Cast(Player* bot, Unit* target, uint32 spellId) const;
         static uint32 CurrentCast(const Unit* unit, CurrentSpellTypes type);
         void UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
@@ -98,7 +98,7 @@ class PlayerbotMgr
 
         void LogoutAllBots(bool fullRemove = false);                           // mark all bots to be removed on next update
         void RemoveAllBotsFromGroup();
-        bool LoadAIScript(const std::string& name, const std::string& url);
+        bool DownloadSaveAndLoadAIScript(const std::string& name, const std::string& url);
         bool VerifyScriptExists(const std::string& name);
         void OnBotLogin(Player* const bot);
         void Stay();
