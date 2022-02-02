@@ -242,7 +242,7 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 			std::string module_name = line.substr(require_pos, close_pos);
 			boost::algorithm::trim(module_name);
 
-			if (const auto module = m_lua[module_name].get_or(0); !module)
+			if (const auto module_table = m_lua[module_name].get_or(0); !module_table)
 			{
 				if (const QueryResult* load_result = CharacterDatabase.PQuery(
 					"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
