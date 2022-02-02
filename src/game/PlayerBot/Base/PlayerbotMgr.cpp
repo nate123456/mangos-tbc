@@ -172,6 +172,31 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		m_lastCommandPosition = Position();
 }
 
+int LoadFileRequire(lua_State* L) {
+	// use sol2 stack API to pull
+	// "first argument"
+	std::string path = sol::stack::get<std::string>(L, 1);
+
+	if (path == "a") {
+		std::string script = R"(
+			print("Hello from module land!")
+			test = 123
+			return "bananas"
+		)";
+		// load "module", but don't run it
+		luaL_loadbuffer(
+			L, script.data(), script.size(), path.c_str());
+		// returning 1 object left on Lua stack:
+		// a function that, when called, executes the script
+		// (this is what lua_loadX/luaL_loadX functions return
+		return 1;
+	}
+
+	sol::stack::push(
+		L, "This is not the module you're looking for!");
+	return 1;
+}
+
 void PlayerbotMgr::InitLua()
 {
 	m_lua.open_libraries(sol::lib::base,
@@ -181,8 +206,27 @@ void PlayerbotMgr::InitLua()
 	                     sol::lib::math,
 	                     sol::lib::table);
 
-	// we don't want lua looking for modules in actual files
-	m_lua["package"]["path"] = "";
+	m_lua.clear_package_loaders();
+	m_lua.add_package_loader([&](lua_State* L)
+	{
+		const auto account_id = m_master->GetSession()->GetAccountId();
+
+		const std::string name = sol::stack::get<std::string>(L);
+
+		if (const QueryResult* load_result = CharacterDatabase.PQuery(
+			"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
+		{
+			const Field* load_fields = load_result->Fetch();
+
+			const std::string module_script = load_fields[0].GetString();
+
+			luaL_loadbuffer(L, module_script.data(), module_script.size(), name.c_str());
+			return 1;
+		}
+
+		sol::stack::push(L, "No module found by the provided name: '" + name + "'.");
+		return 1;
+	});
 
 	InitLuaMembers();
 	InitLuaFunctions();
@@ -271,9 +315,10 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 			return false;
 		}
 	}
-	else if (const auto result = m_lua.require_script(name, script); !result.valid())
+	else if (const auto result = m_lua.load(name, script); !result.valid())
 	{
-		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script module- script is not valid.");
+		const sol::error error = result;
+		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script module:\n%s", error.what());
 		return false;
 	}
 
