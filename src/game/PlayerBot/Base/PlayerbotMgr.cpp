@@ -229,11 +229,11 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 	std::string line;
 	while (std::getline(f, line))
 	{
-		if (const auto require_pos = line.find_first_of("require("); require_pos != -1)
+		if (const auto require_pos = line.find("require("); require_pos != std::string::npos)
 		{
-			const auto close_pos = line.find_first_of(')', require_pos);
+			const auto close_pos = line.find(')', require_pos);
 
-			if (close_pos == -1)
+			if (close_pos == std::string::npos)
 				continue;
 
 			std::string module_name = line.substr(require_pos, close_pos);
@@ -2825,7 +2825,7 @@ bool PlayerbotMgr::DownloadSaveAndLoadAIScript(const std::string& name, const st
 	{
 		if (CharacterDatabase.PExecute(
 			"INSERT INTO scripts (accountid, name, script, url) VALUES ('%u', '%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s', url = '%s'",
-			 m_master->GetSession()->GetAccountId(), script.c_str(), url.c_str(), script.c_str(), url.c_str()))
+			 m_master->GetSession()->GetAccountId(), name.c_str(), script.c_str(), url.c_str(), script.c_str(), url.c_str()))
 		{
 			m_masterChatHandler.PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.",
 			                                    name.c_str());
@@ -2900,6 +2900,8 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
     // if args starts with ai
     if (cmd_string.rfind("ai", 0) == 0)
     {
+		const auto account_id = m_session->GetAccountId();
+
 	    // create the playerbot manager if it doesn't already exist
 	    PlayerbotMgr* mgr = m_session->GetPlayer()->GetPlayerbotMgr();
 	    if (!mgr)
@@ -2938,7 +2940,7 @@ reload <NAME>: re-download script from same url)");
 		    if (mgr->VerifyScriptExists(name))
 		    {
 			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
-				    "SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str()))
+				    "SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 			    {
 				    const Field* load_fields = load_result->Fetch();
 
@@ -2965,7 +2967,7 @@ reload <NAME>: re-download script from same url)");
 		    if (mgr->VerifyScriptExists(name))
 		    {
 			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
-				    "SELECT url FROM scripts WHERE name = '%s'", name.c_str()))
+				    "SELECT url FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 			    {
                     const Field* load_fields = load_result->Fetch();
                     return mgr->DownloadSaveAndLoadAIScript(name, load_fields[0].GetCppString());
@@ -3014,7 +3016,7 @@ reload <NAME>: re-download script from same url)");
 		    std::string rem_set_cmd = rem_cmd.substr(3);
 		    boost::algorithm::trim(rem_set_cmd);
 
-		    auto first_space = rem_set_cmd.find_first_of(' ');
+		    auto first_space = rem_set_cmd.find(' ');
 
 		    if (first_space == -1)
 		    {
