@@ -268,11 +268,20 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 		m_hasLoadedScript = true;
 	}
 	// we just want to ensure that it's valid lua- let the require finding code locate it on demand.
-	else if (const auto result = m_lua.load(script); !result.valid())
+	else
 	{
-		const sol::error error = result;
-		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script module:\n%s", error.what());
-		return false;
+		if (const auto result = m_lua.load(script); !result.valid())
+		{
+			const sol::error error = result;
+			m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script module:\n%s", error.what());
+			return false;
+		}
+
+		// we want it to be re-acquired when the module is next needed instead of using the old version.
+		if (const auto old_module = m_lua[name].get_or(0); old_module != 0)
+		{
+			m_lua[name] = sol::nil;
+		}
 	}
 
 	return true;
