@@ -2925,6 +2925,31 @@ reload <NAME>: re-download script from same url)");
 		    return true;
 	    }
 
+		if (rem_cmd.find("reload") != std::string::npos)
+		{
+			std::string name = rem_cmd.substr(6);
+			boost::algorithm::trim(name);
+
+			if (name.empty())
+			{
+				PSendSysMessage("|cffff0000No script name provided.");
+				SetSentErrorMessage(true);
+				return false;
+			}
+
+			if (mgr->VerifyScriptExists(name))
+			{
+				if (const QueryResult* load_result = CharacterDatabase.PQuery(
+					"SELECT url FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
+				{
+					const Field* load_fields = load_result->Fetch();
+					return mgr->DownloadSaveAndLoadAIScript(name, load_fields[0].GetCppString());
+				}
+			}
+
+			return false;
+		}
+
 	    if (rem_cmd.find("load") != std::string::npos)
 	    {
 		    std::string name = rem_cmd.substr(4);
@@ -2952,30 +2977,6 @@ reload <NAME>: re-download script from same url)");
 		    return false;
 	    }
 
-	    if (rem_cmd.find("reload") != std::string::npos)
-	    {
-		    std::string name = rem_cmd.substr(6);
-		    boost::algorithm::trim(name);
-
-		    if (name.empty())
-		    {
-			    PSendSysMessage("|cffff0000No script name provided.");
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
-
-		    if (mgr->VerifyScriptExists(name))
-		    {
-			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
-				    "SELECT url FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
-			    {
-                    const Field* load_fields = load_result->Fetch();
-                    return mgr->DownloadSaveAndLoadAIScript(name, load_fields[0].GetCppString());
-			    }
-		    }
-
-		    return false;
-	    }
 
 	    if (rem_cmd.find("remove") != std::string::npos)
 	    {
