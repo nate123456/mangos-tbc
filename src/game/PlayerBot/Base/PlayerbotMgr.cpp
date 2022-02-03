@@ -205,8 +205,6 @@ void PlayerbotMgr::InitLua()
 					delete query_result;
 					return make_object(m_lua, static_cast<sol::error>(result).what());
 				}
-
-				delete query_result;
 			}
 		}		
 
@@ -277,6 +275,8 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 			return false;
 		}
 
+		// clear out existing modules by the name- will trigger the read when it is appropriate.
+		m_lua["package"]["searchers"][name] = sol::nil;
 		m_lua[name] = sol::nil;
 	}
 
