@@ -188,21 +188,25 @@ void PlayerbotMgr::InitLua()
 
 		if (VerifyScriptExists(name))
 		{
-			if (const QueryResult* load_result = CharacterDatabase.PQuery(
+			if (const QueryResult* query_result = CharacterDatabase.PQuery(
 				"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 			{
-				const Field* load_fields = load_result->Fetch();
+				const Field* load_fields = query_result->Fetch();
 
 				const std::string module_script = load_fields[0].GetString();
 
 				if (const auto result = m_lua.load(module_script); result.valid())
 				{
+					delete query_result;
 					return result.get<sol::object>();
 				}
 				else
 				{
+					delete query_result;
 					return make_object(m_lua, static_cast<sol::error>(result).what());
 				}
+
+				delete query_result;
 			}
 		}		
 
@@ -2823,7 +2827,7 @@ bool PlayerbotMgr::DownloadSaveAndLoadAIScript(const std::string& name, const st
 
 	if (SafeLoadLuaScript(name, script))
 	{
-		if (CharacterDatabase.PExecute(
+		if (CharacterDatabase.DirectPExecute(
 			"INSERT INTO scripts (accountid, name, script, url) VALUES ('%u', '%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s', url = '%s'",
 			 m_master->GetSession()->GetAccountId(), name.c_str(), script.c_str(), url.c_str(), script.c_str(), url.c_str()))
 		{
@@ -2855,6 +2859,7 @@ bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
 		{
 			m_masterChatHandler.PSendSysMessage("|cffff0000No script was found by the name '%s'", name.c_str());
 			m_masterChatHandler.SetSentErrorMessage(true);
+			delete count_result;
 			return false;
 		}
 	}
@@ -2862,6 +2867,7 @@ bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
 	{
 		m_masterChatHandler.PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
 		m_masterChatHandler.SetSentErrorMessage(true);
+		delete count_result;
 		return false;
 	}
 
@@ -2939,11 +2945,16 @@ reload <NAME>: re-download script from same url)");
 
 			if (mgr->VerifyScriptExists(name))
 			{
-				if (const QueryResult* load_result = CharacterDatabase.PQuery(
+				if (const QueryResult* query_result = CharacterDatabase.PQuery(
 					"SELECT url FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 				{
-					const Field* load_fields = load_result->Fetch();
-					return mgr->DownloadSaveAndLoadAIScript(name, load_fields[0].GetCppString());
+					const Field* load_fields = query_result->Fetch();
+
+					const auto script = load_fields[0].GetCppString();
+
+					delete query_result;
+
+					return mgr->DownloadSaveAndLoadAIScript(name, script);
 				}
 			}
 
@@ -2964,19 +2975,20 @@ reload <NAME>: re-download script from same url)");
 
 		    if (mgr->VerifyScriptExists(name))
 		    {
-			    if (const QueryResult* load_result = CharacterDatabase.PQuery(
+			    if (const QueryResult* query_result = CharacterDatabase.PQuery(
 				    "SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 			    {
-				    const Field* load_fields = load_result->Fetch();
+				    const Field* load_fields = query_result->Fetch();
 
 				    if (const char* script = load_fields[0].GetString(); mgr->SafeLoadLuaScript(name, script))
 					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
+
+					delete query_result;
 			    }
 		    }
 
 		    return false;
 	    }
-
 
 	    if (rem_cmd.find("remove") != std::string::npos)
 	    {
