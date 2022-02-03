@@ -112,6 +112,10 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	if (!m_hasLoadedScript)
 		return;
 
+	// hopefully this prevents lua requesting a map during loading
+	if (m_master->GetSession()->PlayerLoading())
+		return;
+
 	std::vector<Player*> bots;
 	bots.reserve(m_playerBots.size());
 
@@ -132,20 +136,21 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	m_luaEnvironment["_CommandMessage"] = m_lastManagerMessage;
-	m_luaEnvironment["_CommandPosition"] = m_lastCommandPosition;
-	m_luaEnvironment["_Bots"] = bots;
+	m_lua["wow"]["command_message"] = m_lastManagerMessage;
+	m_lua["wow"]["command_position"] = m_lastCommandPosition;
+	m_lua["wow"]["bots"] = bots;
 
-	sol::table raid_icons = m_luaEnvironment.create("_RaidIcons");
+	m_lua["wow"]["raid_icons"] = m_luaEnvironment.create();
+	sol::table raid_icons = m_lua["wow"]["raid_icons"];
 
-	raid_icons["Star"] = GetRaidIcon(0);
-	raid_icons["Circle"] = GetRaidIcon(1);
-	raid_icons["Diamond"] = GetRaidIcon(2);
-	raid_icons["Triangle"] = GetRaidIcon(3);
-	raid_icons["Moon"] = GetRaidIcon(4);
-	raid_icons["Square"] = GetRaidIcon(5);
-	raid_icons["Cross"] = GetRaidIcon(6);
-	raid_icons["Skull"] = GetRaidIcon(7);
+	raid_icons["star"] = GetRaidIcon(0);
+	raid_icons["circle"] = GetRaidIcon(1);
+	raid_icons["diamond"] = GetRaidIcon(2);
+	raid_icons["triangle"] = GetRaidIcon(3);
+	raid_icons["moon"] = GetRaidIcon(4);
+	raid_icons["square"] = GetRaidIcon(5);
+	raid_icons["cross"] = GetRaidIcon(6);
+	raid_icons["skull"] = GetRaidIcon(7);
 
 	if (const auto act_result = act_func(); !act_result.valid())
 	{
@@ -211,6 +216,8 @@ void PlayerbotMgr::InitLua()
 		return make_object(m_lua, "Could not locate module  '" + name + "'.");
 	});
 
+	m_lua.create_table("wow");
+
 	InitLuaMembers();
 	InitLuaFunctions();
 
@@ -229,6 +236,7 @@ void PlayerbotMgr::InitLua()
 
 	InitializeLuaEnvironment();
 
+	// little shortcut for the python fanboys :)
 	m_lua.script("str = tostring num = tonumber");
 
 	m_lua.script("print('[DEBUG] LUA has been initialized.')");
@@ -285,250 +293,251 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 
 void PlayerbotMgr::InitLuaMembers()
 {
-	m_lua["_Master"] = m_master;
-	m_lua["_PI"] = M_PI_F;
+	m_lua["pi"] = M_PI_F;
 
-	sol::table class_enum = m_lua.create_table("_Class");
+	sol::table wow_table = m_lua["wow"];
+	wow_table["master"] = m_master;
 
-	class_enum[3] = "Mage";
-	class_enum[4] = "Warrior";
-	class_enum[5] = "Warlock";
-	class_enum[6] = "Priest";
-	class_enum[7] = "Druid";
-	class_enum[8] = "Rogue";
-	class_enum[9] = "Hunter";
-	class_enum[10] = "Paladin";
-	class_enum[11] = "Shaman";
+	wow_table["enums"] = m_lua.create_table();
+	sol::table enum_table = wow_table["enums"];
 
-	FlipLuaTable("_Class");
+	enum_table["classes"] = m_lua.create_table();
+	sol::table class_table = enum_table["classes"];
 
-	sol::table spell_result_enum = m_lua.create_table("_SpellResult");
+	class_table[3] = "Mage";
+	class_table[4] = "Warrior";
+	class_table[5] = "Warlock";
+	class_table[6] = "Priest";
+	class_table[7] = "Druid";
+	class_table[8] = "Rogue";
+	class_table[9] = "Hunter";
+	class_table[10] = "Paladin";
+	class_table[11] = "Shaman";
 
-	spell_result_enum[0] = "SPELL_FAILED_AFFECTING_COMBAT";
-	spell_result_enum[1] = "SPELL_FAILED_ALREADY_AT_FULL_HEALTH";
-	spell_result_enum[2] = "SPELL_FAILED_ALREADY_AT_FULL_MANA";
-	spell_result_enum[3] = "SPELL_FAILED_ALREADY_AT_FULL_POWER";
-	spell_result_enum[4] = "SPELL_FAILED_ALREADY_BEING_TAMED";
-	spell_result_enum[5] = "SPELL_FAILED_ALREADY_HAVE_CHARM";
-	spell_result_enum[6] = "SPELL_FAILED_ALREADY_HAVE_SUMMON";
-	spell_result_enum[7] = "SPELL_FAILED_ALREADY_OPEN";
-	spell_result_enum[8] = "SPELL_FAILED_AURA_BOUNCED";
-	spell_result_enum[9] = "SPELL_FAILED_AUTOTRACK_INTERRUPTED";
-	spell_result_enum[10] = "SPELL_FAILED_BAD_IMPLICIT_TARGETS";
-	spell_result_enum[11] = "SPELL_FAILED_BAD_TARGETS";
-	spell_result_enum[12] = "SPELL_FAILED_CANT_BE_CHARMED";
-	spell_result_enum[13] = "SPELL_FAILED_CANT_BE_DISENCHANTED";
-	spell_result_enum[14] = "SPELL_FAILED_CANT_BE_DISENCHANTED_SKILL";
-	spell_result_enum[15] = "SPELL_FAILED_CANT_BE_PROSPECTED";
-	spell_result_enum[16] = "SPELL_FAILED_CANT_CAST_ON_TAPPED";
-	spell_result_enum[17] = "SPELL_FAILED_CANT_DUEL_WHILE_INVISIBLE";
-	spell_result_enum[18] = "SPELL_FAILED_CANT_DUEL_WHILE_STEALTHED";
-	spell_result_enum[19] = "SPELL_FAILED_CANT_STEALTH";
-	spell_result_enum[20] = "SPELL_FAILED_CASTER_AURASTATE";
-	spell_result_enum[21] = "SPELL_FAILED_CASTER_DEAD";
-	spell_result_enum[22] = "SPELL_FAILED_CHARMED";
-	spell_result_enum[23] = "SPELL_FAILED_CHEST_IN_USE";
-	spell_result_enum[24] = "SPELL_FAILED_CONFUSED";
-	spell_result_enum[25] = "SPELL_FAILED_DONT_REPORT";
-	spell_result_enum[26] = "SPELL_FAILED_EQUIPPED_ITEM";
-	spell_result_enum[27] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS";
-	spell_result_enum[28] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS_MAINHAND";
-	spell_result_enum[29] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS_OFFHAND";
-	spell_result_enum[30] = "SPELL_FAILED_ERROR";
-	spell_result_enum[31] = "SPELL_FAILED_FIZZLE";
-	spell_result_enum[32] = "SPELL_FAILED_FLEEING";
-	spell_result_enum[33] = "SPELL_FAILED_FOOD_LOWLEVEL";
-	spell_result_enum[34] = "SPELL_FAILED_HIGHLEVEL";
-	spell_result_enum[35] = "SPELL_FAILED_HUNGER_SATIATED";
-	spell_result_enum[36] = "SPELL_FAILED_IMMUNE";
-	spell_result_enum[37] = "SPELL_FAILED_INTERRUPTED";
-	spell_result_enum[38] = "SPELL_FAILED_INTERRUPTED_COMBAT";
-	spell_result_enum[39] = "SPELL_FAILED_ITEM_ALREADY_ENCHANTED";
-	spell_result_enum[40] = "SPELL_FAILED_ITEM_GONE";
-	spell_result_enum[41] = "SPELL_FAILED_ITEM_NOT_FOUND";
-	spell_result_enum[42] = "SPELL_FAILED_ITEM_NOT_READY";
-	spell_result_enum[43] = "SPELL_FAILED_LEVEL_REQUIREMENT";
-	spell_result_enum[44] = "SPELL_FAILED_LINE_OF_SIGHT";
-	spell_result_enum[45] = "SPELL_FAILED_LOWLEVEL";
-	spell_result_enum[46] = "SPELL_FAILED_LOW_CASTLEVEL";
-	spell_result_enum[47] = "SPELL_FAILED_MAINHAND_EMPTY";
-	spell_result_enum[48] = "SPELL_FAILED_MOVING";
-	spell_result_enum[49] = "SPELL_FAILED_NEED_AMMO";
-	spell_result_enum[50] = "SPELL_FAILED_NEED_AMMO_POUCH";
-	spell_result_enum[51] = "SPELL_FAILED_NEED_EXOTIC_AMMO";
-	spell_result_enum[52] = "SPELL_FAILED_NOPATH";
-	spell_result_enum[53] = "SPELL_FAILED_NOT_BEHIND";
-	spell_result_enum[54] = "SPELL_FAILED_NOT_FISHABLE";
-	spell_result_enum[55] = "SPELL_FAILED_NOT_FLYING";
-	spell_result_enum[56] = "SPELL_FAILED_NOT_HERE";
-	spell_result_enum[57] = "SPELL_FAILED_NOT_INFRONT";
-	spell_result_enum[58] = "SPELL_FAILED_NOT_IN_CONTROL";
-	spell_result_enum[59] = "SPELL_FAILED_NOT_KNOWN";
-	spell_result_enum[60] = "SPELL_FAILED_NOT_MOUNTED";
-	spell_result_enum[61] = "SPELL_FAILED_NOT_ON_TAXI";
-	spell_result_enum[62] = "SPELL_FAILED_NOT_ON_TRANSPORT";
-	spell_result_enum[63] = "SPELL_FAILED_NOT_READY";
-	spell_result_enum[64] = "SPELL_FAILED_NOT_SHAPESHIFT";
-	spell_result_enum[65] = "SPELL_FAILED_NOT_STANDING";
-	spell_result_enum[66] = "SPELL_FAILED_NOT_TRADEABLE";
-	spell_result_enum[67] = "SPELL_FAILED_NOT_TRADING";
-	spell_result_enum[68] = "SPELL_FAILED_NOT_UNSHEATHED";
-	spell_result_enum[69] = "SPELL_FAILED_NOT_WHILE_GHOST";
-	spell_result_enum[70] = "SPELL_FAILED_NO_AMMO";
-	spell_result_enum[71] = "SPELL_FAILED_NO_CHARGES_REMAIN";
-	spell_result_enum[72] = "SPELL_FAILED_NO_CHAMPION";
-	spell_result_enum[73] = "SPELL_FAILED_NO_COMBO_POINTS";
-	spell_result_enum[74] = "SPELL_FAILED_NO_DUELING";
-	spell_result_enum[75] = "SPELL_FAILED_NO_ENDURANCE";
-	spell_result_enum[76] = "SPELL_FAILED_NO_FISH";
-	spell_result_enum[77] = "SPELL_FAILED_NO_ITEMS_WHILE_SHAPESHIFTED";
-	spell_result_enum[78] = "SPELL_FAILED_NO_MOUNTS_ALLOWED";
-	spell_result_enum[79] = "SPELL_FAILED_NO_PET";
-	spell_result_enum[80] = "SPELL_FAILED_NO_POWER";
-	spell_result_enum[81] = "SPELL_FAILED_NOTHING_TO_DISPEL";
-	spell_result_enum[82] = "SPELL_FAILED_NOTHING_TO_STEAL";
-	spell_result_enum[83] = "SPELL_FAILED_ONLY_ABOVEWATER";
-	spell_result_enum[84] = "SPELL_FAILED_ONLY_DAYTIME";
-	spell_result_enum[85] = "SPELL_FAILED_ONLY_INDOORS";
-	spell_result_enum[86] = "SPELL_FAILED_ONLY_MOUNTED";
-	spell_result_enum[87] = "SPELL_FAILED_ONLY_NIGHTTIME";
-	spell_result_enum[88] = "SPELL_FAILED_ONLY_OUTDOORS";
-	spell_result_enum[89] = "SPELL_FAILED_ONLY_SHAPESHIFT";
-	spell_result_enum[90] = "SPELL_FAILED_ONLY_STEALTHED";
-	spell_result_enum[91] = "SPELL_FAILED_ONLY_UNDERWATER";
-	spell_result_enum[92] = "SPELL_FAILED_OUT_OF_RANGE";
-	spell_result_enum[93] = "SPELL_FAILED_PACIFIED";
-	spell_result_enum[94] = "SPELL_FAILED_POSSESSED";
-	spell_result_enum[95] = "SPELL_FAILED_REAGENTS";
-	spell_result_enum[96] = "SPELL_FAILED_REQUIRES_AREA";
-	spell_result_enum[97] = "SPELL_FAILED_REQUIRES_SPELL_FOCUS";
-	spell_result_enum[98] = "SPELL_FAILED_ROOTED";
-	spell_result_enum[99] = "SPELL_FAILED_SILENCED";
-	spell_result_enum[100] = "SPELL_FAILED_SPELL_IN_PROGRESS";
-	spell_result_enum[101] = "SPELL_FAILED_SPELL_LEARNED";
-	spell_result_enum[102] = "SPELL_FAILED_SPELL_UNAVAILABLE";
-	spell_result_enum[103] = "SPELL_FAILED_STUNNED";
-	spell_result_enum[104] = "SPELL_FAILED_TARGETS_DEAD";
-	spell_result_enum[105] = "SPELL_FAILED_TARGET_AFFECTING_COMBAT";
-	spell_result_enum[106] = "SPELL_FAILED_TARGET_AURASTATE";
-	spell_result_enum[107] = "SPELL_FAILED_TARGET_DUELING";
-	spell_result_enum[108] = "SPELL_FAILED_TARGET_ENEMY";
-	spell_result_enum[109] = "SPELL_FAILED_TARGET_ENRAGED";
-	spell_result_enum[110] = "SPELL_FAILED_TARGET_FRIENDLY";
-	spell_result_enum[111] = "SPELL_FAILED_TARGET_IN_COMBAT";
-	spell_result_enum[112] = "SPELL_FAILED_TARGET_IS_PLAYER";
-	spell_result_enum[113] = "SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED";
-	spell_result_enum[114] = "SPELL_FAILED_TARGET_NOT_DEAD";
-	spell_result_enum[115] = "SPELL_FAILED_TARGET_NOT_IN_PARTY";
-	spell_result_enum[116] = "SPELL_FAILED_TARGET_NOT_LOOTED";
-	spell_result_enum[117] = "SPELL_FAILED_TARGET_NOT_PLAYER";
-	spell_result_enum[118] = "SPELL_FAILED_TARGET_NO_POCKETS";
-	spell_result_enum[119] = "SPELL_FAILED_TARGET_NO_WEAPONS";
-	spell_result_enum[120] = "SPELL_FAILED_TARGET_UNSKINNABLE";
-	spell_result_enum[121] = "SPELL_FAILED_THIRST_SATIATED";
-	spell_result_enum[122] = "SPELL_FAILED_TOO_CLOSE";
-	spell_result_enum[123] = "SPELL_FAILED_TOO_MANY_OF_ITEM";
-	spell_result_enum[124] = "SPELL_FAILED_TOTEM_CATEGORY";
-	spell_result_enum[125] = "SPELL_FAILED_TOTEMS";
-	spell_result_enum[126] = "SPELL_FAILED_TRAINING_POINTS";
-	spell_result_enum[127] = "SPELL_FAILED_TRY_AGAIN";
-	spell_result_enum[128] = "SPELL_FAILED_UNIT_NOT_BEHIND";
-	spell_result_enum[129] = "SPELL_FAILED_UNIT_NOT_INFRONT";
-	spell_result_enum[130] = "SPELL_FAILED_WRONG_PET_FOOD";
-	spell_result_enum[131] = "SPELL_FAILED_NOT_WHILE_FATIGUED";
-	spell_result_enum[132] = "SPELL_FAILED_TARGET_NOT_IN_INSTANCE";
-	spell_result_enum[133] = "SPELL_FAILED_NOT_WHILE_TRADING";
-	spell_result_enum[134] = "SPELL_FAILED_TARGET_NOT_IN_RAID";
-	spell_result_enum[135] = "SPELL_FAILED_DISENCHANT_WHILE_LOOTING";
-	spell_result_enum[136] = "SPELL_FAILED_PROSPECT_WHILE_LOOTING";
-	spell_result_enum[137] = "SPELL_FAILED_PROSPECT_NEED_MORE";
-	spell_result_enum[138] = "SPELL_FAILED_TARGET_FREEFORALL";
-	spell_result_enum[139] = "SPELL_FAILED_NO_EDIBLE_CORPSES";
-	spell_result_enum[140] = "SPELL_FAILED_ONLY_BATTLEGROUNDS";
-	spell_result_enum[141] = "SPELL_FAILED_TARGET_NOT_GHOST";
-	spell_result_enum[142] = "SPELL_FAILED_TOO_MANY_SKILLS";
-	spell_result_enum[143] = "SPELL_FAILED_TRANSFORM_UNUSABLE";
-	spell_result_enum[144] = "SPELL_FAILED_WRONG_WEATHER";
-	spell_result_enum[145] = "SPELL_FAILED_DAMAGE_IMMUNE";
-	spell_result_enum[146] = "SPELL_FAILED_PREVENTED_BY_MECHANIC";
-	spell_result_enum[147] = "SPELL_FAILED_PLAY_TIME";
-	spell_result_enum[148] = "SPELL_FAILED_REPUTATION";
-	spell_result_enum[149] = "SPELL_FAILED_MIN_SKILL";
-	spell_result_enum[150] = "SPELL_FAILED_NOT_IN_ARENA";
-	spell_result_enum[151] = "SPELL_FAILED_NOT_ON_SHAPESHIFT";
-	spell_result_enum[152] = "SPELL_FAILED_NOT_ON_STEALTHED";
-	spell_result_enum[153] = "SPELL_FAILED_NOT_ON_DAMAGE_IMMUNE";
-	spell_result_enum[154] = "SPELL_FAILED_NOT_ON_MOUNTED";
-	spell_result_enum[155] = "SPELL_FAILED_TOO_SHALLOW";
-	spell_result_enum[156] = "SPELL_FAILED_TARGET_NOT_IN_SANCTUARY";
-	spell_result_enum[157] = "SPELL_FAILED_TARGET_IS_TRIVIAL";
-	spell_result_enum[158] = "SPELL_FAILED_BM_OR_INVISGOD";
-	spell_result_enum[159] = "SPELL_FAILED_EXPERT_RIDING_REQUIREMENT";
-	spell_result_enum[160] = "SPELL_FAILED_ARTISAN_RIDING_REQUIREMENT";
-	spell_result_enum[161] = "SPELL_FAILED_NOT_IDLE";
-	spell_result_enum[162] = "SPELL_FAILED_NOT_INACTIVE";
-	spell_result_enum[163] = "SPELL_FAILED_PARTIAL_PLAYTIME";
-	spell_result_enum[164] = "SPELL_FAILED_NO_PLAYTIME";
-	spell_result_enum[165] = "SPELL_FAILED_NOT_IN_BATTLEGROUND";
-	spell_result_enum[166] = "SPELL_FAILED_ONLY_IN_ARENA";
-	spell_result_enum[167] = "SPELL_FAILED_TARGET_LOCKED_TO_RAID_INSTANCE";
-	spell_result_enum[168] = "SPELL_FAILED_UNKNOWN";
-	spell_result_enum[253] = "SPELL_FAILED_PVP_CHECK";
-	spell_result_enum[254] = "SPELL_NOT_FOUND";
-	spell_result_enum[255] = "SPELL_CAST_OK";
+	FlipLuaTable("wow.enums.classes");
 
-	FlipLuaTable("_SpellResult");
+	enum_table["spell_results"] = m_lua.create_table();
+	sol::table spell_results_table = enum_table["spell_results"];
 
-	sol::table equip_slot_enum = m_lua.create_table("_EquipSlot");
+	spell_results_table[0] = "SPELL_FAILED_AFFECTING_COMBAT";
+	spell_results_table[1] = "SPELL_FAILED_ALREADY_AT_FULL_HEALTH";
+	spell_results_table[2] = "SPELL_FAILED_ALREADY_AT_FULL_MANA";
+	spell_results_table[3] = "SPELL_FAILED_ALREADY_AT_FULL_POWER";
+	spell_results_table[4] = "SPELL_FAILED_ALREADY_BEING_TAMED";
+	spell_results_table[5] = "SPELL_FAILED_ALREADY_HAVE_CHARM";
+	spell_results_table[6] = "SPELL_FAILED_ALREADY_HAVE_SUMMON";
+	spell_results_table[7] = "SPELL_FAILED_ALREADY_OPEN";
+	spell_results_table[8] = "SPELL_FAILED_AURA_BOUNCED";
+	spell_results_table[9] = "SPELL_FAILED_AUTOTRACK_INTERRUPTED";
+	spell_results_table[10] = "SPELL_FAILED_BAD_IMPLICIT_TARGETS";
+	spell_results_table[11] = "SPELL_FAILED_BAD_TARGETS";
+	spell_results_table[12] = "SPELL_FAILED_CANT_BE_CHARMED";
+	spell_results_table[13] = "SPELL_FAILED_CANT_BE_DISENCHANTED";
+	spell_results_table[14] = "SPELL_FAILED_CANT_BE_DISENCHANTED_SKILL";
+	spell_results_table[15] = "SPELL_FAILED_CANT_BE_PROSPECTED";
+	spell_results_table[16] = "SPELL_FAILED_CANT_CAST_ON_TAPPED";
+	spell_results_table[17] = "SPELL_FAILED_CANT_DUEL_WHILE_INVISIBLE";
+	spell_results_table[18] = "SPELL_FAILED_CANT_DUEL_WHILE_STEALTHED";
+	spell_results_table[19] = "SPELL_FAILED_CANT_STEALTH";
+	spell_results_table[20] = "SPELL_FAILED_CASTER_AURASTATE";
+	spell_results_table[21] = "SPELL_FAILED_CASTER_DEAD";
+	spell_results_table[22] = "SPELL_FAILED_CHARMED";
+	spell_results_table[23] = "SPELL_FAILED_CHEST_IN_USE";
+	spell_results_table[24] = "SPELL_FAILED_CONFUSED";
+	spell_results_table[25] = "SPELL_FAILED_DONT_REPORT";
+	spell_results_table[26] = "SPELL_FAILED_EQUIPPED_ITEM";
+	spell_results_table[27] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS";
+	spell_results_table[28] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS_MAINHAND";
+	spell_results_table[29] = "SPELL_FAILED_EQUIPPED_ITEM_CLASS_OFFHAND";
+	spell_results_table[30] = "SPELL_FAILED_ERROR";
+	spell_results_table[31] = "SPELL_FAILED_FIZZLE";
+	spell_results_table[32] = "SPELL_FAILED_FLEEING";
+	spell_results_table[33] = "SPELL_FAILED_FOOD_LOWLEVEL";
+	spell_results_table[34] = "SPELL_FAILED_HIGHLEVEL";
+	spell_results_table[35] = "SPELL_FAILED_HUNGER_SATIATED";
+	spell_results_table[36] = "SPELL_FAILED_IMMUNE";
+	spell_results_table[37] = "SPELL_FAILED_INTERRUPTED";
+	spell_results_table[38] = "SPELL_FAILED_INTERRUPTED_COMBAT";
+	spell_results_table[39] = "SPELL_FAILED_ITEM_ALREADY_ENCHANTED";
+	spell_results_table[40] = "SPELL_FAILED_ITEM_GONE";
+	spell_results_table[41] = "SPELL_FAILED_ITEM_NOT_FOUND";
+	spell_results_table[42] = "SPELL_FAILED_ITEM_NOT_READY";
+	spell_results_table[43] = "SPELL_FAILED_LEVEL_REQUIREMENT";
+	spell_results_table[44] = "SPELL_FAILED_LINE_OF_SIGHT";
+	spell_results_table[45] = "SPELL_FAILED_LOWLEVEL";
+	spell_results_table[46] = "SPELL_FAILED_LOW_CASTLEVEL";
+	spell_results_table[47] = "SPELL_FAILED_MAINHAND_EMPTY";
+	spell_results_table[48] = "SPELL_FAILED_MOVING";
+	spell_results_table[49] = "SPELL_FAILED_NEED_AMMO";
+	spell_results_table[50] = "SPELL_FAILED_NEED_AMMO_POUCH";
+	spell_results_table[51] = "SPELL_FAILED_NEED_EXOTIC_AMMO";
+	spell_results_table[52] = "SPELL_FAILED_NOPATH";
+	spell_results_table[53] = "SPELL_FAILED_NOT_BEHIND";
+	spell_results_table[54] = "SPELL_FAILED_NOT_FISHABLE";
+	spell_results_table[55] = "SPELL_FAILED_NOT_FLYING";
+	spell_results_table[56] = "SPELL_FAILED_NOT_HERE";
+	spell_results_table[57] = "SPELL_FAILED_NOT_INFRONT";
+	spell_results_table[58] = "SPELL_FAILED_NOT_IN_CONTROL";
+	spell_results_table[59] = "SPELL_FAILED_NOT_KNOWN";
+	spell_results_table[60] = "SPELL_FAILED_NOT_MOUNTED";
+	spell_results_table[61] = "SPELL_FAILED_NOT_ON_TAXI";
+	spell_results_table[62] = "SPELL_FAILED_NOT_ON_TRANSPORT";
+	spell_results_table[63] = "SPELL_FAILED_NOT_READY";
+	spell_results_table[64] = "SPELL_FAILED_NOT_SHAPESHIFT";
+	spell_results_table[65] = "SPELL_FAILED_NOT_STANDING";
+	spell_results_table[66] = "SPELL_FAILED_NOT_TRADEABLE";
+	spell_results_table[67] = "SPELL_FAILED_NOT_TRADING";
+	spell_results_table[68] = "SPELL_FAILED_NOT_UNSHEATHED";
+	spell_results_table[69] = "SPELL_FAILED_NOT_WHILE_GHOST";
+	spell_results_table[70] = "SPELL_FAILED_NO_AMMO";
+	spell_results_table[71] = "SPELL_FAILED_NO_CHARGES_REMAIN";
+	spell_results_table[72] = "SPELL_FAILED_NO_CHAMPION";
+	spell_results_table[73] = "SPELL_FAILED_NO_COMBO_POINTS";
+	spell_results_table[74] = "SPELL_FAILED_NO_DUELING";
+	spell_results_table[75] = "SPELL_FAILED_NO_ENDURANCE";
+	spell_results_table[76] = "SPELL_FAILED_NO_FISH";
+	spell_results_table[77] = "SPELL_FAILED_NO_ITEMS_WHILE_SHAPESHIFTED";
+	spell_results_table[78] = "SPELL_FAILED_NO_MOUNTS_ALLOWED";
+	spell_results_table[79] = "SPELL_FAILED_NO_PET";
+	spell_results_table[80] = "SPELL_FAILED_NO_POWER";
+	spell_results_table[81] = "SPELL_FAILED_NOTHING_TO_DISPEL";
+	spell_results_table[82] = "SPELL_FAILED_NOTHING_TO_STEAL";
+	spell_results_table[83] = "SPELL_FAILED_ONLY_ABOVEWATER";
+	spell_results_table[84] = "SPELL_FAILED_ONLY_DAYTIME";
+	spell_results_table[85] = "SPELL_FAILED_ONLY_INDOORS";
+	spell_results_table[86] = "SPELL_FAILED_ONLY_MOUNTED";
+	spell_results_table[87] = "SPELL_FAILED_ONLY_NIGHTTIME";
+	spell_results_table[88] = "SPELL_FAILED_ONLY_OUTDOORS";
+	spell_results_table[89] = "SPELL_FAILED_ONLY_SHAPESHIFT";
+	spell_results_table[90] = "SPELL_FAILED_ONLY_STEALTHED";
+	spell_results_table[91] = "SPELL_FAILED_ONLY_UNDERWATER";
+	spell_results_table[92] = "SPELL_FAILED_OUT_OF_RANGE";
+	spell_results_table[93] = "SPELL_FAILED_PACIFIED";
+	spell_results_table[94] = "SPELL_FAILED_POSSESSED";
+	spell_results_table[95] = "SPELL_FAILED_REAGENTS";
+	spell_results_table[96] = "SPELL_FAILED_REQUIRES_AREA";
+	spell_results_table[97] = "SPELL_FAILED_REQUIRES_SPELL_FOCUS";
+	spell_results_table[98] = "SPELL_FAILED_ROOTED";
+	spell_results_table[99] = "SPELL_FAILED_SILENCED";
+	spell_results_table[100] = "SPELL_FAILED_SPELL_IN_PROGRESS";
+	spell_results_table[101] = "SPELL_FAILED_SPELL_LEARNED";
+	spell_results_table[102] = "SPELL_FAILED_SPELL_UNAVAILABLE";
+	spell_results_table[103] = "SPELL_FAILED_STUNNED";
+	spell_results_table[104] = "SPELL_FAILED_TARGETS_DEAD";
+	spell_results_table[105] = "SPELL_FAILED_TARGET_AFFECTING_COMBAT";
+	spell_results_table[106] = "SPELL_FAILED_TARGET_AURASTATE";
+	spell_results_table[107] = "SPELL_FAILED_TARGET_DUELING";
+	spell_results_table[108] = "SPELL_FAILED_TARGET_ENEMY";
+	spell_results_table[109] = "SPELL_FAILED_TARGET_ENRAGED";
+	spell_results_table[110] = "SPELL_FAILED_TARGET_FRIENDLY";
+	spell_results_table[111] = "SPELL_FAILED_TARGET_IN_COMBAT";
+	spell_results_table[112] = "SPELL_FAILED_TARGET_IS_PLAYER";
+	spell_results_table[113] = "SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED";
+	spell_results_table[114] = "SPELL_FAILED_TARGET_NOT_DEAD";
+	spell_results_table[115] = "SPELL_FAILED_TARGET_NOT_IN_PARTY";
+	spell_results_table[116] = "SPELL_FAILED_TARGET_NOT_LOOTED";
+	spell_results_table[117] = "SPELL_FAILED_TARGET_NOT_PLAYER";
+	spell_results_table[118] = "SPELL_FAILED_TARGET_NO_POCKETS";
+	spell_results_table[119] = "SPELL_FAILED_TARGET_NO_WEAPONS";
+	spell_results_table[120] = "SPELL_FAILED_TARGET_UNSKINNABLE";
+	spell_results_table[121] = "SPELL_FAILED_THIRST_SATIATED";
+	spell_results_table[122] = "SPELL_FAILED_TOO_CLOSE";
+	spell_results_table[123] = "SPELL_FAILED_TOO_MANY_OF_ITEM";
+	spell_results_table[124] = "SPELL_FAILED_TOTEM_CATEGORY";
+	spell_results_table[125] = "SPELL_FAILED_TOTEMS";
+	spell_results_table[126] = "SPELL_FAILED_TRAINING_POINTS";
+	spell_results_table[127] = "SPELL_FAILED_TRY_AGAIN";
+	spell_results_table[128] = "SPELL_FAILED_UNIT_NOT_BEHIND";
+	spell_results_table[129] = "SPELL_FAILED_UNIT_NOT_INFRONT";
+	spell_results_table[130] = "SPELL_FAILED_WRONG_PET_FOOD";
+	spell_results_table[131] = "SPELL_FAILED_NOT_WHILE_FATIGUED";
+	spell_results_table[132] = "SPELL_FAILED_TARGET_NOT_IN_INSTANCE";
+	spell_results_table[133] = "SPELL_FAILED_NOT_WHILE_TRADING";
+	spell_results_table[134] = "SPELL_FAILED_TARGET_NOT_IN_RAID";
+	spell_results_table[135] = "SPELL_FAILED_DISENCHANT_WHILE_LOOTING";
+	spell_results_table[136] = "SPELL_FAILED_PROSPECT_WHILE_LOOTING";
+	spell_results_table[137] = "SPELL_FAILED_PROSPECT_NEED_MORE";
+	spell_results_table[138] = "SPELL_FAILED_TARGET_FREEFORALL";
+	spell_results_table[139] = "SPELL_FAILED_NO_EDIBLE_CORPSES";
+	spell_results_table[140] = "SPELL_FAILED_ONLY_BATTLEGROUNDS";
+	spell_results_table[141] = "SPELL_FAILED_TARGET_NOT_GHOST";
+	spell_results_table[142] = "SPELL_FAILED_TOO_MANY_SKILLS";
+	spell_results_table[143] = "SPELL_FAILED_TRANSFORM_UNUSABLE";
+	spell_results_table[144] = "SPELL_FAILED_WRONG_WEATHER";
+	spell_results_table[145] = "SPELL_FAILED_DAMAGE_IMMUNE";
+	spell_results_table[146] = "SPELL_FAILED_PREVENTED_BY_MECHANIC";
+	spell_results_table[147] = "SPELL_FAILED_PLAY_TIME";
+	spell_results_table[148] = "SPELL_FAILED_REPUTATION";
+	spell_results_table[149] = "SPELL_FAILED_MIN_SKILL";
+	spell_results_table[150] = "SPELL_FAILED_NOT_IN_ARENA";
+	spell_results_table[151] = "SPELL_FAILED_NOT_ON_SHAPESHIFT";
+	spell_results_table[152] = "SPELL_FAILED_NOT_ON_STEALTHED";
+	spell_results_table[153] = "SPELL_FAILED_NOT_ON_DAMAGE_IMMUNE";
+	spell_results_table[154] = "SPELL_FAILED_NOT_ON_MOUNTED";
+	spell_results_table[155] = "SPELL_FAILED_TOO_SHALLOW";
+	spell_results_table[156] = "SPELL_FAILED_TARGET_NOT_IN_SANCTUARY";
+	spell_results_table[157] = "SPELL_FAILED_TARGET_IS_TRIVIAL";
+	spell_results_table[158] = "SPELL_FAILED_BM_OR_INVISGOD";
+	spell_results_table[159] = "SPELL_FAILED_EXPERT_RIDING_REQUIREMENT";
+	spell_results_table[160] = "SPELL_FAILED_ARTISAN_RIDING_REQUIREMENT";
+	spell_results_table[161] = "SPELL_FAILED_NOT_IDLE";
+	spell_results_table[162] = "SPELL_FAILED_NOT_INACTIVE";
+	spell_results_table[163] = "SPELL_FAILED_PARTIAL_PLAYTIME";
+	spell_results_table[164] = "SPELL_FAILED_NO_PLAYTIME";
+	spell_results_table[165] = "SPELL_FAILED_NOT_IN_BATTLEGROUND";
+	spell_results_table[166] = "SPELL_FAILED_ONLY_IN_ARENA";
+	spell_results_table[167] = "SPELL_FAILED_TARGET_LOCKED_TO_RAID_INSTANCE";
+	spell_results_table[168] = "SPELL_FAILED_UNKNOWN";
+	spell_results_table[253] = "SPELL_FAILED_PVP_CHECK";
+	spell_results_table[254] = "SPELL_NOT_FOUND";
+	spell_results_table[255] = "SPELL_CAST_OK";
 
-	equip_slot_enum["Head"] = 0;
-	equip_slot_enum["Neck"] = 1;
-	equip_slot_enum["Shoulders"] = 2;
-	equip_slot_enum["Chest"] = 4;
-	equip_slot_enum["Waist"] = 5;
-	equip_slot_enum["Legs"] = 6;
-	equip_slot_enum["Feet"] = 7;
-	equip_slot_enum["Wrists"] = 8;
-	equip_slot_enum["Hands"] = 9;
-	equip_slot_enum["Finger1"] = 10;
-	equip_slot_enum["Finger2"] = 11;
-	equip_slot_enum["Trinket1"] = 12;
-	equip_slot_enum["Trinket2"] = 13;
-	equip_slot_enum["Back"] = 14;
-	equip_slot_enum["MainHand"] = 15;
-	equip_slot_enum["OffHand"] = 16;
-	equip_slot_enum["Ranged"] = 17;
+	FlipLuaTable("wow.enums.spell_results");
 
-	FlipLuaTable("_EquipSlot");
+	enum_table["equip_slots"] = m_lua.create_table();
+	sol::table equip_slots_table = enum_table["equip_slots"];
+
+	equip_slots_table["Head"] = 0;
+	equip_slots_table["Neck"] = 1;
+	equip_slots_table["Shoulders"] = 2;
+	equip_slots_table["Chest"] = 4;
+	equip_slots_table["Waist"] = 5;
+	equip_slots_table["Legs"] = 6;
+	equip_slots_table["Feet"] = 7;
+	equip_slots_table["Wrists"] = 8;
+	equip_slots_table["Hands"] = 9;
+	equip_slots_table["Finger1"] = 10;
+	equip_slots_table["Finger2"] = 11;
+	equip_slots_table["Trinket1"] = 12;
+	equip_slots_table["Trinket2"] = 13;
+	equip_slots_table["Back"] = 14;
+	equip_slots_table["MainHand"] = 15;
+	equip_slots_table["OffHand"] = 16;
+	equip_slots_table["Ranged"] = 17;
+
+	FlipLuaTable("wow.enums.equip_slots");
 }
 
 void PlayerbotMgr::InitLuaFunctions()
 {
-	m_lua["_SpellExists"] = [](const uint32 spellId)
+	sol::table wow_table = m_lua["wow"];
+
+	wow_table["spell_exists"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
 
 		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
 	};
-	m_lua["_CurrentTime"] = sol::property([&] { return m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
-	m_lua["_GetRaidIcon"] = [&](const uint8 iconIndex)-> Unit*
-	{
-		if (iconIndex < 0 || iconIndex > 7)
-			return nullptr;
-
-		if (const auto guid = m_master->GetGroup()->GetTargetFromIcon(iconIndex))
-			return m_master->GetMap()->GetUnit(*guid);
-
-		return nullptr;
-	};
-	m_lua["_SpellIsPositive"] = [](const uint32 spellId)
+	wow_table["time"] = sol::property([&] { return m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
+	wow_table["spell_is_positive"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
 
 		return IsPositiveSpell(spellId);
 	};
+
 	m_lua.set_function("print",
 	                   sol::overload(
 		                   [this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
@@ -542,7 +551,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 	                                                               sol::base_classes,
 	                                                               sol::bases<Unit, WorldObject, Object>());
 
-	player_type["LastMessage"] = sol::property([](Player* self)
+	player_type["last_message"] = sol::property([](Player* self)
 	{
 		const auto ai = self->GetPlayerbotAI();
 
@@ -551,11 +560,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return ai->GetLastMessage().c_str();
 	});
-	player_type["Class"] = sol::property([](const Player* self)
+	player_type["class"] = sol::property([](const Player* self)
 	{
 		return self->GetSpellClass();
 	});
-	player_type["Inventory"] = sol::property([](const Player* self)
+	player_type["inventory"] = sol::property([](const Player* self)
 	{
 		std::list<Item*> items;
 
@@ -575,19 +584,19 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return items;
 	});
-	player_type["Trinket1"] = sol::property([](const Player* self)
+	player_type["trinket_1"] = sol::property([](const Player* self)
 	{
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_TRINKET1);
 	});
-	player_type["Trinket2"] = sol::property([](const Player* self)
+	player_type["trinket_2"] = sol::property([](const Player* self)
 	{
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_TRINKET2);
 	});
-	player_type["Group"] = sol::property([](Player* self)
+	player_type["group"] = sol::property([](Player* self)
 	{
 		return self->GetGroup();
 	});
-	player_type["Destination"] = sol::property([](Player* self)
+	player_type["destination"] = sol::property([](Player* self)
 	{
 		float x, y, z;
 
@@ -600,7 +609,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 		return sol::tie(x, y, z);
 	});
-	player_type["Specialization"] = sol::property([](const Player* self)
+	player_type["specialization"] = sol::property([](const Player* self)
 	{
 		uint32 row = 0, spec = 0;
 		uint32 class_mask = self->getClassMask();
@@ -640,7 +649,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		return spec;
 	});
 
-	player_type["Follow"] = [](Player* self, Unit* target, const float dist, const float angle)
+	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -656,7 +665,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		motion_master->MoveFollow(target, dist, angle);
 	};
-	player_type["Stand"] = [](Player* self)
+	player_type["stand"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -664,7 +673,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 	};
-	player_type["Sit"] = [](Player* self)
+	player_type["sit"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -672,7 +681,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_SIT)
 			self->SetStandState(UNIT_STAND_STATE_SIT);
 	};
-	player_type["Kneel"] = [](Player* self)
+	player_type["kneel"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -680,7 +689,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_KNEEL)
 			self->SetStandState(UNIT_STAND_STATE_KNEEL);
 	};
-	player_type["Interrupt"] = [](Player* self)
+	player_type["interrupt"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -688,7 +697,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_GENERIC_SPELL);
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 	};
-	player_type["Move"] = sol::overload([](Player* self, const float x, const float y, const float z)
+	player_type["move"] = sol::overload([](Player* self, const float x, const float y, const float z)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -733,7 +742,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
 		motion_master->MovePoint(0, x, y, z);
 	});
-	player_type["Chase"] = [](Player* self, Unit* target, const float distance, const float angle)
+	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
 	{
 		if (!target)
 			return;
@@ -750,14 +759,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		motion_master->MoveChase(target, distance, angle);
 	};
-	player_type["SetChaseDistance"] = [](Player* self, const float distance)
+	player_type["set_chase_distance"] = [](Player* self, const float distance)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
 		self->GetMotionMaster()->DistanceYourself(distance);
 	};
-	player_type["TeleportTo"] = [](Player* self, const Unit* target)
+	player_type["teleport_to"] = [](Player* self, const Unit* target)
 	{
 		if (!target)
 			return;
@@ -772,7 +781,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
 		self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
 	};
-	player_type["ResetMovement"] = [](Player* self)
+	player_type["reset_movement"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -786,7 +795,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		// self->GetMotionMaster()->Initialize();
 		motion_master->Clear();
 	};
-	player_type["Stop"] = [](Player* self)
+	player_type["stop"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -796,7 +805,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->StopMoving();
 	};
-	player_type["Whisper"] = [&](Player* self, const Player* to, const char* text)
+	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
 		if (!to || !text || !text[0] || self == to)
 			return;
@@ -806,7 +815,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendWhisper(text, self, to);
 	};
-	player_type["TellParty"] = [&](Player* self, const char* text)
+	player_type["tell_party"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -816,7 +825,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_PARTY);
 	};
-	player_type["TellRaid"] = [&](Player* self, const char* text)
+	player_type["tell_raid"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -826,7 +835,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_RAID);
 	};
-	player_type["Say"] = [&](Player* self, const char* text)
+	player_type["say"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -836,7 +845,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_SAY);
 	};
-	player_type["Yell"] = [&](Player* self, const char* text)
+	player_type["yell"] = [&](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -846,7 +855,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		SendChatMessage(text, self, CHAT_MSG_YELL);
 	};
-	player_type["SetTarget"] = [](Player* self, WorldObject* target)
+	player_type["set_target"] = [](Player* self, WorldObject* target)
 	{
 		if (!target)
 			return;
@@ -856,21 +865,21 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->SetTarget(target);
 	};
-	player_type["ClearTarget"] = [](Player* self)
+	player_type["clear_target"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
 		self->SetSelectionGuid(ObjectGuid());
 	};
-	player_type["ClearStealth"] = [](Player* self)
+	player_type["clear_stealth"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
 		self->RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
 	};
-	player_type["Face"] = sol::overload([](Player* self, const Unit* target)
+	player_type["face"] = sol::overload([](Player* self, const Unit* target)
 	{
 		if (!target)
 			return;
@@ -887,7 +896,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->SetFacingTo(orientation);
 	});
-	player_type["HasPowerToCast"] = [](Player* self, const uint32 spellId)
+	player_type["has_power_to_cast"] = [](Player* self, const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
@@ -903,7 +912,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return tmp_spell->CheckPower(true) == SPELL_CAST_OK;
 	};
-	player_type["CanCast"] = [](const Player* self, const uint32 spellId)
+	player_type["can_cast"] = [](const Player* self, const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
@@ -916,7 +925,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return self->IsSpellReady(*p_spell_info);
 	};
-	player_type["GetCastTime"] = [](Player* self, const uint32 spellId)
+	player_type["get_cast_time"] = [](Player* self, const uint32 spellId)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return static_cast<uint32>(-1);
@@ -932,14 +941,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return GetSpellCastTime(p_spell_info, self, spell);
 	};
-	player_type["GetItemInEquipSlot"] = [](const Player* self, const uint8 slot)-> Item*
+	player_type["get_item_in_equip_slot"] = [](const Player* self, const uint8 slot)-> Item*
 	{
 		if (slot < EQUIPMENT_SLOT_START || slot > EQUIPMENT_SLOT_END)
 			return nullptr;
 
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
 	};
-	player_type["GetItem"] = sol::overload([](const Player* self, const uint32 itemId)-> Item*
+	player_type["get_item"] = sol::overload([](const Player* self, const uint32 itemId)-> Item*
 	{
 		// list out items in main backpack
 		for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; slot++)
@@ -974,7 +983,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return nullptr;
 	});
-	player_type["Cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
+	player_type["cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
 			return SPELL_FAILED_NOT_READY;
@@ -987,7 +996,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return Cast(self, self, spellId);
 	});
-	player_type["ForceCast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
+	player_type["force_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (!target)
 			return SPELL_FAILED_BAD_TARGETS;
@@ -1017,19 +1026,19 @@ void PlayerbotMgr::InitLuaUnitType()
 	                                                         sol::bases<WorldObject, Object>());
 
 	// doesn't seem to be useful- all NPCs are always moving, always false for IRL player
-	//unit_type["IsMoving"] = sol::property([](const Unit* self)
+	//unit_type["is_moving"] = sol::property([](const Unit* self)
 	//{
 	//	return !self->IsStopped();
 	//});
 
-	unit_type["BoundingRadius"] = sol::property(&Unit::GetObjectBoundingRadius);
-	unit_type["Pet"] = sol::property(&Unit::GetPet);
-	unit_type["InCombat"] = sol::property(&Unit::IsInCombat);
-	unit_type["RaidIcon"] = sol::property([&](const Unit* self)
+	unit_type["bounding_radius"] = sol::property(&Unit::GetObjectBoundingRadius);
+	unit_type["pet"] = sol::property(&Unit::GetPet);
+	unit_type["in_combat"] = sol::property(&Unit::IsInCombat);
+	unit_type["raid_icon"] = sol::property([&](const Unit* self)
 	{
 		return m_master->GetGroup()->GetIconFromTarget(self->GetObjectGuid());
 	});
-	unit_type["Attackers"] = sol::property([](Unit* self)
+	unit_type["attackers"] = sol::property([](Unit* self)
 	{
 		std::vector<Unit*> attackers;
 
@@ -1051,45 +1060,45 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return attackers;
 	});
-	unit_type["Target"] = sol::property([](const Unit* self)-> Unit*
+	unit_type["target"] = sol::property([](const Unit* self)-> Unit*
 	{
 		return self->GetTarget();
 	});
-	unit_type["IsAlive"] = sol::property(&Unit::IsAlive);
-	unit_type["CrowdControlled"] = sol::property(&Unit::IsCrowdControlled);
-	unit_type["Health"] = sol::property(&Unit::GetHealth);
-	unit_type["MaxHealth"] = sol::property(&Unit::GetMaxHealth);
-	unit_type["Power"] = sol::property([](const Unit* self)
+	unit_type["is_alive"] = sol::property(&Unit::IsAlive);
+	unit_type["crowd_controlled"] = sol::property(&Unit::IsCrowdControlled);
+	unit_type["health"] = sol::property(&Unit::GetHealth);
+	unit_type["max_health"] = sol::property(&Unit::GetMaxHealth);
+	unit_type["power"] = sol::property([](const Unit* self)
 	{
 		const Powers power = self->GetPowerType();
 		return self->GetPower(power);
 	});
-	unit_type["MaxPower"] = sol::property([](const Unit* self)
+	unit_type["max_power"] = sol::property([](const Unit* self)
 	{
 		const Powers power = self->GetPowerType();
 		return self->GetMaxPower(power);
 	});
-	unit_type["CurrentCast"] = sol::property([&](const Unit* self)
+	unit_type["current_cast"] = sol::property([&](const Unit* self)
 	{
 		return CurrentCast(self, CURRENT_GENERIC_SPELL);
 	});
-	unit_type["CurrentAutoAttack"] = sol::property([&](const Unit* self)
+	unit_type["current_auto_attack"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_AUTOREPEAT_SPELL);
 	});
-	unit_type["CurrentChannel"] = sol::property([&](const Unit* self)
+	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
 	});
 
-	unit_type["IsAttackedBy"] = [](const Unit* self, Unit* target)
+	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->IsAttackedBy(target);
 	};
-	unit_type["GetThreat"] = [](Unit* self, const Unit* target)
+	unit_type["get_threat"] = [](Unit* self, const Unit* target)
 	{
 		if (!target)
 			return -1.0f;
@@ -1108,28 +1117,28 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return 0.0f;
 	};
-	unit_type["ReachableWithMelee"] = [](const Unit* self, const Unit* target)
+	unit_type["in_melee_range"] = [](const Unit* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->CanReachWithMeleeAttack(target);
 	};
-	unit_type["IsEnemy"] = [](const Unit* self, const Unit* target)
+	unit_type["is_enemy"] = [](const Unit* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->CanAttack(target);
 	};
-	unit_type["IsFriendly"] = [](const Unit* self, const Unit* target)
+	unit_type["is_friendly"] = [](const Unit* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->CanAssist(target);
 	};
-	unit_type["GetAura"] = [](const Unit* self, const uint32 auraId)-> SpellAuraHolder*
+	unit_type["get_aura"] = [](const Unit* self, const uint32 auraId)-> SpellAuraHolder*
 	{
 		if (auraId == 0)
 			return nullptr;
@@ -1143,18 +1152,18 @@ void PlayerbotMgr::InitLuaCreatureType()
 	sol::usertype<Creature> creature_type = m_lua.new_usertype<Creature>("Creature", sol::base_classes,
 	                                                                     sol::bases<Unit, WorldObject, Object>());
 
-	creature_type["IsElite"] = sol::property(&Creature::IsElite);
-	creature_type["IsWorldBoss"] = sol::property(&Creature::IsWorldBoss);
-	creature_type["CanAggro"] = sol::property(&Creature::CanAggro);
-	creature_type["IsTotem"] = sol::property(&Creature::IsTotem);
-	creature_type["IsInvisible"] = sol::property(&Creature::IsInvisible);
-	creature_type["IsCivilian"] = sol::property(&Creature::IsCivilian);
-	creature_type["IsCritter"] = sol::property(&Creature::IsCritter);
-	creature_type["IsRegenHp"] = sol::property(&Creature::IsRegeneratingHealth);
-	creature_type["IsRegenPower"] = sol::property(&Creature::IsRegeneratingHealth);
-	creature_type["CanWalk"] = sol::property(&Creature::CanWalk);
-	creature_type["CanSwim"] = sol::property(&Creature::CanSwim);
-	creature_type["CanFly"] = sol::property(&Creature::CanFly);
+	creature_type["is_elite"] = sol::property(&Creature::IsElite);
+	creature_type["is_world_boss"] = sol::property(&Creature::IsWorldBoss);
+	creature_type["can_aggro"] = sol::property(&Creature::CanAggro);
+	creature_type["is_totem"] = sol::property(&Creature::IsTotem);
+	creature_type["is_invisible"] = sol::property(&Creature::IsInvisible);
+	creature_type["is_civilian"] = sol::property(&Creature::IsCivilian);
+	creature_type["is_critter"] = sol::property(&Creature::IsCritter);
+	creature_type["is_regen_hp"] = sol::property(&Creature::IsRegeneratingHealth);
+	creature_type["is_regen_power"] = sol::property(&Creature::IsRegeneratingHealth);
+	creature_type["can_walk"] = sol::property(&Creature::CanWalk);
+	creature_type["can_swim"] = sol::property(&Creature::CanSwim);
+	creature_type["can_fly"] = sol::property(&Creature::CanFly);
 }
 
 void PlayerbotMgr::InitLuaObjectType()
@@ -1162,33 +1171,33 @@ void PlayerbotMgr::InitLuaObjectType()
 	sol::usertype<Object> object_type = m_lua.new_usertype<Object>(
 		"Object");
 
-	object_type["IsPlayer"] = sol::property(&Object::IsPlayer);
-	object_type["IsCreature"] = sol::property(&Object::IsCreature);
-	object_type["IsGameObject"] = sol::property(&Object::IsGameObject);
-	object_type["IsUnit"] = sol::property(&Object::IsUnit);
+	object_type["is_player"] = sol::property(&Object::IsPlayer);
+	object_type["is_creature"] = sol::property(&Object::IsCreature);
+	object_type["is_game_object"] = sol::property(&Object::IsGameObject);
+	object_type["is_unit"] = sol::property(&Object::IsUnit);
 
-	object_type["AsPlayer"] = [](Object* self)-> Player*
+	object_type["as_player"] = [](Object* self)-> Player*
 	{
 		if (!self->IsPlayer())
 			return nullptr;
 
 		return dynamic_cast<Player*>(self);
 	};
-	object_type["AsCreature"] = [](Object* self)-> Creature*
+	object_type["as_creature"] = [](Object* self)-> Creature*
 	{
 		if (!self->IsCreature())
 			return nullptr;
 
 		return dynamic_cast<Creature*>(self);
 	};
-	object_type["AsGameObject"] = [](Object* self)-> GameObject*
+	object_type["as_game_object"] = [](Object* self)-> GameObject*
 	{
 		if (!self->IsGameObject())
 			return nullptr;
 
 		return dynamic_cast<GameObject*>(self);
 	};
-	object_type["AsUnit"] = [](Object* self)-> Unit*
+	object_type["as_unit"] = [](Object* self)-> Unit*
 	{
 		if (!self->IsUnit())
 			return nullptr;
@@ -1202,45 +1211,45 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	sol::usertype<WorldObject> world_object_type = m_lua.new_usertype<WorldObject>(
 		"WorldObject", sol::base_classes, sol::bases<Object>());
 
-	world_object_type["Orientation"] = sol::property(&WorldObject::GetOrientation);
-	world_object_type["Name"] = sol::property(&WorldObject::GetName);
-	world_object_type["Map"] = sol::property(&WorldObject::GetMap);
-	world_object_type["ZoneId"] = sol::property(&WorldObject::GetZoneId);
-	world_object_type["AreaId"] = sol::property(&WorldObject::GetAreaId);
-	world_object_type["Position"] = sol::property([](const WorldObject* self)
+	world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
+	world_object_type["name"] = sol::property(&WorldObject::GetName);
+	world_object_type["map"] = sol::property(&WorldObject::GetMap);
+	world_object_type["zone_id"] = sol::property(&WorldObject::GetZoneId);
+	world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
+	world_object_type["position"] = sol::property([](const WorldObject* self)
 	{
 		return self->GetPosition();
 	});
 
-	world_object_type["GetAngle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
+	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
 	}, [](const WorldObject* self, const Position* pos)
 	{
 		return self->GetAngle(pos->x, pos->y);
 	});
-	world_object_type["GetClosePoint"] = [](const WorldObject* self, const float boundingRadius, const float distance,
+	world_object_type["get_close_point"] = [](const WorldObject* self, const float boundingRadius, const float distance,
 		   const float angle)
 		{
 			float x, y, z;
 			self->GetClosePoint(x, y, z, boundingRadius, distance, angle, self);
 			return sol::tie(x, y, z);
 		};
-	world_object_type["HasInArc"] = [](const WorldObject* self, const Unit* target)
+	world_object_type["has_in_arc"] = [](const WorldObject* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->HasInArc(target, M_PI_F / 2);
 	};
-	world_object_type["IsWithinLos"] = [](const WorldObject* self, const Unit* target)
+	world_object_type["is_within_los"] = [](const WorldObject* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->IsWithinLOSInMap(target);
 	};
-	world_object_type["IsInRange"] = [](const WorldObject* self, const Unit* target, const uint32 spellId)
+	world_object_type["is_in_range"] = [](const WorldObject* self, const Unit* target, const uint32 spellId)
 	{
 		if (!target || spellId == 0)
 			return false;
@@ -1266,8 +1275,8 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 		return true;
 	};
-	world_object_type["GCD"] = [&](const WorldObject* self, const uint32 spellId)->long
-	{		
+	world_object_type["gcd"] = [&](const WorldObject* self, const uint32 spellId)->long
+	{
 		const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
 		if (!p_spell_info)
 		{
@@ -1285,13 +1294,13 @@ void PlayerbotMgr::InitLuaGroupType()
 {
 	sol::usertype<Group> group_type = m_lua.new_usertype<Group>("Group");
 
-	group_type["IsRaid"] = sol::property(&Group::IsRaidGroup);
-	group_type["Leader"] = sol::property([&](const Group* self)
+	group_type["is_raid"] = sol::property(&Group::IsRaidGroup);
+	group_type["leader"] = sol::property([&](const Group* self)
 	{
 		const ObjectGuid guid = self->GetLeaderGuid();
 		return m_master->GetMap()->GetPlayer(guid);
 	});
-	group_type["Members"] = sol::property([&](const Group* self)
+	group_type["members"] = sol::property([&](const Group* self)
 	{
 		const Group::MemberSlotList& slots = self->GetMemberSlots();
 
@@ -1311,9 +1320,9 @@ void PlayerbotMgr::InitLuaMapType()
 {
 	sol::usertype<Map> map_type = m_lua.new_usertype<Map>("Map");
 
-	map_type["Players"] = sol::property(&Map::GetPlayers);
-	map_type["MapName"] = sol::property(&Map::GetMapName);
-	map_type["IsHeroic"] = sol::property([&](const Map* self)
+	map_type["players"] = sol::property(&Map::GetPlayers);
+	map_type["map_name"] = sol::property(&Map::GetMapName);
+	map_type["is_heroic"] = sol::property([&](const Map* self)
 	{
 		return self->GetDifficulty() == DUNGEON_DIFFICULTY_HEROIC;
 	});
@@ -1324,9 +1333,9 @@ void PlayerbotMgr::InitLuaGameObjectType()
 	sol::usertype<GameObject> game_object_type = m_lua.new_usertype<GameObject>(
 		"GameObject", sol::base_classes, sol::bases<WorldObject, Object>());
 
-	game_object_type["InUse"] = sol::property(&GameObject::IsInUse);
-	game_object_type["Owner"] = sol::property(&GameObject::GetOwner);
-	game_object_type["Level"] = sol::property(&GameObject::GetLevel);
+	game_object_type["in_use"] = sol::property(&GameObject::IsInUse);
+	game_object_type["owner"] = sol::property(&GameObject::GetOwner);
+	game_object_type["level"] = sol::property(&GameObject::GetLevel);
 }
 
 void PlayerbotMgr::InitLuaPositionType()
@@ -1334,17 +1343,17 @@ void PlayerbotMgr::InitLuaPositionType()
 	sol::usertype<Position> position_type = m_lua.new_usertype<Position>(
 		"Position");
 
-	position_type["X"] = sol::property(&Position::x);
-	position_type["Y"] = sol::property(&Position::y);
-	position_type["Z"] = sol::property(&Position::z);
-	position_type["O"] = sol::property(&Position::o);
-	position_type["Empty"] = sol::property(&Position::IsEmpty);
+	position_type["x"] = sol::property(&Position::x);
+	position_type["y"] = sol::property(&Position::y);
+	position_type["z"] = sol::property(&Position::z);
+	position_type["o"] = sol::property(&Position::o);
+	position_type["is_empty"] = sol::property(&Position::IsEmpty);
 
-	position_type["GetDistanceBetween"] = [](const Position* self, const Position* other)
+	position_type["get_distance_to"] = [](const Position* self, const Position* other)
 	{
 		return self->GetDistance(*other);
 	};
-	position_type["GetAngle"] = sol::overload([](const Position* self, const Position* pos)
+	position_type["get_angle"] = sol::overload([](const Position* self, const Position* pos)
 	{
 		return self->GetAngle(pos->x, pos->y);
 	}, [](const Position* self, const float x, const float y)
@@ -1358,13 +1367,13 @@ void PlayerbotMgr::InitLuaPetType()
 	sol::usertype<Pet> pet_type = m_lua.new_usertype<Pet>(
 		"Pet", sol::base_classes, sol::bases<Creature, Unit, WorldObject, Object>());
 
-	pet_type["PetOwner"] = sol::property(&Pet::GetSpellModOwner);
-	pet_type["Happiness"] = sol::property(&Pet::GetHappinessState);
-	pet_type["IsFeeding"] = sol::property([](const Pet* self)
+	pet_type["pet_owner"] = sol::property(&Pet::GetSpellModOwner);
+	pet_type["happiness"] = sol::property(&Pet::GetHappinessState);
+	pet_type["is_feeding"] = sol::property([](const Pet* self)
 	{
 		return self->HasAura(1738 /*PET_FEED*/, EFFECT_INDEX_0);
 	});
-	pet_type["ReactState"] = sol::property([](Pet* self) { return self->AI()->GetReactState(); },
+	pet_type["react_state"] = sol::property([](Pet* self) { return self->AI()->GetReactState(); },
 	                                        [](Pet* self, const int state)
 	                                        {
 		                                        const auto player = self->GetSpellModOwner();
@@ -1378,7 +1387,7 @@ void PlayerbotMgr::InitLuaPetType()
 		                                        self->AI()->SetReactState(static_cast<ReactStates>(state));
 	                                        });
 	
-	pet_type["SetAutocast"] = [](Pet* self, const uint32 spellId, const bool enable)
+	pet_type["set_autocast"] = [](Pet* self, const uint32 spellId, const bool enable)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1414,7 +1423,7 @@ void PlayerbotMgr::InitLuaPetType()
 			}
 		}
 	};
-	pet_type["Summon"] = [](Pet* self)
+	pet_type["summon"] = [](Pet* self)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1426,7 +1435,7 @@ void PlayerbotMgr::InitLuaPetType()
 
 		self->AddToWorld();
 	};
-	pet_type["Dismiss"] = [](Pet* self)
+	pet_type["dismiss"] = [](Pet* self)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1438,7 +1447,7 @@ void PlayerbotMgr::InitLuaPetType()
 
 		self->RemoveFromWorld();
 	};
-	pet_type["AttemptFeed"] = [](const Pet* self)
+	pet_type["attempt_feed"] = [](const Pet* self)
 	{
 		const auto player = self->GetSpellModOwner();
 
@@ -1491,35 +1500,35 @@ void PlayerbotMgr::InitLuaAuraType()
 {
 	sol::usertype<SpellAuraHolder> aura_type = m_lua.new_usertype<SpellAuraHolder>("Aura");
 
-	aura_type["Stacks"] = sol::property(&SpellAuraHolder::GetStackAmount);
-	aura_type["Duration"] = sol::property(&SpellAuraHolder::GetAuraDuration);
-	aura_type["MaxDuration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
-	aura_type["Charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
+	aura_type["stacks"] = sol::property(&SpellAuraHolder::GetStackAmount);
+	aura_type["duration"] = sol::property(&SpellAuraHolder::GetAuraDuration);
+	aura_type["max_duration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
+	aura_type["charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
 }
 
 void PlayerbotMgr::InitLuaItemType()
 {
 	sol::usertype<Item> item_type = m_lua.new_usertype<Item>("Item", sol::base_classes, sol::bases<Object>());
 
-	item_type["StackCount"] = sol::property(&Item::GetCount);
-	item_type["IsPotion"] = sol::property(&Item::IsPotion);
-	item_type["MaxStackCount"] = sol::property(&Item::GetMaxStackCount);
-	item_type["Id"] = sol::property([](const Item* self)
+	item_type["stack_count"] = sol::property(&Item::GetCount);
+	item_type["is_potion"] = sol::property(&Item::IsPotion);
+	item_type["max_stack_count"] = sol::property(&Item::GetMaxStackCount);
+	item_type["id"] = sol::property([](const Item* self)
 	{
 		return self->GetProto()->ItemId;
 	});
-	item_type["Name"] = sol::property([](const Item* self)
+	item_type["name"] = sol::property([](const Item* self)
 	{
 		return self->GetProto()->Name1;
 	});
-	item_type["SpellId"] = sol::property([](const Item* self)
+	item_type["spell_id"] = sol::property([](const Item* self)
 	{
 		for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
 			if (self->GetProto()->Spells[i].SpellId > 0)
 				return self->GetProto()->Spells[i].SpellId;
 		return static_cast<uint32>(0);
 	});
-	item_type["Ready"] = sol::property([](const Item* self)
+	item_type["is_ready"] = sol::property([](const Item* self)
 	{
 		for (const auto& spell : self->GetProto()->Spells)
 		{
@@ -1539,7 +1548,7 @@ void PlayerbotMgr::InitLuaItemType()
 		return false;
 	});
 
-	item_type["Use"] = sol::overload([&](Item* self)
+	item_type["use"] = sol::overload([&](Item* self)
 	{
 		Player* owner = self->GetOwner();
 
@@ -2831,9 +2840,10 @@ bool PlayerbotMgr::DownloadSaveAndLoadAIScript(const std::string& name, const st
 	if (SafeLoadLuaScript(name, script))
 	{
 		CharacterDatabase.escape_string(script);
-		if (CharacterDatabase.DirectPExecute(
+		if (CharacterDatabase.PExecute(
 			"INSERT INTO scripts (accountid, name, script, url) VALUES ('%u', '%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s', url = '%s'",
-			 m_master->GetSession()->GetAccountId(), name.c_str(), script.c_str(), url.c_str(), script.c_str(), url.c_str()))
+			m_master->GetSession()->GetAccountId(), name.c_str(), script.c_str(), url.c_str(), script.c_str(),
+			url.c_str()))
 		{
 			m_masterChatHandler.PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.",
 			                                    name.c_str());
@@ -2866,6 +2876,8 @@ bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
 			delete count_result;
 			return false;
 		}
+
+		delete count_result;
 	}
 	else
 	{
