@@ -186,23 +186,27 @@ void PlayerbotMgr::InitLua()
 	{
 		const auto account_id = m_master->GetSession()->GetAccountId();
 
-		if (const QueryResult* load_result = CharacterDatabase.PQuery(
-			"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
+		if (VerifyScriptExists(name))
 		{
-			const Field* load_fields = load_result->Fetch();
-
-			const std::string module_script = load_fields[0].GetString();
-
-			if (const auto result = m_lua.load(name); result.valid()) 
+			if (const QueryResult* load_result = CharacterDatabase.PQuery(
+				"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 			{
-				return result.get<sol::object>();
+				const Field* load_fields = load_result->Fetch();
+
+				const std::string module_script = load_fields[0].GetString();
+
+				if (const auto result = m_lua.load(name); result.valid())
+				{
+					return result.get<sol::object>();
+				}
+				else
+				{
+					return make_object(m_lua, static_cast<sol::error>(result).what());
+				}
 			}
-			else 
-			{
-				return make_object(m_lua, static_cast<sol::error>(result).what());
-			}
-		}
-		return make_object(m_lua, "Could not get script result from DB for module  '" + name + "'.");
+		}		
+
+		return make_object(m_lua, "Could not locate module  '" + name + "'.");
 	});
 
 	InitLuaMembers();
@@ -2877,7 +2881,7 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 
     if (!m_session)
     {
-        PSendSysMessage("|cffff0000You may only add bots from an active session");
+        PSendSysMessage("|cffff0000You may only manage bots from an active session");
         SetSentErrorMessage(true);
         return false;
     }
