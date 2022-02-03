@@ -182,11 +182,9 @@ void PlayerbotMgr::InitLua()
 	                     sol::lib::table);
 
 	m_lua.clear_package_loaders();
-	m_lua.add_package_loader([&](lua_State* L)
+	m_lua.add_package_loader([&](const std::string& name)
 	{
 		const auto account_id = m_master->GetSession()->GetAccountId();
-
-		const std::string name = sol::stack::get<std::string>(L);
 
 		if (const QueryResult* load_result = CharacterDatabase.PQuery(
 			"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
@@ -195,12 +193,16 @@ void PlayerbotMgr::InitLua()
 
 			const std::string module_script = load_fields[0].GetString();
 
-			luaL_loadbuffer(L, module_script.data(), module_script.size(), name.c_str());
-			return 1;
+			if (const auto result = m_lua.load(name); result.valid()) 
+			{
+				return result.get<sol::object>();
+			}
+			else 
+			{
+				return make_object(m_lua, static_cast<sol::error>(result).what());
+			}
 		}
-
-		sol::stack::push(L, "No module found by the provided name: '" + name + "'.");
-		return 1;
+		return make_object(m_lua, "Could not get script result from DB for module  '" + name + "'.");
 	});
 
 	InitLuaMembers();
