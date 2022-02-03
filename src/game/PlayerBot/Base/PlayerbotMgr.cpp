@@ -2821,12 +2821,11 @@ bool PlayerbotMgr::DownloadSaveAndLoadAIScript(const std::string& name, const st
 		return false;
 	}
 
-	const std::string script = response.text;
-
-	// 
+	auto&& script = std::string(response.text);
 
 	if (SafeLoadLuaScript(name, script))
 	{
+		CharacterDatabase.escape_string(script);
 		if (CharacterDatabase.DirectPExecute(
 			"INSERT INTO scripts (accountid, name, script, url) VALUES ('%u', '%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s', url = '%s'",
 			 m_master->GetSession()->GetAccountId(), name.c_str(), script.c_str(), url.c_str(), script.c_str(), url.c_str()))
