@@ -276,8 +276,8 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 
 void PlayerbotMgr::InitLuaMembers()
 {
-	m_lua["Master"] = m_master;
-	m_lua["PI"] = M_PI_F;
+	m_lua["_Master"] = m_master;
+	m_lua["_PI"] = M_PI_F;
 
 	sol::table class_enum = m_lua.create_table("_Class");
 
@@ -291,7 +291,7 @@ void PlayerbotMgr::InitLuaMembers()
 	class_enum[10] = "Paladin";
 	class_enum[11] = "Shaman";
 
-	FlipLuaTable("Class");
+	FlipLuaTable("_Class");
 
 	sol::table spell_result_enum = m_lua.create_table("_SpellResult");
 
@@ -468,7 +468,7 @@ void PlayerbotMgr::InitLuaMembers()
 	spell_result_enum[254] = "SPELL_NOT_FOUND";
 	spell_result_enum[255] = "SPELL_CAST_OK";
 
-	FlipLuaTable("SpellResult");
+	FlipLuaTable("_SpellResult");
 
 	sol::table equip_slot_enum = m_lua.create_table("_EquipSlot");
 
@@ -490,20 +490,20 @@ void PlayerbotMgr::InitLuaMembers()
 	equip_slot_enum["OffHand"] = 16;
 	equip_slot_enum["Ranged"] = 17;
 
-	FlipLuaTable("EquipSlot");
+	FlipLuaTable("_EquipSlot");
 }
 
 void PlayerbotMgr::InitLuaFunctions()
 {
-	m_lua["SpellExists"] = [](const uint32 spellId)
+	m_lua["_SpellExists"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
 
 		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
 	};
-	m_lua["CurrentTime"] = sol::property([&] { return m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
-	m_lua["GetRaidIcon"] = [&](const uint8 iconIndex)-> Unit*
+	m_lua["_CurrentTime"] = sol::property([&] { return m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
+	m_lua["_GetRaidIcon"] = [&](const uint8 iconIndex)-> Unit*
 	{
 		if (iconIndex < 0 || iconIndex > 7)
 			return nullptr;
@@ -513,7 +513,7 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return nullptr;
 	};
-	m_lua["SpellIsPositive"] = [](const uint32 spellId)
+	m_lua["_SpellIsPositive"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
 			return false;
