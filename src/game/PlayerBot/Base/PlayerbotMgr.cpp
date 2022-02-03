@@ -277,11 +277,7 @@ bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string&
 			return false;
 		}
 
-		// we want it to be re-acquired when the module is next needed instead of using the old version.
-		if (const auto old_module = m_lua[name].get_or(0); old_module != 0)
-		{
-			m_lua[name] = sol::nil;
-		}
+		m_lua[name] = sol::nil;
 	}
 
 	return true;
