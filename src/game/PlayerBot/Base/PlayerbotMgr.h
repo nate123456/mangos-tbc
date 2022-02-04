@@ -46,6 +46,7 @@ class PlayerbotMgr
 
         void InitLua();
         void InitializeLuaEnvironment();
+        void ClearNonStandardModules();
         bool SafeLoadLuaScript(const std::string& name, const std::string& script);
 
         void InitLuaMembers();
@@ -98,7 +99,6 @@ class PlayerbotMgr
 
         void LogoutAllBots(bool fullRemove = false);                           // mark all bots to be removed on next update
         void RemoveAllBotsFromGroup();
-        bool DownloadSaveAndLoadAIScript(const std::string& name, const std::string& url);
         bool VerifyScriptExists(const std::string& name);
         void OnBotLogin(Player* const bot);
         void Stay();

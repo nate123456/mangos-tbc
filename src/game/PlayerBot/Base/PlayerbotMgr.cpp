@@ -256,37 +256,52 @@ void PlayerbotMgr::InitializeLuaEnvironment()
 
 	if (!m_lastCommandPosition.IsEmpty())
 		m_lastCommandPosition = Position();
+
+	ClearNonStandardModules();
+}
+
+// Uses a lua script to remove all modules the master may have added at any point.
+void PlayerbotMgr::ClearNonStandardModules()
+{
+	const std::string script = R"(
+deletes = {}
+
+for name, _ in pairs(package.loaded) do
+    if  name == "_G" or name == "package" or name == "coroutine" or 
+        name == "string" or name == "table" or name == "math" or name == "io" or 
+        name == "os" or name == "debug" or name == "utf8" then
+        goto continue
+    end
+    
+    table.insert(deletes, name)
+    
+    ::continue::
+end
+
+for _, name in pairs(deletes) do
+    package.loaded[name] = nil
+    _G[name] = nil
+end)";
+
+	if (const auto result = m_lua.safe_script(script); !result.valid())
+	{
+		const sol::error error = result;
+		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load clean lua modules:\n%s", error.what());
+	}
 }
 
 bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string& script)
 {
 	InitializeLuaEnvironment();
 	
-	if (script.find("Main()") != std::string::npos)
+	if (const auto result = m_lua.safe_script(script, m_luaEnvironment); !result.valid())
 	{
-		if (const auto result = m_lua.safe_script(script, m_luaEnvironment); !result.valid())
-		{
-			const sol::error error = result;
-			m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script:\n%s", error.what());
-			return false;
-		}
-
-		m_hasLoadedScript = true;
+		const sol::error error = result;
+		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script:\n%s", error.what());
+		return false;
 	}
-	// we just want to ensure that it's valid lua- let the require finding code locate it on demand.
-	else
-	{
-		if (const auto result = m_lua.load(script); !result.valid())
-		{
-			const sol::error error = result;
-			m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script module:\n%s", error.what());
-			return false;
-		}
 
-		// clear out existing modules by the name- will trigger the read when it is appropriate.
-		m_lua["package"]["searchers"][name] = sol::nil;
-		m_lua[name] = sol::nil;
-	}
+	m_hasLoadedScript = true;
 
 	return true;
 }
@@ -2822,44 +2837,6 @@ uint32 Player::GetSpec()
     return spec;
 }
 
-bool PlayerbotMgr::DownloadSaveAndLoadAIScript(const std::string& name, const std::string& url)
-{
-	const cpr::Response response = Get(cpr::Url{url}, cpr::VerifySsl(false));
-
-	if (response.status_code != 200)
-	{
-		m_masterChatHandler.PSendSysMessage(
-			"|cffff0000Could not acquire script from url %s returned %u HTTP status. Error message: %s", url.c_str(),
-			static_cast<unsigned int>(response.status_code), response.error.message.c_str());
-		m_masterChatHandler.SetSentErrorMessage(true);
-		return false;
-	}
-
-	auto&& script = std::string(response.text);
-
-	if (SafeLoadLuaScript(name, script))
-	{
-		CharacterDatabase.escape_string(script);
-		if (CharacterDatabase.PExecute(
-			"INSERT INTO scripts (accountid, name, script, url) VALUES ('%u', '%s', '%s', '%s') ON DUPLICATE KEY UPDATE script = '%s', url = '%s'",
-			m_master->GetSession()->GetAccountId(), name.c_str(), script.c_str(), url.c_str(), script.c_str(),
-			url.c_str()))
-		{
-			m_masterChatHandler.PSendSysMessage("Script '%s' downloaded, saved, and loaded successfully.",
-			                                    name.c_str());
-		}
-		else
-		{
-			m_masterChatHandler.PSendSysMessage(
-				"|cffff0000Script was downloaded and validated, but could not be inserted into the database.");
-			m_masterChatHandler.SetSentErrorMessage(true);
-			return false;
-		}
-	}
-
-	return true;
-}
-
 bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
 {
 	const auto account_id = m_master->GetSession()->GetAccountId();
@@ -2940,92 +2917,36 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 	    {
 		    PSendSysMessage(
 			    R"(usage: 
-load <NAME>: load ai script from memory
-set <NAME> <URL>: download script from url, store as name and load
-remove <NAME>: remove script from database
-reload <NAME>: re-download script from same url)");
+load: load ai lua script from database
+write <COMMAND>: send a command string to lua)");
 		    return true;
 	    }
 
-		if (rem_cmd.find("reload") != std::string::npos)
-		{
-			std::string name = rem_cmd.substr(6);
-			boost::algorithm::trim(name);
-
-			if (name.empty())
-			{
-				PSendSysMessage("|cffff0000No script name provided.");
-				SetSentErrorMessage(true);
-				return false;
-			}
-
-			if (mgr->VerifyScriptExists(name))
-			{
-				if (const QueryResult* query_result = CharacterDatabase.PQuery(
-					"SELECT url FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
-				{
-					const Field* load_fields = query_result->Fetch();
-
-					const auto script = load_fields[0].GetCppString();
-
-					delete query_result;
-
-					return mgr->DownloadSaveAndLoadAIScript(name, script);
-				}
-			}
-
-			return false;
-		}
-
 	    if (rem_cmd.find("load") != std::string::npos)
 	    {
-		    std::string name = rem_cmd.substr(4);
-		    boost::algorithm::trim(name);
-
-		    if (name.empty())
-		    {
-			    PSendSysMessage("|cffff0000No script name provided.");
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
-
-		    if (mgr->VerifyScriptExists(name))
+		    if (mgr->VerifyScriptExists("main"))
 		    {
 			    if (const QueryResult* query_result = CharacterDatabase.PQuery(
-				    "SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
+				    "SELECT script FROM scripts WHERE name = 'main' AND accountid = %u", account_id))
 			    {
 				    const Field* load_fields = query_result->Fetch();
 
-				    if (const char* script = load_fields[0].GetString(); mgr->SafeLoadLuaScript(name, script))
-					    PSendSysMessage("Script '%s' read successfully.", name.c_str());
+				    if (const char* script = load_fields[0].GetString(); mgr->SafeLoadLuaScript("main", script))
+				    {
+						PSendSysMessage("Script loaded successfully.");
+						delete query_result;
+						return true;
+				    }
 
 					delete query_result;
 			    }
 		    }
-
-		    return false;
-	    }
-
-	    if (rem_cmd.find("remove") != std::string::npos)
-	    {
-		    std::string name = rem_cmd.substr(6);
-		    boost::algorithm::trim(name);
-
-		    if (name.empty())
-		    {
-			    PSendSysMessage("|cffff0000No script name provided.");
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
-
-		    if (mgr->VerifyScriptExists(name))
-		    {
-			    if (CharacterDatabase.PExecute(
-				    "DELETE FROM scripts WHERE name = '%s'", name.c_str()))
-			    {
-				    PSendSysMessage("Script '%s' removed successfully.", name.c_str());
-			    }
-		    }
+			else
+			{
+				PSendSysMessage("|cffff0000Could not find a stored AI script.");
+				SetSentErrorMessage(true);
+				return false;
+			}
 
 		    return false;
 	    }
@@ -3039,43 +2960,6 @@ reload <NAME>: re-download script from same url)");
 
             return false;
         }
-
-	    if (rem_cmd.find("set") != std::string::npos)
-	    {
-		    std::string rem_set_cmd = rem_cmd.substr(3);
-		    boost::algorithm::trim(rem_set_cmd);
-
-		    auto first_space = rem_set_cmd.find(' ');
-
-		    if (first_space == -1)
-		    {
-			    PSendSysMessage("|cffff0000No script name or url provided. usage example: .bot ai set <NAME> <URL>");
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
-
-		    std::string name = rem_set_cmd.substr(0, first_space);
-		    boost::algorithm::trim(name);
-
-		    std::string url = rem_set_cmd.substr(first_space);
-		    boost::algorithm::trim(url);
-
-		    if (name.empty())
-		    {
-			    PSendSysMessage("|cffff0000No script name provided.");
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
-
-		    if (url.empty())
-		    {
-			    PSendSysMessage("|cffff0000No script url provided.");
-			    SetSentErrorMessage(true);
-			    return false;
-		    }
-
-		    return mgr->DownloadSaveAndLoadAIScript(name, url);
-	    }
 
 	    return true;
     }
