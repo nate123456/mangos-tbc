@@ -240,6 +240,8 @@ void PlayerbotMgr::InitLua()
 	m_lua.script("str = tostring num = tonumber");
 
 	m_lua.script("print('[DEBUG] LUA has been initialized.')");
+
+	LoadUserLuaScript();
 }
 
 void PlayerbotMgr::InitializeLuaEnvironment()
@@ -290,18 +292,39 @@ end)";
 	}
 }
 
-bool PlayerbotMgr::SafeLoadLuaScript(const std::string& name, const std::string& script)
+bool PlayerbotMgr::LoadUserLuaScript()
 {
 	InitializeLuaEnvironment();
-	
-	if (const auto result = m_lua.safe_script(script, m_luaEnvironment); !result.valid())
-	{
-		const sol::error error = result;
-		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script:\n%s", error.what());
-		return false;
-	}
 
-	m_hasLoadedScript = true;
+	if (VerifyScriptExists("main"))
+	{
+		const auto account_id = m_master->GetSession()->GetAccountId();
+
+		if (const QueryResult* query_result = CharacterDatabase.PQuery(
+			"SELECT script FROM scripts WHERE name = 'main' AND accountid = %u", account_id))
+		{
+			const Field* load_fields = query_result->Fetch();
+
+			const char* script = load_fields[0].GetString();
+
+			if (const auto result = m_lua.safe_script(script, m_luaEnvironment); !result.valid())
+			{
+				const sol::error error = result;
+				m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script:\n%s", error.what());
+				return false;
+			}
+
+			m_hasLoadedScript = true;
+
+			delete query_result;
+		}
+	}
+	else
+	{
+		m_masterChatHandler.PSendSysMessage("|cffff0000Could not find a stored AI script.");
+		m_masterChatHandler.SetSentErrorMessage(true);
+		return false;
+	}	
 
 	return true;
 }
@@ -553,10 +576,17 @@ void PlayerbotMgr::InitLuaFunctions()
 		return IsPositiveSpell(spellId);
 	};
 
-	m_lua.set_function("print",
-	                   sol::overload(
-		                   [this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
-	                   ));
+	m_lua.set_function("print", sol::overload([this](sol::variadic_args args)
+	{
+		std::string msg = "";
+
+		for (auto arg : args)
+		{
+			msg += arg.get<std::string>();
+		}
+
+		m_masterChatHandler.PSendSysMessage("[AI] %s", msg);
+	}));
 }
 
 void PlayerbotMgr::InitLuaPlayerType()
@@ -2899,7 +2929,7 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
     // if args starts with ai
     if (cmd_string.find("ai") != std::string::npos)
     {
-		const auto account_id = m_session->GetAccountId();
+		
 
 	    // create the playerbot manager if it doesn't already exist
 	    PlayerbotMgr* mgr = m_session->GetPlayer()->GetPlayerbotMgr();
@@ -2924,31 +2954,7 @@ write <COMMAND>: send a command string to lua)");
 
 	    if (rem_cmd.find("load") != std::string::npos)
 	    {
-		    if (mgr->VerifyScriptExists("main"))
-		    {
-			    if (const QueryResult* query_result = CharacterDatabase.PQuery(
-				    "SELECT script FROM scripts WHERE name = 'main' AND accountid = %u", account_id))
-			    {
-				    const Field* load_fields = query_result->Fetch();
-
-				    if (const char* script = load_fields[0].GetString(); mgr->SafeLoadLuaScript("main", script))
-				    {
-						PSendSysMessage("Script loaded successfully.");
-						delete query_result;
-						return true;
-				    }
-
-					delete query_result;
-			    }
-		    }
-			else
-			{
-				PSendSysMessage("|cffff0000Could not find a stored AI script.");
-				SetSentErrorMessage(true);
-				return false;
-			}
-
-		    return false;
+			return mgr->LoadUserLuaScript();		    
 	    }
 
         if (rem_cmd.find("write") != std::string::npos)

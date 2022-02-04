@@ -46,7 +46,7 @@ class PlayerbotMgr
         void InitLua();
         void InitializeLuaEnvironment();
         void ClearNonStandardModules();
-        bool SafeLoadLuaScript(const std::string& name, const std::string& script);
+        bool LoadUserLuaScript();
 
         void InitLuaMembers();
         void InitLuaFunctions();
