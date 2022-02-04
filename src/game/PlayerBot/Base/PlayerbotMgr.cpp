@@ -342,15 +342,15 @@ void PlayerbotMgr::InitLuaMembers()
 	enum_table["classes"] = m_lua.create_table();
 	sol::table class_table = enum_table["classes"];
 
-	class_table[3] = "Mage";
-	class_table[4] = "Warrior";
-	class_table[5] = "Warlock";
-	class_table[6] = "Priest";
-	class_table[7] = "Druid";
-	class_table[8] = "Rogue";
-	class_table[9] = "Hunter";
-	class_table[10] = "Paladin";
-	class_table[11] = "Shaman";
+	class_table[3] = "mage";
+	class_table[4] = "warrior";
+	class_table[5] = "warlock";
+	class_table[6] = "priest";
+	class_table[7] = "druid";
+	class_table[8] = "rogue";
+	class_table[9] = "hunter";
+	class_table[10] = "paladin";
+	class_table[11] = "shaman";
 
 	FlipLuaTable("wow.enums.classes");
 
