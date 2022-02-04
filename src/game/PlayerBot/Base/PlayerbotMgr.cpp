@@ -2954,7 +2954,11 @@ write <COMMAND>: send a command string to lua)");
 
 	    if (rem_cmd.find("load") != std::string::npos)
 	    {
-			return mgr->LoadUserLuaScript();		    
+			if (mgr->LoadUserLuaScript())
+			{
+				PSendSysMessage("AI script loaded successfully.");
+				return false;
+			}
 	    }
 
         if (rem_cmd.find("write") != std::string::npos)
