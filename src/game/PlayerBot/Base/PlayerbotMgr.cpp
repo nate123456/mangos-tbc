@@ -122,11 +122,11 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	for (auto& [id, bot] : m_playerBots)
 		bots.push_back(bot);
 
-	const sol::protected_function act_func = m_luaEnvironment["Main"];
+	const sol::protected_function act_func = m_luaEnvironment["main"];
 
 	if (!act_func.valid())
 	{
-		if (const auto error_msg = "No 'Main' function defined."; m_lastActErrorMsg !=
+		if (const auto error_msg = "No 'mMain' function defined."; m_lastActErrorMsg !=
 			error_msg)
 		{
 			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
