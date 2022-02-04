@@ -578,14 +578,14 @@ void PlayerbotMgr::InitLuaFunctions()
 
 	m_lua.set_function("print", sol::overload([this](sol::variadic_args args)
 	{
-		std::string msg = "";
+		std::string msg;
 
 		for (auto arg : args)
 		{
 			msg += arg.get<std::string>();
 		}
 
-		m_masterChatHandler.PSendSysMessage("[AI] %s", msg);
+		m_masterChatHandler.PSendSysMessage("[AI] %s", msg.c_str());
 	}));
 }
 
