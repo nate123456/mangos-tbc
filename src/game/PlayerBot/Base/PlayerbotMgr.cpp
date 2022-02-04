@@ -303,10 +303,10 @@ bool PlayerbotMgr::LoadUserLuaScript()
 {
 	InitializeLuaEnvironment();
 
-	if (const auto account_id = m_masterAccountId; VerifyScriptExists("main", account_id))
+	if (VerifyScriptExists("main", m_masterAccountId))
 	{
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
-			"SELECT script FROM scripts WHERE name = 'main' AND accountid = %u", account_id))
+			"SELECT script FROM scripts WHERE name = 'main' AND accountid = %u", m_masterAccountId))
 		{
 			const Field* load_fields = query_result->Fetch();
 
@@ -596,10 +596,8 @@ void PlayerbotMgr::InitLuaFunctions()
 
 	wow_table["get"] = [&]
 	{
-		const auto account_id = m_masterAccountId;
-
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
-			"SELECT data FROM scripts WHERE name = '%s' AND accountid = %u", "main", account_id))
+			"SELECT data FROM scripts WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId))
 		{
 			const Field* load_fields = query_result->Fetch();
 
@@ -612,19 +610,15 @@ void PlayerbotMgr::InitLuaFunctions()
 	};
 	wow_table["set"] = [&](std::string& data)
 	{
-		const auto account_id = m_masterAccountId;
-
 		CharacterDatabase.escape_string(data);
 		
 		return CharacterDatabase.PExecute(
-			"UPDATE scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main", account_id);
+			"UPDATE scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main", m_masterAccountId);
 	};
 	wow_table["clear"] = [&]
 	{
-		const auto account_id = m_masterAccountId;
-
 		return CharacterDatabase.PExecute(
-			"UPDATE scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", account_id);
+			"UPDATE scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId);
 	};
 }
 
