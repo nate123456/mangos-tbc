@@ -134,6 +134,7 @@ class PlayerbotMgr
         bool m_hasLoadedScript;
         Position m_lastCommandPosition;
         ChatHandler m_masterChatHandler;
+        uint32 m_masterAccountId;
 };
 
 #endif

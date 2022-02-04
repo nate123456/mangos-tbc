@@ -53,34 +53,36 @@ void PlayerbotMgr::SetInitialWorldSettings()
         sLog.outError("Playerbot: Configuration file version doesn't match expected version. Some config variables may be wrong or missing.");
 }
 
-PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master), m_masterChatHandler(master)
+PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master), m_masterChatHandler(master),
+                                                   m_masterAccountId(master->GetSession()->GetAccountId())
 {
-    // load config variables
-    m_confMaxNumBots = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
-    m_confDebugWhisper = botConfig.GetBoolDefault("PlayerbotAI.DebugWhisper", false);
-    m_confFollowDistance[0] = botConfig.GetFloatDefault("PlayerbotAI.FollowDistanceMin", 0.5f);
-    m_confFollowDistance[1] = botConfig.GetFloatDefault("PlayerbotAI.FollowDistanceMax", 1.0f);
-    m_confCollectCombat = botConfig.GetBoolDefault("PlayerbotAI.Collect.Combat", true);
-    m_confCollectQuest = botConfig.GetBoolDefault("PlayerbotAI.Collect.Quest", true);
-    m_confCollectProfession = botConfig.GetBoolDefault("PlayerbotAI.Collect.Profession", true);
-    m_confCollectLoot = botConfig.GetBoolDefault("PlayerbotAI.Collect.Loot", true);
-    m_confCollectSkin = botConfig.GetBoolDefault("PlayerbotAI.Collect.Skin", true);
-    m_confCollectObjects = botConfig.GetBoolDefault("PlayerbotAI.Collect.Objects", true);
-    m_confCollectDistanceMax = botConfig.GetIntDefault("PlayerbotAI.Collect.DistanceMax", 50);
-    gConfigSellLevelDiff = botConfig.GetIntDefault("PlayerbotAI.SellAll.LevelDiff", 10);
-    if (m_confCollectDistanceMax > 100)
-    {
-        sLog.outError("Playerbot: PlayerbotAI.Collect.DistanceMax higher than allowed. Using 100");
-        m_confCollectDistanceMax = 100;
-    }
-    m_confCollectDistance = botConfig.GetIntDefault("PlayerbotAI.Collect.Distance", 25);
-    if (m_confCollectDistance > m_confCollectDistanceMax)
-    {
-        sLog.outError("Playerbot: PlayerbotAI.Collect.Distance higher than PlayerbotAI.Collect.DistanceMax. Using DistanceMax value");
-        m_confCollectDistance = m_confCollectDistanceMax;
-    }
+	// load config variables
+	m_confMaxNumBots = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
+	m_confDebugWhisper = botConfig.GetBoolDefault("PlayerbotAI.DebugWhisper", false);
+	m_confFollowDistance[0] = botConfig.GetFloatDefault("PlayerbotAI.FollowDistanceMin", 0.5f);
+	m_confFollowDistance[1] = botConfig.GetFloatDefault("PlayerbotAI.FollowDistanceMax", 1.0f);
+	m_confCollectCombat = botConfig.GetBoolDefault("PlayerbotAI.Collect.Combat", true);
+	m_confCollectQuest = botConfig.GetBoolDefault("PlayerbotAI.Collect.Quest", true);
+	m_confCollectProfession = botConfig.GetBoolDefault("PlayerbotAI.Collect.Profession", true);
+	m_confCollectLoot = botConfig.GetBoolDefault("PlayerbotAI.Collect.Loot", true);
+	m_confCollectSkin = botConfig.GetBoolDefault("PlayerbotAI.Collect.Skin", true);
+	m_confCollectObjects = botConfig.GetBoolDefault("PlayerbotAI.Collect.Objects", true);
+	m_confCollectDistanceMax = botConfig.GetIntDefault("PlayerbotAI.Collect.DistanceMax", 50);
+	gConfigSellLevelDiff = botConfig.GetIntDefault("PlayerbotAI.SellAll.LevelDiff", 10);
+	if (m_confCollectDistanceMax > 100)
+	{
+		sLog.outError("Playerbot: PlayerbotAI.Collect.DistanceMax higher than allowed. Using 100");
+		m_confCollectDistanceMax = 100;
+	}
+	m_confCollectDistance = botConfig.GetIntDefault("PlayerbotAI.Collect.Distance", 25);
+	if (m_confCollectDistance > m_confCollectDistanceMax)
+	{
+		sLog.outError(
+			"Playerbot: PlayerbotAI.Collect.Distance higher than PlayerbotAI.Collect.DistanceMax. Using DistanceMax value");
+		m_confCollectDistance = m_confCollectDistanceMax;
+	}
 
-    InitLua();
+	InitLua();
 }
 
 PlayerbotMgr::~PlayerbotMgr()
@@ -189,7 +191,7 @@ void PlayerbotMgr::InitLua()
 	m_lua.clear_package_loaders();
 	m_lua.add_package_loader([&](const std::string& name)
 	{
-		if (const auto account_id = name == "json" ? -1 : m_master->GetSession()->GetAccountId(); VerifyScriptExists(
+		if (const auto account_id = name == "json" ? -1 : m_masterAccountId; VerifyScriptExists(
 			name, account_id))
 		{
 			if (const QueryResult* query_result = CharacterDatabase.PQuery(
@@ -301,10 +303,8 @@ bool PlayerbotMgr::LoadUserLuaScript()
 {
 	InitializeLuaEnvironment();
 
-	if (VerifyScriptExists("main",))
+	if (const auto account_id = m_masterAccountId; VerifyScriptExists("main", account_id))
 	{
-		const auto account_id = m_master->GetSession()->GetAccountId();
-
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
 			"SELECT script FROM scripts WHERE name = 'main' AND accountid = %u", account_id))
 		{
@@ -329,7 +329,7 @@ bool PlayerbotMgr::LoadUserLuaScript()
 		m_masterChatHandler.PSendSysMessage("|cffff0000Could not find a stored AI script.");
 		m_masterChatHandler.SetSentErrorMessage(true);
 		return false;
-	}	
+	}
 
 	return true;
 }
@@ -572,7 +572,10 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return sSpellTemplate.LookupEntry<SpellEntry>(spellId) != nullptr;
 	};
-	wow_table["time"] = sol::property([&] { return m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();	});
+	wow_table["time"] = sol::property([&]
+	{
+		return World::GetCurrentClockTime().time_since_epoch().count();
+	});
 	wow_table["spell_is_positive"] = [](const uint32 spellId)
 	{
 		if (spellId == 0)
@@ -581,16 +584,11 @@ void PlayerbotMgr::InitLuaFunctions()
 		return IsPositiveSpell(spellId);
 	};
 
-	m_lua.set_function("print", [this](sol::variadic_args args)
+	m_lua.set_function("print", [this](const sol::variadic_args args)
 	{
-		std::string msg;
+		const std::string msg = boost::algorithm::join(args, ", ");
 
-		for (auto arg : args)
-		{
-			msg += arg.get<std::string>();
-		}
-
-		m_masterChatHandler.PSendSysMessage("[AI] %s", msg.c_str());
+		m_masterChatHandler.PSendSysMessage("[AI] %s", msg);
 	});
 
 	wow_table["data_store"] = m_lua.create_table();
@@ -598,7 +596,7 @@ void PlayerbotMgr::InitLuaFunctions()
 
 	wow_table["get"] = [&]
 	{
-		const auto account_id = m_master->GetSession()->GetAccountId();
+		const auto account_id = m_masterAccountId;
 
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
 			"SELECT data FROM scripts WHERE name = '%s' AND accountid = %u", "main", account_id))
@@ -614,7 +612,7 @@ void PlayerbotMgr::InitLuaFunctions()
 	};
 	wow_table["set"] = [&](std::string& data)
 	{
-		const auto account_id = m_master->GetSession()->GetAccountId();
+		const auto account_id = m_masterAccountId;
 
 		CharacterDatabase.escape_string(data);
 		
@@ -623,7 +621,7 @@ void PlayerbotMgr::InitLuaFunctions()
 	};
 	wow_table["clear"] = [&]
 	{
-		const auto account_id = m_master->GetSession()->GetAccountId();
+		const auto account_id = m_masterAccountId;
 
 		return CharacterDatabase.PExecute(
 			"UPDATE scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", account_id);
@@ -1370,7 +1368,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		}
 
 		const auto gcd_time = self->GetGCD(p_spell_info).time_since_epoch().count();
-		const auto current = m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();
+		const auto current = World::GetCurrentClockTime().time_since_epoch().count();
 
 		return gcd_time - current;
 	};
@@ -1394,6 +1392,9 @@ void PlayerbotMgr::InitLuaGroupType()
 		members.reserve(slots.size());
 
 		Map* map = m_master->GetMap();
+
+		if (!map)
+			return members;
 
 		for (auto [guid, name, group, assistant, lastMap] : slots)
 			members.push_back(map->GetPlayer(guid));
@@ -1693,8 +1694,13 @@ Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const
 	if (!group)
 		return nullptr;
 
+	const auto map = m_master->GetMap();
+
+	if (!map)
+		return nullptr;
+
 	if (const auto guid = group->GetTargetFromIcon(iconIndex); guid)
-		return m_master->GetMap()->GetUnit(*guid);
+		return map->GetUnit(*guid);
 
 	return nullptr;
 };
@@ -1964,7 +1970,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
             }
 
             CharacterDatabase.PExecute("INSERT INTO petition_sign (ownerguid,petitionguid, playerguid, player_account) VALUES ('%u', '%u', '%u','%u')",
-                                       m_master->GetGUIDLow(), petitionLowGuid, player->GetGUIDLow(), m_master->GetSession()->GetAccountId());
+                                       m_master->GetGUIDLow(), petitionLowGuid, player->GetGUIDLow(), m_masterAccountId);
 
             p.Initialize(SMSG_PETITION_SIGN_RESULTS, (8 + 8 + 4));
             p << ObjectGuid(petitionGuid);
