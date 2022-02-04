@@ -1331,7 +1331,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		const auto gcd_time = self->GetGCD(p_spell_info).time_since_epoch().count();
 		const auto current = m_master->GetMap()->GetCurrentClockTime().time_since_epoch().count();
 
-		return current - gcd_time;
+		return gcd_time - current;
 	};
 }
 
