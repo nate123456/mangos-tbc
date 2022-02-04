@@ -88,7 +88,6 @@ if (BUILD_PLAYERBOT)
   target_link_libraries(${LIBRARY_NAME}
     PUBLIC lua
     PUBLIC sol
-    PUBLIC cpr::cpr
   )
 endif()
 
