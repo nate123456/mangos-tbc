@@ -189,9 +189,8 @@ void PlayerbotMgr::InitLua()
 	m_lua.clear_package_loaders();
 	m_lua.add_package_loader([&](const std::string& name)
 	{
-		const auto account_id = m_master->GetSession()->GetAccountId();
-
-		if (VerifyScriptExists(name))
+		if (const auto account_id = name == "json" ? -1 : m_master->GetSession()->GetAccountId(); VerifyScriptExists(
+			name, account_id))
 		{
 			if (const QueryResult* query_result = CharacterDatabase.PQuery(
 				"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
@@ -269,11 +268,17 @@ void PlayerbotMgr::ClearNonStandardModules()
 deletes = {}
 
 for name, _ in pairs(package.loaded) do
-    if  name == "_G" or name == "package" or name == "coroutine" or 
-        name == "string" or name == "table" or name == "math" or name == "io" or 
-        name == "os" or name == "debug" or name == "utf8" then
-        goto continue
-    end
+	if name == "_G" then goto continue end
+	if name == "package" then goto continue end
+	if name == "coroutine" then goto continue end
+	if name == "string" then goto continue end
+	if name == "table" then goto continue end
+	if name == "math" then goto continue end
+	if name == "io" then goto continue end
+	if name == "os" then goto continue end
+	if name == "debug" then goto continue end
+	if name == "utf8" then goto continue end
+	if name == "json" then goto continue end
     
     table.insert(deletes, name)
     
@@ -296,7 +301,7 @@ bool PlayerbotMgr::LoadUserLuaScript()
 {
 	InitializeLuaEnvironment();
 
-	if (VerifyScriptExists("main"))
+	if (VerifyScriptExists("main",))
 	{
 		const auto account_id = m_master->GetSession()->GetAccountId();
 
@@ -576,7 +581,7 @@ void PlayerbotMgr::InitLuaFunctions()
 		return IsPositiveSpell(spellId);
 	};
 
-	m_lua.set_function("print", sol::overload([this](sol::variadic_args args)
+	m_lua.set_function("print", [this](sol::variadic_args args)
 	{
 		std::string msg;
 
@@ -586,7 +591,43 @@ void PlayerbotMgr::InitLuaFunctions()
 		}
 
 		m_masterChatHandler.PSendSysMessage("[AI] %s", msg.c_str());
-	}));
+	});
+
+	wow_table["data_store"] = m_lua.create_table();
+	sol::table store_table = wow_table["data_store"];
+
+	wow_table["get"] = [&]
+	{
+		const auto account_id = m_master->GetSession()->GetAccountId();
+
+		if (const QueryResult* query_result = CharacterDatabase.PQuery(
+			"SELECT data FROM scripts WHERE name = '%s' AND accountid = %u", "main", account_id))
+		{
+			const Field* load_fields = query_result->Fetch();
+
+			const std::string data = load_fields[0].GetString();
+
+			return data.c_str();
+		};
+
+		return "";
+	};
+	wow_table["set"] = [&](std::string& data)
+	{
+		const auto account_id = m_master->GetSession()->GetAccountId();
+
+		CharacterDatabase.escape_string(data);
+		
+		return CharacterDatabase.PExecute(
+			"UPDATE scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main", account_id);
+	};
+	wow_table["clear"] = [&]
+	{
+		const auto account_id = m_master->GetSession()->GetAccountId();
+
+		return CharacterDatabase.PExecute(
+			"UPDATE scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", account_id);
+	};
 }
 
 void PlayerbotMgr::InitLuaPlayerType()
@@ -2867,12 +2908,10 @@ uint32 Player::GetSpec()
     return spec;
 }
 
-bool PlayerbotMgr::VerifyScriptExists(const std::string& name)
+bool PlayerbotMgr::VerifyScriptExists(const std::string& name, const uint32 accountId)
 {
-	const auto account_id = m_master->GetSession()->GetAccountId();
-
 	if (const QueryResult* count_result = CharacterDatabase.PQuery(
-		"SELECT COUNT(*) FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
+		"SELECT COUNT(*) FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), accountId))
 	{
 		const Field* count_result_fields = count_result->Fetch();
 
