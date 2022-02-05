@@ -584,27 +584,7 @@ void PlayerbotMgr::InitLuaFunctions()
 		return IsPositiveSpell(spellId);
 	};
 
-	m_lua.set_function("strong_print", [this](const sol::variadic_args args)
-	{
-		std::vector<std::string> strings;
-		strings.resize(args.size());
-
-		for (auto arg : args)
-		{
-			strings.push_back(arg.get<std::string>());
-		}
-
-		const std::string msg = boost::algorithm::join(strings, ", ");
-
-		m_masterChatHandler.PSendSysMessage("[AI] %s", msg.c_str());
-	});
-
-	m_lua.script("print = strong_print");
-
-	wow_table["data_store"] = m_lua.create_table();
-	sol::table store_table = wow_table["data_store"];
-
-	wow_table.set_function("get", [&]
+	m_lua.set_function("get_store_data", [&]
 	{
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
 			"SELECT data FROM scripts WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId))
@@ -616,14 +596,14 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return "";
 	});
-	wow_table.set_function("set", [&](std::string data)
+	m_lua.set_function("set_store_data", [&](std::string data)
 	{
 		CharacterDatabase.escape_string(data);
 
 		return CharacterDatabase.PExecute(
 			"UPDATE scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main", m_masterAccountId);
 	});
-	wow_table.set_function("clear", [&]
+	m_lua.set_function("clear_store_data", [&]
 	{
 		return CharacterDatabase.PExecute(
 			"UPDATE scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId);
