@@ -586,9 +586,17 @@ void PlayerbotMgr::InitLuaFunctions()
 
 	m_lua.set_function("print", [this](const sol::variadic_args args)
 	{
-		const std::string msg = boost::algorithm::join(args, ", ");
+		std::vector<std::string> strings;
+		strings.resize(args.size());
 
-		m_masterChatHandler.PSendSysMessage("[AI] %s", msg);
+		for (auto arg : args)
+		{
+			strings.push_back(arg.get<std::string>());
+		}
+
+		const std::string msg = boost::algorithm::join(strings, ", ");
+
+		m_masterChatHandler.PSendSysMessage("[AI] %s", msg.c_str());
 	});
 
 	wow_table["data_store"] = m_lua.create_table();
