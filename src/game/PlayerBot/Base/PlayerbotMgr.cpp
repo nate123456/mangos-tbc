@@ -616,7 +616,7 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return "";
 	};
-	wow_table["set"] = [&](std::string& data)
+	wow_table["set"] = [&](std::string data)
 	{
 		CharacterDatabase.escape_string(data);
 		
