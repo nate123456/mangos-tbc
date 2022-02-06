@@ -557,8 +557,92 @@ void PlayerbotMgr::InitLuaMembers()
 	equip_slots_table["MainHand"] = 15;
 	equip_slots_table["OffHand"] = 16;
 	equip_slots_table["Ranged"] = 17;
-
+	
 	FlipLuaTable("wow.enums.equip_slots");
+
+	enum_table["specs"] = m_lua.create_table();
+	sol::table specs_table = enum_table["specs"];
+
+	specs_table["mage"] = m_lua.create_table();
+	sol::table mage_specs_table = enum_table["mage"];
+
+	mage_specs_table["arcane"] = 81;
+	mage_specs_table["fire"] = 41;
+	mage_specs_table["frost"] = 61;
+
+	FlipLuaTable("wow.enums.specs.mage");
+
+	specs_table["warrior"] = m_lua.create_table();
+	sol::table warrior_specs_table = specs_table["warrior"];
+
+	mage_specs_table["arms"] = 161;
+	mage_specs_table["fury"] = 164;
+	mage_specs_table["protection"] = 163;
+
+	FlipLuaTable("wow.enums.specs.warrior");
+
+	specs_table["rogue"] = m_lua.create_table();
+	sol::table rogue_specs_table = specs_table["rogue"];
+
+	rogue_specs_table["assassination"] = 182;
+	rogue_specs_table["combat"] = 181;
+	rogue_specs_table["subtlety"] = 183;
+
+	FlipLuaTable("wow.enums.specs.rogue");
+
+	specs_table["priest"] = m_lua.create_table();
+	sol::table priest_specs_table = specs_table["priest"];
+
+	priest_specs_table["discipline"] = 201;
+	priest_specs_table["holy"] = 202;
+	priest_specs_table["shadow"] = 203;
+
+	FlipLuaTable("wow.enums.specs.priest");
+
+	specs_table["shaman"] = m_lua.create_table();
+	sol::table shaman_specs_table = specs_table["shaman"];
+
+	shaman_specs_table["elemental"] = 261;
+	shaman_specs_table["enhancement"] = 263;
+	shaman_specs_table["restoration"] = 262;
+
+	FlipLuaTable("wow.enums.specs.shaman");
+
+	specs_table["druid"] = m_lua.create_table();
+	sol::table druid_specs_table = specs_table["druid"];
+
+	druid_specs_table["balance"] = 283;
+	druid_specs_table["feral"] = 281;
+	druid_specs_table["restoration"] = 282;
+
+	FlipLuaTable("wow.enums.specs.druid");
+
+	specs_table["warlock"] = m_lua.create_table();
+	sol::table warlock_specs_table = specs_table["warlock"];
+
+	warlock_specs_table["affliction"] = 302;
+	warlock_specs_table["demonology"] = 303;
+	warlock_specs_table["destruction"] = 301;
+
+	FlipLuaTable("wow.enums.specs.warlock");
+
+	specs_table["hunter"] = m_lua.create_table();
+	sol::table hunter_specs_table = specs_table["hunter"];
+
+	hunter_specs_table["beast_mastery"] = 361;
+	hunter_specs_table["marksmanship"] = 363;
+	hunter_specs_table["survival"] = 362;
+
+	FlipLuaTable("wow.enums.specs.hunter");
+
+	specs_table["paladin"] = m_lua.create_table();
+	sol::table paladin_specs_table = specs_table["paladin"];
+
+	paladin_specs_table["holy"] = 382;
+	paladin_specs_table["protection"] = 383;
+	paladin_specs_table["retribution"] = 381;
+
+	FlipLuaTable("wow.enums.specs.paladin");
 }
 
 void PlayerbotMgr::InitLuaFunctions()
