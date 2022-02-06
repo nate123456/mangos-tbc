@@ -217,8 +217,6 @@ struct npc_magwinAI : public npc_escortAI
             case 1:
                 m_creature->SetStandState(UNIT_STAND_STATE_STAND);
                 DoScriptText(SAY_START, m_creature);
-                if (Player* pPlayer = GetPlayerForEscort())
-                    m_creature->SetFacingToObject(pPlayer);
                 break;
             case 21:
                 DoScriptText(SAY_PROGRESS, m_creature);
@@ -258,20 +256,27 @@ struct npc_magwinAI : public npc_escortAI
         }
     }
 
-    void StartEvent(Player* player, Quest const* quest)
+    void ReceiveAIEvent(AIEventType eventType, Unit* /*pSender*/, Unit* pInvoker, uint32 uiMiscValue) override
     {
-        m_creature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
-        Start(false, player, quest);
+        if (eventType == AI_EVENT_START_ESCORT && pInvoker->GetTypeId() == TYPEID_PLAYER)
+        {
+            m_creature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN | TEMPFACTION_TOGGLE_IMMUNE_TO_NPC);
+            Start(false, (Player*)pInvoker, GetQuestTemplateStore(uiMiscValue));
+        }
     }
 };
 
 bool QuestAccept_npc_magwin(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
 {
     if (pQuest->GetQuestId() == QUEST_A_CRY_FOR_HELP)
-        if (npc_magwinAI* ai = dynamic_cast<npc_magwinAI*>(pCreature->AI()))
-            ai->StartEvent(pPlayer, pQuest);
+        pCreature->AI()->SendAIEvent(AI_EVENT_START_ESCORT, pPlayer, pCreature, pQuest->GetQuestId());
 
     return true;
+}
+
+UnitAI* GetAI_npc_magwinAI(Creature* pCreature)
+{
+    return new npc_magwinAI(pCreature);
 }
 
 void AddSC_azuremyst_isle()
@@ -283,7 +288,7 @@ void AddSC_azuremyst_isle()
 
     pNewScript = new Script;
     pNewScript->Name = "npc_magwin";
-    pNewScript->GetAI = &GetNewAIInstance<npc_magwinAI>;
+    pNewScript->GetAI = &GetAI_npc_magwinAI;
     pNewScript->pQuestAcceptNPC = &QuestAccept_npc_magwin;
     pNewScript->RegisterSelf();
 }

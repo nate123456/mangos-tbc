@@ -719,7 +719,7 @@ class Creature : public Unit
         SpellEntry const* ReachWithSpellCure(Unit* pVictim);
 
         void CallForHelp(float radius);
-        void CallAssistance(Unit* enemy = nullptr);
+        void CallAssistance();
         void SetNoCallAssistance(bool val) { m_AlreadyCallAssistance = val; }
         bool CanAssistTo(const Unit* u, const Unit* enemy, bool checkfaction = true) const;
         bool CanInitiateAttack() const;
@@ -853,9 +853,6 @@ class Creature : public Unit
         void ClearCreatureGroup();
         CreatureGroup* GetCreatureGroup() const { return m_creatureGroup; }
 
-        ObjectGuid GetKillerGuid() const { return m_killer; }
-        void SetKillerGuid(ObjectGuid guid) { m_killer = guid; }
-
     protected:
         bool CreateFromProto(uint32 guidlow, CreatureInfo const* cinfo, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr);
         bool InitEntry(uint32 Entry, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr);
@@ -929,8 +926,6 @@ class Creature : public Unit
         CreatureSpellList m_spellList;
 
         CreatureGroup* m_creatureGroup;
-
-        ObjectGuid m_killer;
 
     private:
         GridReference<Creature> m_gridRef;

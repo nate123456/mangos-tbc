@@ -246,13 +246,6 @@ void LoadDBCStores(const std::string& dataPath)
 {
     std::string dbcPath = dataPath + "dbc/";
 
-    if (!MaNGOS::Filesystem::exists(dbcPath))
-    {
-        sLog.outError("DBC directory does not exist", dataPath.c_str());
-        Log::WaitBeforeContinueIfNeed();
-        exit(1);
-    }
-
     const uint32 DBCFilesCount = 68;
 
     BarGoLink bar(DBCFilesCount);

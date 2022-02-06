@@ -395,7 +395,7 @@ class UnitAI : public CombatActions
         /*
          * Notifies AI on successful spelllist spell cast
          */
-        virtual void OnSpellCast(SpellEntry const* spellInfo, Unit* target) {}
+        virtual void OnSpellCast(SpellEntry const* spellInfo) {}
 
         /*
          * Notifies AI on stealth alert for player nearby
@@ -434,8 +434,6 @@ class UnitAI : public CombatActions
         CreatureList DoFindFriendlyEligibleDispel(uint32 spellId, bool self = true) const;
         CreatureList DoFindFriendlyEligibleDispel(SpellEntry const* spellInfo, bool self = true) const;
         CreatureList DoFindFriendlyEligibleDispel(float range, uint32 dispelMask = 0, uint32 mechanicMask = 0, bool self = true) const;
-        CreatureList DoFindFriendlyMissingBuff(float range, uint32 spellId, bool inCombat, bool self = true) const;
-        CreatureList DoFindFriendlyMissingBuff(SpellEntry const* spellInfo, bool inCombat, bool self = true) const;
 
         // Start movement toward victim
         void DoStartMovement(Unit* victim);

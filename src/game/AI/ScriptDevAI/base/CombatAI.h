@@ -43,8 +43,6 @@ class CombatAI : public ScriptedAI
             AddOnKillText(fargs...);
         }
         void KilledUnit(Unit* /*victim*/) override;
-
-        // virtual void ExecuteAction(uint32 action) {}
     private:
         ObjectGuid m_storedTarget;
 

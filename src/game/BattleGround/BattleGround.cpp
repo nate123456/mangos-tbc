@@ -402,18 +402,6 @@ void BattleGround::Update(uint32 diff)
             // first start warning - 2 or 1 minute, only if defined
             if (m_startMessageIds[BG_STARTING_EVENT_FIRST])
                 SendMessageToAll(m_startMessageIds[BG_STARTING_EVENT_FIRST], CHAT_MSG_BG_SYSTEM_NEUTRAL);
-
-            // Announce BG Started
-            if (sWorld.getConfig(CONFIG_BOOL_BATTLEGROUND_QUEUE_ANNOUNCER_START))
-            {
-                BattleGroundBracketId bracketId = GetBracketId();
-                BattleGroundTypeId BgTypeId = GetTypeId();
-
-                if (!IsArena())
-                    sWorld.SendWorldText(LANG_BG_STARTED_ANNOUNCE_WORLD, GetName(), Player::GetMinLevelForBattleGroundBracketId(bracketId, BgTypeId), Player::GetMaxLevelForBattleGroundBracketId(bracketId, BgTypeId));
-                else
-                    sWorld.SendWorldText(LANG_ARENA_STARTED_ANNOUNCE_WORLD, GetName(), GetArenaType(), GetArenaType());
-            }
         }
         // After 1 minute or 30 seconds, warning is signalled
         else if (GetStartDelayTime() <= m_startDelayTimes[BG_STARTING_EVENT_SECOND] && !(m_events & BG_STARTING_EVENT_2))
@@ -458,6 +446,11 @@ void BattleGround::Update(uint32 diff)
                 for (BattleGroundPlayerMap::const_iterator itr = m_players.begin(); itr != m_players.end(); ++itr)
                     if (Player* plr = sObjectMgr.GetPlayer(itr->first))
                         plr->RemoveAurasDueToSpell(SPELL_PREPARATION);
+                // Announce BG starting
+                if (sWorld.getConfig(CONFIG_BOOL_BATTLEGROUND_QUEUE_ANNOUNCER_START))
+                {
+                    sWorld.SendWorldText(LANG_BG_STARTED_ANNOUNCE_WORLD, GetName(), GetMinLevel(), GetMaxLevel());
+                }
             }
         }
     }
@@ -1167,15 +1160,11 @@ void BattleGround::RemovePlayerAtLeave(ObjectGuid playerGuid, bool isOnTransport
         participant = true;
     }
 
-    // Arena scoreboard retains all players.
-    if (IsBattleGround() && GetStatus() != STATUS_WAIT_LEAVE)
+    BattleGroundScoreMap::iterator itr2 = m_playerScores.find(playerGuid);
+    if (itr2 != m_playerScores.end())
     {
-        BattleGroundScoreMap::iterator itr2 = m_playerScores.find(playerGuid);
-        if (itr2 != m_playerScores.end())
-        {
-            delete itr2->second;                                // delete player's score
-            m_playerScores.erase(itr2);
-        }
+        delete itr2->second;                                // delete player's score
+        m_playerScores.erase(itr2);
     }
 
     Player* player = sObjectMgr.GetPlayer(playerGuid);
@@ -1693,7 +1682,7 @@ void BattleGround::OnObjectDBLoad(GameObject* obj)
 
     m_eventObjects[MAKE_PAIR32(eventId.event1, eventId.event2)].gameobjects.push_back(obj->GetDbGuid());
     if (!IsActiveEvent(eventId.event1, eventId.event2))
-        ChangeBgObjectSpawnState(obj->GetDbGuid(), RESPAWN_ONE_DAY);
+        ChangeBgObjectSpawnState(obj->GetObjectGuid(), RESPAWN_ONE_DAY);
     else
     {
         // it's possible, that doors aren't spawned anymore (wsg)
@@ -1791,10 +1780,7 @@ void BattleGround::ChangeBgObjectSpawnState(uint32 dbGuid, uint32 respawntime)
 
     GameObject* obj = map->GetGameObject(dbGuid);
     if (!obj)
-    {
-        map->GetSpawnManager().RespawnGameObject(dbGuid, respawntime);
         return;
-    }
 
     if (respawntime == 0)
     {

@@ -380,7 +380,7 @@ bool ProcessEventId_WildhammerMessage(uint32 /*eventId*/, Object* source, Object
 ## spell_gammerita_turtle_camera
 ######*/
 
-struct GammeritaTurtleCamera : public SpellScript
+struct spell_gammerita_turtle_camera : public SpellScript
 {
     SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
     {
@@ -412,5 +412,5 @@ void AddSC_hinterlands()
     pNewScript->pProcessEventId = &ProcessEventId_WildhammerMessage;
     pNewScript->RegisterSelf();
 
-    RegisterSpellScript<GammeritaTurtleCamera>("spell_gammerita_turtle_camera");
+    RegisterSpellScript<spell_gammerita_turtle_camera>("spell_gammerita_turtle_camera");
 }

@@ -271,23 +271,44 @@ int Master::Run()
     if (cliThread)
     {
 #ifdef _WIN32
-        // send keyboard input to safely unblock the CLI thread that is waiting for an user input
+
+        // this only way to terminate CLI thread exist at Win32 (alt. way exist only in Windows Vista API)
+        //_exit(1);
+        // send keyboard input to safely unblock the CLI thread
+        INPUT_RECORD b[5];
         HANDLE hStdIn = GetStdHandle(STD_INPUT_HANDLE);
-        INPUT_RECORD ir[2] = { 0 };
+        b[0].EventType = KEY_EVENT;
+        b[0].Event.KeyEvent.bKeyDown = TRUE;
+        b[0].Event.KeyEvent.uChar.AsciiChar = 'X';
+        b[0].Event.KeyEvent.wVirtualKeyCode = 'X';
+        b[0].Event.KeyEvent.wRepeatCount = 1;
 
-        ir[0].EventType = KEY_EVENT;
-        ir[0].Event.KeyEvent.bKeyDown = TRUE;
-        ir[0].Event.KeyEvent.wRepeatCount = 1;
-        ir[0].Event.KeyEvent.uChar.AsciiChar = VK_RETURN;
-        ir[0].Event.KeyEvent.dwControlKeyState = 0;
+        b[1].EventType = KEY_EVENT;
+        b[1].Event.KeyEvent.bKeyDown = FALSE;
+        b[1].Event.KeyEvent.uChar.AsciiChar = 'X';
+        b[1].Event.KeyEvent.wVirtualKeyCode = 'X';
+        b[1].Event.KeyEvent.wRepeatCount = 1;
 
-        ir[1] = ir[0];
-        ir[1].Event.KeyEvent.bKeyDown = FALSE;
+        b[2].EventType = KEY_EVENT;
+        b[2].Event.KeyEvent.bKeyDown = TRUE;
+        b[2].Event.KeyEvent.dwControlKeyState = 0;
+        b[2].Event.KeyEvent.uChar.AsciiChar = '\r';
+        b[2].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+        b[2].Event.KeyEvent.wRepeatCount = 1;
+        b[2].Event.KeyEvent.wVirtualScanCode = 0x1c;
 
-        DWORD dwNumWrtn = -1;
-        WriteConsoleInput(hStdIn, ir, 2, &dwNumWrtn);
+        b[3].EventType = KEY_EVENT;
+        b[3].Event.KeyEvent.bKeyDown = FALSE;
+        b[3].Event.KeyEvent.dwControlKeyState = 0;
+        b[3].Event.KeyEvent.uChar.AsciiChar = '\r';
+        b[3].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+        b[3].Event.KeyEvent.wVirtualScanCode = 0x1c;
+        b[3].Event.KeyEvent.wRepeatCount = 1;
+        DWORD numb;
+        BOOL ret = WriteConsoleInput(hStdIn, b, 4, &numb);
 
         cliThread->wait();
+
 #else
 
         cliThread->destroy();

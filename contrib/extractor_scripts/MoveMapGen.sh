@@ -16,8 +16,6 @@
 ## 3rd param may be an addition filename for storing detailed log
 ## 4th param may be a number of threads to use for maps processing
 
-PREFIX="$(dirname $0)"
-
 ## Additional Parameters to be forwarded to MoveMapGen, see mmaps/readme for instructions
 PARAMS="--silent --configInputPath config.json"
 
@@ -40,29 +38,25 @@ badParam()
  echo
 }
 
-if [ "$#" = "5" ]
+if [ "$#" = "4" ]
 then
-  OUTPUT_PATH="$2"
-  LOG_FILE=$3
-  DETAIL_LOG_FILE=$4
-  if [ "$5" != "all" ]
+  LOG_FILE=$2
+  DETAIL_LOG_FILE=$3
+  if [ "$4" != "all" ]
   then
-    PARAMS="${PARAMS} --threads $5"
+    PARAMS="${PARAMS} --threads $4"
   fi
-elif [ "$#" = "4" ]
-then
-  OUTPUT_PATH="$2"
-  LOG_FILE=$3
-  DETAIL_LOG_FILE=$4
 elif [ "$#" = "3" ]
 then
-  OUTPUT_PATH="$2"
-  LOG_FILE=$3
+  LOG_FILE=$2
+  DETAIL_LOG_FILE=$3
+elif [ "$#" = "2" ]
+then
+  LOG_FILE=$2
 fi
 
 # Offmesh file provided?
 OFFMESH=""
-MMG_RES="--workdir ${OUTPUT_PATH:-.}/"
 if [ "$OFFMESH_FILE" != "" ]
 then
  if [ ! -f "$OFFMESH_FILE" ]
@@ -89,21 +83,21 @@ createHeader()
 # Create mmaps directory if not exist
 if [ ! -d mmaps ]
 then
- mkdir ${OUTPUT_PATH:-.}/mmaps
+ mkdir mmaps
 fi
 
 # Param control
 case "$1" in
  "maps" )
     createHeader
-    $PREFIX/MoveMapGen $PARAMS $OFFMESH $MMG_RES --buildGameObjects | tee -a $DETAIL_LOG_FILE
+    ./MoveMapGen $PARAMS $OFFMESH --buildGameObjects | tee -a $DETAIL_LOG_FILE
    ;;
  "offmesh" )
    echo "`date`: Recreate offmeshes from file $OFFMESH_FILE" | tee -a $LOG_FILE
    echo "Recreate offmeshes from file $OFFMESH_FILE" | tee -a $DETAIL_LOG_FILE
    while read map tile line
    do
-     $PREFIX/MoveMapGen $PARAMS $OFFMESH $MMG_RES $map --tile $tile | tee -a $DETAIL_LOG_FILE
+     ./MoveMapGen $PARAMS $OFFMESH $map --tile $tile | tee -a $DETAIL_LOG_FILE
      echo "`date`: Recreated $map $tile from $OFFMESH_FILE" | tee -a $LOG_FILE
    done < $OFFMESH_FILE &
    ;;

@@ -100,11 +100,6 @@ enum
     SPELL_SOUL_CHARGE_RED_CHARGE    = 32052,
 
     SPELL_CHOOSE_TARGET_UNUSED      = 32121, // Currently unused. Unknown what its purpose is, but it's cast by Druid of the Claw c.3795
-
-    // Used for Building creature (Base Invasion/Overrun events)
-    SPELL_SUPER_INVIS           = 8149,
-    FACTION_SPAR                = 1692,
-    FACTION_SPAR_BUDDY          = 1693,
 };
 
 enum BaseArea
@@ -192,7 +187,6 @@ class instance_mount_hyjal : public ScriptedInstance
 
         void StartEvent(HyjalEvents eventId);
         void FailEvent();
-        GuidVector GetOverrunSpawns(uint32 baseId) { return m_overrunSpawns[baseId]; }
 
         void ShowChatCommands(ChatHandler* handler) override;
         void ExecuteChatCommand(ChatHandler* handler, char* args) override;

@@ -23,44 +23,36 @@
 
 using namespace MMAP;
 
-bool checkDirectories(bool debugOutput, const char* workdir)
+bool checkDirectories(bool debugOutput)
 {
     vector<string> dirFiles;
-    char maps_dir[1024];
-    char vmaps_dir[1024];
-    char mmaps_dir[1024];
-    char meshes_dir[1024];
 
-    sprintf(maps_dir, "%s/%s", workdir, "maps");
-    if (getDirContents(dirFiles, maps_dir) == LISTFILE_DIRECTORY_NOT_FOUND || !dirFiles.size())
+    if (getDirContents(dirFiles, "maps") == LISTFILE_DIRECTORY_NOT_FOUND || !dirFiles.size())
     {
-        printf("'%s' directory is empty or does not exist\n", maps_dir);
+        printf("'maps' directory is empty or does not exist\n");
         return false;
     }
 
     dirFiles.clear();
-    sprintf(vmaps_dir, "%s/%s", workdir, "vmaps");
-    if (getDirContents(dirFiles, vmaps_dir, "*.vmtree") == LISTFILE_DIRECTORY_NOT_FOUND || !dirFiles.size())
+    if (getDirContents(dirFiles, "vmaps", "*.vmtree") == LISTFILE_DIRECTORY_NOT_FOUND || !dirFiles.size())
     {
-        printf("'%s' directory is empty or does not exist\n", vmaps_dir);
+        printf("'vmaps' directory is empty or does not exist\n");
         return false;
     }
 
     dirFiles.clear();
-    sprintf(mmaps_dir, "%s/%s", workdir, "mmaps");
-    if (getDirContents(dirFiles, mmaps_dir) == LISTFILE_DIRECTORY_NOT_FOUND)
+    if (getDirContents(dirFiles, "mmaps") == LISTFILE_DIRECTORY_NOT_FOUND)
     {
-        printf("'%s' directory does not exist\n", mmaps_dir);
+        printf("'mmaps' directory does not exist\n");
         return false;
     }
 
     dirFiles.clear();
     if (debugOutput)
     {
-        sprintf(meshes_dir, "%s/%s", workdir, "meshes");
-        if (getDirContents(dirFiles, meshes_dir) == LISTFILE_DIRECTORY_NOT_FOUND)
+        if (getDirContents(dirFiles, "meshes") == LISTFILE_DIRECTORY_NOT_FOUND)
         {
-            printf("'%s' directory does not exist (no place to put debugOutput files)\n", meshes_dir);
+            printf("'meshes' directory does not exist (no place to put debugOutput files)\n");
             return false;
         }
     }
@@ -84,7 +76,6 @@ void printUsage()
     printf("--configInputPath [file.*] : Path to json configuration file.\n\n");
     printf("--buildGameObjects : builds only gameobject models for transports\n\n");
     printf("--threads [#]: specifies number of threads to use for maps processing\n\n");
-    printf("--workdir [directory] : Path to basedir of maps/vmaps.\n\n");
     printf("Example:\nmovemapgen (generate all mmap with default arg\n"
            "movemapgen \"1 0 169\" (generate maps 1, 0 and 169)\n"
            "movemapgen 0 --tile 34,46 (builds only tile 34,46 of map 0)\n\n");
@@ -104,15 +95,12 @@ bool handleArgs(int argc, char** argv,
                 bool& buildGameObjects,
                 char*& offMeshInputPath,
                 char*& configInputPath,
-                int& threads,
-                char*& workdir)
+                int& threads)
 {
     char* param = NULL;
-    workdir = "./";
-
     for (int i = 1; i < argc; ++i)
     {
-        if (strcmp(argv[i], "--tile") == 0 && i + 1 < argc)
+        if (strcmp(argv[i], "--tile") == 0)
         {
             param = argv[++i];
             if (!param)
@@ -163,7 +151,7 @@ bool handleArgs(int argc, char** argv,
         {
             buildGameObjects = true;
         }
-        else if (strcmp(argv[i], "--offMeshInput") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--offMeshInput") == 0)
         {
             param = argv[++i];
             if (!param)
@@ -171,7 +159,7 @@ bool handleArgs(int argc, char** argv,
 
             offMeshInputPath = param;
         }
-        else if (strcmp(argv[i], "--configInputPath") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--configInputPath") == 0)
         {
             param = argv[++i];
             if (!param)
@@ -179,7 +167,7 @@ bool handleArgs(int argc, char** argv,
 
             configInputPath = param;
         }
-        else if (strcmp(argv[i], "--threads") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--threads") == 0)
         {
             param = argv[++i];
             if (!param)
@@ -197,14 +185,6 @@ bool handleArgs(int argc, char** argv,
                 printf("Invalid number of threads.\n");
                 return false;
             }
-        }
-        else if (strcmp(argv[i], "--workdir") == 0 && i + 1 < argc)
-        {
-            param = argv[++i];
-            if (!param)
-                return false;
-
-            workdir = param;
         }
         else if ((strcmp(argv[i], "-?") == 0) || (strcmp(argv[i], "/?") == 0) || (strcmp(argv[i], "-h") == 0))
         {
@@ -249,11 +229,10 @@ int main(int argc, char** argv)
 
     char* offMeshInputPath = "offmesh.txt";
     char* configInputPath = "config.json";
-    char* workdir = NULL;
 
     bool validParam = handleArgs(argc, argv, mapIds, tileX, tileY, skipLiquid,
                                  skipContinents, skipJunkMaps, skipBattlegrounds,
-                                 debug, silent, buildGameObjects, offMeshInputPath, configInputPath, threads, workdir);
+                                 debug, silent, buildGameObjects, offMeshInputPath, configInputPath, threads);
 
     if (!validParam)
     {
@@ -281,10 +260,10 @@ int main(int argc, char** argv)
             return 0;
     }
 
-    if (!checkDirectories(debug, workdir))
+    if (!checkDirectories(debug))
         return -3;
 
-    MapBuilder builder(configInputPath, threads, skipLiquid, skipContinents, skipJunkMaps, skipBattlegrounds, debug, offMeshInputPath, workdir);
+    MapBuilder builder(configInputPath, threads, skipLiquid, skipContinents, skipJunkMaps, skipBattlegrounds, debug, offMeshInputPath);
 
     if (mapIds.size() == 1 && tileX > -1 && tileY > -1)
         builder.buildSingleTile(mapIds.front(), tileX, tileY);

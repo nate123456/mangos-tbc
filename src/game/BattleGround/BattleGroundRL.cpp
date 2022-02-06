@@ -48,9 +48,6 @@ void BattleGroundRL::AddPlayer(Player* plr)
     // create score and add it to map, default values are set in constructor
     BattleGroundRLScore* sc = new BattleGroundRLScore;
 
-    // Needed for scoreboard if player leaves.
-    sc->Team = plr->GetBGTeam();
-
     m_playerScores[plr->GetObjectGuid()] = sc;
 
     UpdateWorldState(0xbb8, GetAlivePlayersCountByTeam(ALLIANCE));

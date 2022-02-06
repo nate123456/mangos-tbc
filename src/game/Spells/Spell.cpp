@@ -1446,8 +1446,8 @@ void Spell::DoAllTargetlessEffects(bool dest)
     uint32 effectMask;
     if (dest) // can have delay
     {
-        effectMask = m_destTargetInfo.effectMask &~ m_destTargetInfo.effectMaskProcessed;
-        m_destTargetInfo.effectMaskProcessed = m_destTargetInfo.effectMask;
+        effectMask = m_destTargetInfo.effectMask;
+        m_destTargetInfo.processed = true;
         for (uint32 j = 0; j < MAX_EFFECT_INDEX; ++j)
         {
             if ((effectMask & (1 << j)) != 0)
@@ -1462,19 +1462,6 @@ void Spell::DoAllTargetlessEffects(bool dest)
             if ((effectMask & (1 << j)) != 0)
                 HandleEffect(nullptr, nullptr, nullptr, SpellEffectIndex(j));
         }
-
-        // dest effects that are immediate
-        uint32 destMaskImmediate = m_destTargetInfo.effectMask;
-        for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-            if (!IsEffectHandledImmediatelySpellLaunch(m_spellInfo, SpellEffectIndex(i)))
-                destMaskImmediate &= ~(destMaskImmediate & (1 << i));
-
-        for (uint32 j = 0; j < MAX_EFFECT_INDEX; ++j)
-        {
-            if ((destMaskImmediate & (1 << j)) != 0)
-                HandleEffect(nullptr, nullptr, nullptr, SpellEffectIndex(j));
-        }
-        m_destTargetInfo.effectMaskProcessed = destMaskImmediate;
     }
 
     if (effectMask)
@@ -3336,7 +3323,7 @@ uint64 Spell::handle_delayed(uint64 t_offset)
 
     uint64 next_time = 0;
 
-    if (m_destTargetInfo.effectMaskProcessed != m_destTargetInfo.effectMask)
+    if (!m_destTargetInfo.processed)
     {
         if (m_destTargetInfo.timeDelay <= t_offset)
             DoAllTargetlessEffects(true);
@@ -3766,7 +3753,7 @@ void Spell::finish(bool ok)
     if (!m_TriggerSpells.empty())
         CastTriggerSpells();
 
-    if (!m_IsTriggeredSpell && !m_trueCaster->IsGameObject())
+    if (m_caster)
         m_caster->RemoveAurasOnCast(AURA_INTERRUPT_FLAG_ACTION_LATE, m_spellInfo);
 
     // Stop Attack for some spells
@@ -3872,22 +3859,14 @@ void Spell::SendCastResult(Player const* caster, SpellEntry const* spellInfo, ui
         case SPELL_FAILED_EQUIPPED_ITEM_CLASS_OFFHAND:
             data << uint32(spellInfo->EquippedItemClass);
             data << uint32(spellInfo->EquippedItemSubClassMask);
+            data << uint32(spellInfo->EquippedItemInventoryTypeMask);
             break;
-        case SPELL_FAILED_NEED_EXOTIC_AMMO:
-            data << uint32(spellInfo->EquippedItemSubClassMask);
-            break;
-        case SPELL_FAILED_NEED_MORE_ITEMS:
+        case SPELL_FAILED_PROSPECT_NEED_MORE:
             data << param1;
             data << param2;
             break;
         case SPELL_FAILED_PREVENTED_BY_MECHANIC:
             data << param1;
-            break;
-        case SPELL_FAILED_REAGENTS:
-            data << param1;                                 // item id
-            break;
-        case SPELL_FAILED_MIN_SKILL:
-            data << uint32(0);                              // SkillLine.dbc id
             break;
         default:
             break;
@@ -5918,7 +5897,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                     {
                         SpellCastResult result = partialApplication(i);
                         if (result != SPELL_CAST_OK)
-                            return SPELL_FAILED_TARGET_NO_WEAPONS;
+                            return result;
                     }
                 }
                 break;
@@ -6307,9 +6286,6 @@ SpellCastResult Spell::CheckRange(bool strict)
         if ((spellRange->Flags & SPELL_RANGE_FLAG_MELEE) == 0 && !strict)
             maxRange += std::min(3.f, maxRange * 0.1f); // 10% but no more than MAX_SPELL_RANGE_TOLERANCE
 
-    if (!target && m_clientCast && HasSpellTarget(m_spellInfo, TARGET_UNIT_CASTER_PET))
-        target = m_caster->GetPet();
-
     if (target && target != m_trueCaster)
     {
         // distance from target in checks
@@ -6607,9 +6583,8 @@ SpellCastResult Spell::CheckItems()
     // if not item target then required item must be equipped (for triggered case not report error)
     else
     {
-        uint32 error = SPELL_FAILED_EQUIPPED_ITEM_CLASS;
-        if (m_caster->IsPlayer() && !static_cast<Player*>(m_caster)->HasItemFitToSpellReqirements(m_spellInfo, nullptr, &error))
-            return m_IsTriggeredSpell ? SPELL_FAILED_DONT_REPORT : SpellCastResult(error);
+        if (m_caster->GetTypeId() == TYPEID_PLAYER && !((Player*)m_caster)->HasItemFitToSpellReqirements(m_spellInfo))
+            return m_IsTriggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
     }
 
     // check reagents (ignore triggered spells with reagents processed by original spell) and special reagent ignore case.
@@ -6644,10 +6619,7 @@ SpellCastResult Spell::CheckItems()
                 }
 
                 if (!p_caster->HasItemCount(itemid, itemcount))
-                {
-                    m_param1 = itemid;
                     return SPELL_FAILED_REAGENTS;
-                }
             }
         }
 
@@ -6803,7 +6775,7 @@ SpellCastResult Spell::CheckItems()
                 {
                     m_param1 = itemTarget->GetEntry();
                     m_param2 = requiredCount - int32(itemTarget->GetCount());
-                    return SPELL_FAILED_NEED_MORE_ITEMS;
+                    return SPELL_FAILED_PROSPECT_NEED_MORE;
                 }
 
                 if (!LootTemplates_Prospecting.HaveLootFor(m_targets.getItemTargetEntry()))

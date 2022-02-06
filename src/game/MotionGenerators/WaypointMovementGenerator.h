@@ -99,8 +99,7 @@ class WaypointMovementGenerator<Creature>
 
     protected:
         virtual void SwitchToNextNode(Creature& creature, WaypointPath::const_iterator& nodeItr);
-        //virtual bool GetNodeAfter(WaypointPath::const_iterator& nodeItr);
-        virtual bool GetNodeAfter(WaypointPath::const_iterator& nodeItr, bool looped = false);
+        virtual bool GetNodeAfter(WaypointPath::const_iterator& nodeItr);
 
     private:
         void LoadPath(Creature& creature, int32 pathId, WaypointPathOrigin wpOrigin, uint32 overwriteEntry);
@@ -151,8 +150,7 @@ class LinearWPMovementGenerator<Creature> : public WaypointMovementGenerator<Cre
 
     private:
     void SwitchToNextNode(Creature& creature, WaypointPath::const_iterator& nodeItr) override;
-    //bool GetNodeAfter(WaypointPath::const_iterator& nodeItr) override;
-    bool GetNodeAfter(WaypointPath::const_iterator& nodeItr, bool looped = false) override;
+    bool GetNodeAfter(WaypointPath::const_iterator& nodeItr) override;
 
     bool m_driveWayBack;
 };

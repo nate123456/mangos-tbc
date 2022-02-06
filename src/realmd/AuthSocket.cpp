@@ -792,7 +792,7 @@ bool AuthSocket::_HandleRealmList()
     ///- Get the user id (else close the connection)
     // No SQL injection (escaped user name)
 
-    QueryResult* result = LoginDatabase.PQuery("SELECT id, gmlevel FROM account WHERE username = '%s'", _safelogin.c_str());
+    QueryResult* result = LoginDatabase.PQuery("SELECT id FROM account WHERE username = '%s'", _safelogin.c_str());
     if (!result)
     {
         sLog.outError("[ERROR] user %s tried to login and we cannot find him in the database.", _login.c_str());
@@ -801,7 +801,6 @@ bool AuthSocket::_HandleRealmList()
     }
 
     uint32 id = (*result)[0].GetUInt32();
-    uint8 accountSecurityLevel = (*result)[1].GetUInt8();
     delete result;
 
     ///- Update realm list if need
@@ -809,7 +808,7 @@ bool AuthSocket::_HandleRealmList()
 
     ///- Circle through realms in the RealmList and construct the return packet (including # of user characters in each realm)
     ByteBuffer pkt;
-    LoadRealmlist(pkt, id, accountSecurityLevel);
+    LoadRealmlist(pkt, id);
 
     ByteBuffer hdr;
     hdr << (uint8) CMD_REALM_LIST;
@@ -820,7 +819,7 @@ bool AuthSocket::_HandleRealmList()
     return true;
 }
 
-void AuthSocket::LoadRealmlist(ByteBuffer& pkt, uint32 acctid, uint8 securityLevel)
+void AuthSocket::LoadRealmlist(ByteBuffer& pkt, uint32 acctid)
 {
     switch (_build)
     {
@@ -829,7 +828,7 @@ void AuthSocket::LoadRealmlist(ByteBuffer& pkt, uint32 acctid, uint8 securityLev
         case 6141:                                          // 1.12.3
         {
             pkt << uint32(0);                               // unused value
-            pkt << uint8(getEligibleRealmCount(securityLevel));
+            pkt << uint8(sRealmList.size());
 
             for (const auto& i : sRealmList)
             {
@@ -853,10 +852,6 @@ void AuthSocket::LoadRealmlist(ByteBuffer& pkt, uint32 acctid, uint8 securityLev
                     buildInfo = &i.second.realmBuildInfo;
 
                 RealmFlags realmflags = i.second.realmflags;
-
-                // Don't display higher security realms for players.
-                if (!securityLevel && i.second.allowedSecurityLevel > 0)
-                    continue;
 
                 // 1.x clients not support explicitly REALM_FLAG_SPECIFYBUILD, so manually form similar name as show in more recent clients
                 std::string name = i.first;
@@ -894,7 +889,7 @@ void AuthSocket::LoadRealmlist(ByteBuffer& pkt, uint32 acctid, uint8 securityLev
         default:                                            // and later
         {
             pkt << uint32(0);                               // unused value
-            pkt << uint16(getEligibleRealmCount(securityLevel));
+            pkt << uint16(sRealmList.size());
 
             for (const auto& i : sRealmList)
             {
@@ -916,10 +911,6 @@ void AuthSocket::LoadRealmlist(ByteBuffer& pkt, uint32 acctid, uint8 securityLev
                 RealmBuildInfo const* buildInfo = ok_build ? FindBuildInfo(_build) : nullptr;
                 if (!buildInfo)
                     buildInfo = &i.second.realmBuildInfo;
-
-                // Don't display higher security realms for players.
-                if (!securityLevel && i.second.allowedSecurityLevel > 0)
-                    continue;
 
                 uint8 lock = (i.second.allowedSecurityLevel > _accountSecurityLevel) ? 1 : 0;
 
@@ -955,16 +946,6 @@ void AuthSocket::LoadRealmlist(ByteBuffer& pkt, uint32 acctid, uint8 securityLev
             break;
         }
     }
-}
-
-uint8 AuthSocket::getEligibleRealmCount(uint8 accountSecurityLevel)
-{
-    uint8 size = 0;
-    for (const auto& i : sRealmList)
-        if (i.second.allowedSecurityLevel <= accountSecurityLevel)
-            size++;
-
-    return size;
 }
 
 /// Resume patch transfer

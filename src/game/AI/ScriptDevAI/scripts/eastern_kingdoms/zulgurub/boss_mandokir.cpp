@@ -23,7 +23,6 @@ EndScriptData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "zulgurub.h"
-#include "AI/ScriptDevAI/base/CombatAI.h"
 
 enum
 {
@@ -38,26 +37,21 @@ enum
 
     EMOTE_RAGE          = -1309024,
 
-    SPELL_CHARGE        = 24408,
-    SPELL_CHARGE_GAZE   = 24315,
-    SPELL_INTIMIDATING_SHOUT          = 29321,
-    SPELL_WHIRLWIND     = 13736,
-    SPELL_MORTAL_STRIKE = 16856,
+    SPELL_CHARGE        = 24315,
+    SPELL_CLEAVE        = 20691,
+    SPELL_FEAR          = 29321,
+    SPELL_WHIRLWIND     = 24236,
+    SPELL_MORTAL_STRIKE = 24573,
     SPELL_ENRAGE        = 23537,
-    SPELL_THREATENING_GAZE = 24314,
+    SPELL_WATCH         = 24314,
     SPELL_SUMMON_PLAYER = 25104,
     SPELL_LEVEL_UP      = 24312,
-    SPELL_OVERPOWER     = 24407,
-
-    SPELL_SUMMON_BLOODLORDS_RAPTOR = 24349,
 
     // Ohgans Spells
     SPELL_SUNDERARMOR   = 24317,
 
     // Chained Spirit Spells
     SPELL_REVIVE        = 24341,
-
-    SPELL_DESPAWN_CHAINED_SPIRITS = 24342,
 
     POINT_DOWNSTAIRS    = 1
 };
@@ -90,34 +84,43 @@ static SpawnLocations aSpirits[] =
     { -12266.1f, -1940.72f, 132.606f, 0.70910f}
 };
 
-enum MandokirActions
+struct boss_mandokirAI : public ScriptedAI
 {
-    MANDOKIR_ACTION_MAX,
-};
-
-struct boss_mandokirAI : public CombatAI
-{
-    boss_mandokirAI(Creature* creature) : CombatAI(creature, MANDOKIR_ACTION_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+    boss_mandokirAI(Creature* pCreature) : ScriptedAI(pCreature)
     {
-
+        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+        Reset();
     }
 
-    ScriptedInstance* m_instance;
+    ScriptedInstance* m_pInstance;
+
+    uint32 m_uiWatchTimer;
+    uint32 m_uiCleaveTimer;
+    uint32 m_uiWhirlwindTimer;
+    uint32 m_uiFearTimer;
+    uint32 m_uiMortalStrikeTimer;
+    uint32 m_uiCheckTimer;
 
     uint8 m_uiKillCount;
 
-    float m_targetThreat;
+    float m_fTargetThreat;
+    ObjectGuid m_watchTargetGuid;
 
     void Reset() override
     {
-        CombatAI::Reset();
+        m_uiWatchTimer          = 33000;
+        m_uiCleaveTimer         = 7000;
+        m_uiWhirlwindTimer      = 20000;
+        m_uiFearTimer           = 1000;
+        m_uiMortalStrikeTimer   = 1000;
+        m_uiCheckTimer          = 1000;
 
         m_uiKillCount           = 0;
 
-        m_targetThreat         = 0.0f;
+        m_fTargetThreat         = 0.0f;
     }
 
-    void Aggro(Unit* /*who*/) override
+    void Aggro(Unit* /*pWho*/) override
     {
         DoScriptText(SAY_AGGRO, m_creature);
 
@@ -128,56 +131,42 @@ struct boss_mandokirAI : public CombatAI
         m_creature->Unmount();
 
         // And summon his raptor
-        m_creature->CastSpell(nullptr, SPELL_SUMMON_BLOODLORDS_RAPTOR, TRIGGERED_NONE);
+        m_creature->SummonCreature(NPC_OHGAN, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 35000);
 
-        if (m_instance)
-            m_instance->SetData(TYPE_OHGAN, IN_PROGRESS);
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_OHGAN, IN_PROGRESS);
+    }
+
+    void JustReachedHome() override
+    {
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_OHGAN, FAIL);
+    }
+
+    void JustDied(Unit* /*pKiller*/) override
+    {
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_OHGAN, DONE);
     }
 
     void EnterEvadeMode() override
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_OHGAN, FAIL);
+        m_creature->RemoveAllAurasOnEvade();
+        m_creature->CombatStop(true);
+        m_creature->LoadCreatureAddon(true);
 
-        m_creature->CastSpell(nullptr, SPELL_DESPAWN_CHAINED_SPIRITS, TRIGGERED_OLD_TRIGGERED);
+        // should evade to bottom of the stairs when raid fail
+        if (m_creature->IsAlive())
+            m_creature->GetMotionMaster()->MovePoint(0, aMandokirDownstairsPos[0], aMandokirDownstairsPos[1], aMandokirDownstairsPos[2]);
 
-        CombatAI::EnterEvadeMode();
+        m_creature->SetLootRecipient(nullptr);
+
+        Reset();
     }
 
-    void JustDied(Unit* /*killer*/) override
+    void KilledUnit(Unit* pVictim) override
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_OHGAN, DONE);
-
-        m_creature->CastSpell(nullptr, SPELL_DESPAWN_CHAINED_SPIRITS, TRIGGERED_OLD_TRIGGERED);
-    }
-
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* invoker, uint32 /*miscValue*/) override
-    {
-        if (eventType == AI_EVENT_CUSTOM_A)
-        {
-            DoScriptText(SAY_WATCH, m_creature, invoker);
-            DoScriptText(SAY_WATCH_WHISPER, m_creature, invoker);
-            m_targetThreat = m_creature->getThreatManager().getThreat(invoker);
-        }
-        else if (eventType == AI_EVENT_CUSTOM_B)
-        {
-            Player* watchTarget = dynamic_cast<Player*>(invoker);
-
-            // If threat is higher that previously saved, mandokir will act
-            if (watchTarget && watchTarget->IsAlive() && m_creature->getThreatManager().getThreat(watchTarget) > m_targetThreat)
-            {
-                if (!m_creature->IsWithinLOSInMap(watchTarget))
-                    m_creature->CastSpell(watchTarget, SPELL_SUMMON_PLAYER, TRIGGERED_OLD_TRIGGERED);
-
-                m_creature->CastSpell(watchTarget, SPELL_CHARGE_GAZE, TRIGGERED_OLD_TRIGGERED);
-            }
-        }
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim->IsPlayer())
+        if (pVictim->GetTypeId() == TYPEID_PLAYER)
         {
             ++m_uiKillCount;
 
@@ -185,121 +174,231 @@ struct boss_mandokirAI : public CombatAI
             {
                 DoScriptText(SAY_DING_KILL, m_creature);
 
-                if (m_instance)
+                if (m_pInstance)
                 {
-                    if (Creature* pJindo = m_instance->GetSingleCreatureFromStorage(NPC_JINDO))
+                    if (Creature* pJindo = m_pInstance->GetSingleCreatureFromStorage(NPC_JINDO))
                     {
                         if (pJindo->IsAlive())
                             DoScriptText(SAY_GRATS_JINDO, pJindo);
                     }
                 }
 
-                DoCastSpellIfCan(nullptr, SPELL_LEVEL_UP, CAST_TRIGGERED);
+                DoCastSpellIfCan(m_creature, SPELL_LEVEL_UP, CAST_TRIGGERED);
                 m_uiKillCount = 0;
             }
 
             if (m_creature->IsInCombat())
             {
-                if (Creature* spirit = GetClosestCreatureWithEntry(victim, NPC_CHAINED_SPIRIT, 50.0f))
-                    spirit->CastSpell(victim, SPELL_REVIVE, TRIGGERED_NONE);
+                if (Creature* pSpirit = GetClosestCreatureWithEntry(pVictim, NPC_CHAINED_SPIRIT, 50.0f))
+                    pSpirit->CastSpell(pVictim, SPELL_REVIVE, TRIGGERED_NONE);
             }
         }
     }
 
-    void JustSummoned(Creature* summoned) override
+    void JustSummoned(Creature* pSummoned) override
     {
-        if (summoned->GetEntry() == NPC_OHGAN)
+        if (pSummoned->GetEntry() == NPC_OHGAN)
         {
             if (m_creature->GetVictim())
-                summoned->AI()->AttackStart(m_creature->GetVictim());
+                pSummoned->AI()->AttackStart(m_creature->GetVictim());
         }
     }
 
-    void SummonedCreatureJustDied(Creature* summoned) override
+    void SummonedCreatureJustDied(Creature* pSummoned) override
     {
-        if (summoned->GetEntry() == NPC_OHGAN)
+        if (pSummoned->GetEntry() == NPC_OHGAN)
         {
-            DoCastSpellIfCan(nullptr, SPELL_ENRAGE, CAST_TRIGGERED);
+            DoCastSpellIfCan(m_creature, SPELL_ENRAGE, CAST_TRIGGERED);
             DoScriptText(EMOTE_RAGE, m_creature);
         }
     }
 
-    void MovementInform(uint32 moveType, uint32 pointId) override
+    void SpellHitTarget(Unit* pTarget, const SpellEntry* pSpell) override
     {
-        if (moveType != POINT_MOTION_TYPE || !m_instance)
+        if (pSpell->Id == SPELL_WATCH)
+        {
+            DoScriptText(SAY_WATCH, m_creature, pTarget);
+            DoScriptText(SAY_WATCH_WHISPER, m_creature, pTarget);
+
+            m_watchTargetGuid = pTarget->GetObjectGuid();
+            m_fTargetThreat = m_creature->getThreatManager().getThreat(pTarget);
+            m_uiWatchTimer = 6000;
+
+            // Could use this instead of hard coded timer for the above (but no script access),
+            // but would still a hack since we should better use the dummy, at aura removal
+            // SpellDurationEntry* const pDuration = sSpellDurationStore.LookupEntry(pSpell->DurationIndex);
+        }
+    }
+
+    void MovementInform(uint32 uiMoveType, uint32 uiPointId) override
+    {
+        if (uiMoveType != POINT_MOTION_TYPE || !m_pInstance)
             return;
 
-        if (pointId == POINT_DOWNSTAIRS)
+        if (uiPointId == POINT_DOWNSTAIRS)
         {
             m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
             m_creature->SetInCombatWithZone();
         }
     }
+
+    void UpdateAI(const uint32 uiDiff) override
+    {
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            return;
+
+        if (m_uiWatchTimer < uiDiff)
+        {
+            // If someone is watched
+            if (m_watchTargetGuid)
+            {
+                Player* pWatchTarget = m_creature->GetMap()->GetPlayer(m_watchTargetGuid);
+
+                // If threat is higher that previously saved, mandokir will act
+                if (pWatchTarget && pWatchTarget->IsAlive() && m_creature->getThreatManager().getThreat(pWatchTarget) > m_fTargetThreat)
+                {
+                    if (!m_creature->IsWithinLOSInMap(pWatchTarget))
+                        m_creature->CastSpell(pWatchTarget, SPELL_SUMMON_PLAYER, TRIGGERED_OLD_TRIGGERED);
+
+                    DoCastSpellIfCan(pWatchTarget, SPELL_CHARGE);
+                }
+
+                m_watchTargetGuid.Clear();
+            }
+            else
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+                {
+                    if (Player* pPlayer = pTarget->GetBeneficiaryPlayer())
+                        m_creature->CastSpell(pPlayer, SPELL_WATCH, TRIGGERED_NONE);
+                }
+            }
+
+            m_uiWatchTimer = 20000;
+        }
+        else
+            m_uiWatchTimer -= uiDiff;
+
+        if (!m_watchTargetGuid)
+        {
+            // Cleave
+            if (m_uiCleaveTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
+                    m_uiCleaveTimer = 7000;
+            }
+            else
+                m_uiCleaveTimer -= uiDiff;
+
+            // Whirlwind
+            if (m_uiWhirlwindTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_WHIRLWIND) == CAST_OK)
+                    m_uiWhirlwindTimer = 18000;
+            }
+            else
+                m_uiWhirlwindTimer -= uiDiff;
+
+            // If more then 3 targets in melee range mandokir will cast fear
+            if (m_uiFearTimer < uiDiff)
+            {
+                uint8 uiTargetInRangeCount = 0;
+
+                ThreatList const& tList = m_creature->getThreatManager().getThreatList();
+                for (auto i : tList)
+                {
+                    Unit* pTarget = m_creature->GetMap()->GetUnit(i->getUnitGuid());
+
+                    if (pTarget && pTarget->GetTypeId() == TYPEID_PLAYER && m_creature->CanReachWithMeleeAttack(pTarget))
+                        ++uiTargetInRangeCount;
+                }
+
+                if (uiTargetInRangeCount > 3)
+                    DoCastSpellIfCan(m_creature, SPELL_FEAR);
+
+                m_uiFearTimer = 4000;
+            }
+            else
+                m_uiFearTimer -= uiDiff;
+
+            // Mortal Strike if target below 50% hp
+            if (m_creature->GetVictim()->GetHealthPercent() < 50.0f)
+            {
+                if (m_uiMortalStrikeTimer < uiDiff)
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MORTAL_STRIKE) == CAST_OK)
+                        m_uiMortalStrikeTimer = 15000;
+                }
+                else
+                    m_uiMortalStrikeTimer -= uiDiff;
+            }
+        }
+
+        DoMeleeAttackIfReady();
+    }
 };
 
 // Ohgan
-struct mob_ohganAI : public CombatAI
+struct mob_ohganAI : public ScriptedAI
 {
-    mob_ohganAI(Creature* creature) : CombatAI(creature, 1)
+    mob_ohganAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+    uint32 m_uiSunderArmorTimer;
+
+    void Reset() override
     {
-        AddCombatAction(0, 5000u);
+        m_uiSunderArmorTimer = 5000;
     }
 
     void KilledUnit(Unit* pVictim) override
     {
-        if (pVictim->IsPlayer())
+        if (pVictim->GetTypeId() == TYPEID_PLAYER)
         {
             if (m_creature->IsInCombat())
             {
-                if (Creature* spirit = GetClosestCreatureWithEntry(pVictim, NPC_CHAINED_SPIRIT, 50.0f))
-                    spirit->CastSpell(pVictim, SPELL_REVIVE, TRIGGERED_NONE);
+                if (Creature* pSpirit = GetClosestCreatureWithEntry(pVictim, NPC_CHAINED_SPIRIT, 50.0f))
+                    pSpirit->CastSpell(pVictim, SPELL_REVIVE, TRIGGERED_NONE);
             }
         }
     }
 
-    void ExecuteAction(uint32 action)
+    void UpdateAI(const uint32 uiDiff) override
     {
-        if (action == 0)
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            return;
+
+        // SunderArmor
+        if (m_uiSunderArmorTimer < uiDiff)
         {
             if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SUNDERARMOR) == CAST_OK)
-                ResetCombatAction(action, urand(10000, 15000));
+                m_uiSunderArmorTimer = urand(10000, 15000);
         }
+        else
+            m_uiSunderArmorTimer -= uiDiff;
+
+        DoMeleeAttackIfReady();
     }
 };
 
-struct ThreateningGaze : public AuraScript
+UnitAI* GetAI_boss_mandokir(Creature* pCreature)
 {
-    void OnApply(Aura* aura, bool apply) const override
-    {
-        if (Unit* caster = aura->GetCaster())
-            if (caster->AI())
-                caster->AI()->ReceiveAIEvent((apply ? AI_EVENT_CUSTOM_A : AI_EVENT_CUSTOM_B), aura->GetTarget(), aura->GetTarget(), 0);
-    }
-};
+    return new boss_mandokirAI(pCreature);
+}
 
-struct DespawnChainedSpirits : public SpellScript
+UnitAI* GetAI_mob_ohgan(Creature* pCreature)
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
-    {
-        if (effIdx == EFFECT_INDEX_0)
-            if (Unit* target = spell->GetUnitTarget())
-                if (target->GetEntry() == NPC_CHAINED_SPIRIT && target->IsCreature())
-                    static_cast<Creature*>(target)->ForcedDespawn();
-    }
-};
+    return new mob_ohganAI(pCreature);
+}
 
 void AddSC_boss_mandokir()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "boss_mandokir";
-    pNewScript->GetAI = &GetNewAIInstance<boss_mandokirAI>;
+    pNewScript->GetAI = &GetAI_boss_mandokir;
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
     pNewScript->Name = "mob_ohgan";
-    pNewScript->GetAI = &GetNewAIInstance<mob_ohganAI>;
+    pNewScript->GetAI = &GetAI_mob_ohgan;
     pNewScript->RegisterSelf();
-
-    RegisterAuraScript<ThreateningGaze>("spell_threatening_gaze");
-    RegisterSpellScript<DespawnChainedSpirits>("spell_despawn_chained_spirits");
 }

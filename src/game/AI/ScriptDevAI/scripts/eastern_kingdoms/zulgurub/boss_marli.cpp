@@ -23,7 +23,6 @@ EndScriptData */
 
 #include "AI/ScriptDevAI/include/sc_common.h"
 #include "zulgurub.h"
-#include "AI/ScriptDevAI/base/CombatAI.h"
 
 enum
 {
@@ -37,12 +36,12 @@ enum
     SPELL_CORROSIVE_POISON      = 24111,
     SPELL_CHARGE                = 22911,
     SPELL_ENVELOPING_WEBS       = 24110,
-    SPELL_POISON_SHOCK          = 24112,
+    SPELL_POISON_SHOCK          = 24112,                    // purpose of this spell is unk
 
     // Troll form spells
     SPELL_POISON_VOLLEY         = 24099,
     SPELL_DRAIN_LIFE            = 24300,
-    SPELL_ENLARGE               = 24109,                    // cast on friendlies
+    SPELL_ENLARGE               = 24109,                    // purpose of this spell is unk
     SPELL_SPIDER_EGG            = 24082,                    // removed from DBC - should trigger 24081 which summons 15041
 
     // common spells
@@ -50,107 +49,201 @@ enum
     SPELL_TRANSFORM_BACK        = 24085,
     SPELL_TRASH                 = 3391,
     SPELL_HATCH_EGGS            = 24083,                    // note this should only target 4 eggs!
-
-    SPELL_LIST_PHASE_1          = 1450701,
-    SPELL_LIST_PHASE_2          = 1450702,
 };
 
-enum MarliActions
+struct boss_marliAI : public ScriptedAI
 {
-    MARLI_PHASE_CHANGE,
-    MARLI_CHARGE,
-    MARLI_ACTIONS_MAX,
-};
-
-struct boss_marliAI : public CombatAI
-{
-    boss_marliAI(Creature* creature) : CombatAI(creature, MARLI_ACTIONS_MAX), m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData()))
+    boss_marliAI(Creature* pCreature) : ScriptedAI(pCreature)
     {
-        AddCombatAction(MARLI_PHASE_CHANGE, 60000u);
-        AddCombatAction(MARLI_CHARGE, true);
+        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+        Reset();
     }
 
-    ScriptedInstance* m_instance;
+    ScriptedInstance* m_pInstance;
 
-    bool m_phaseTwo;
+    uint32 m_uiPoisonVolleyTimer;
+    uint32 m_uiSpawnSpiderTimer;
+    uint32 m_uiChargeTimer;
+    uint32 m_uiTransformTimer;
+    uint32 m_uiDrainLifeTimer;
+    uint32 m_uiCorrosivePoisonTimer;
+    uint32 m_uiWebsTimer;
+    uint32 m_uiTrashTimer;
+
+    bool m_bIsInPhaseTwo;
 
     void Reset() override
     {
-        CombatAI::Reset();
+        m_uiPoisonVolleyTimer   = 15000;
+        m_uiSpawnSpiderTimer    = 55000;
+        m_uiTransformTimer      = 60000;
+        m_uiDrainLifeTimer      = 30000;
+        m_uiCorrosivePoisonTimer = 1000;
+        m_uiWebsTimer           = 5000;
+        m_uiTrashTimer          = 5000;
 
-        m_phaseTwo = false;
+        m_bIsInPhaseTwo         = false;
     }
 
-    void Aggro(Unit* /*who*/) override
+    void Aggro(Unit* /*pWho*/) override
     {
         DoScriptText(SAY_AGGRO, m_creature);
 
-        DoCastSpellIfCan(nullptr, SPELL_HATCH_EGGS);
+        DoCastSpellIfCan(m_creature, SPELL_HATCH_EGGS);
     }
 
-    void JustDied(Unit* /*killer*/) override
+    void JustDied(Unit* /*pKiller*/) override
     {
         DoScriptText(SAY_DEATH, m_creature);
 
-        if (m_instance)
-            m_instance->SetData(TYPE_MARLI, DONE);
-    }
-
-    void SpellHitTarget(Unit* target, const SpellEntry* spellInfo) override
-    {
-        if (spellInfo->Id == SPELL_ENVELOPING_WEBS)
-            ResetCombatAction(MARLI_CHARGE, 1000);
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_MARLI, DONE);
     }
 
     void JustReachedHome() override
     {
-        if (m_instance)
-            m_instance->SetData(TYPE_MARLI, FAIL);
-
-        m_creature->SetSpellList(SPELL_LIST_PHASE_1);
+        if (m_pInstance)
+            m_pInstance->SetData(TYPE_MARLI, FAIL);
     }
 
-    void ExecuteAction(uint32 action) override
+    void UpdateAI(const uint32 uiDiff) override
     {
-        switch (action)
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
+            return;
+
+        // Troll phase
+        if (!m_bIsInPhaseTwo)
         {
-            case MARLI_PHASE_CHANGE:
-                if (!m_phaseTwo)
+            if (m_uiPoisonVolleyTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_POISON_VOLLEY) == CAST_OK)
+                    m_uiPoisonVolleyTimer = urand(10000, 20000);
+            }
+            else
+                m_uiPoisonVolleyTimer -= uiDiff;
+
+            if (m_uiDrainLifeTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
                 {
-                    if (DoCastSpellIfCan(nullptr, SPELL_SPIDER_FORM) == CAST_OK)
+                    if (DoCastSpellIfCan(pTarget, SPELL_DRAIN_LIFE) == CAST_OK)
+                        m_uiDrainLifeTimer = urand(20000, 50000);
+                }
+            }
+            else
+                m_uiDrainLifeTimer -= uiDiff;
+
+            if (m_uiSpawnSpiderTimer < uiDiff)
+            {
+                // Workaround for missing spell 24082 - creature always selects the closest egg for hatch
+                if (m_pInstance)
+                {
+                    if (GameObject* pEgg = GetClosestGameObjectWithEntry(m_creature, GO_SPIDER_EGG, 30.0f))
                     {
-                        DoScriptText(SAY_TRANSFORM, m_creature);
-                        DoResetThreat();
-                        ResetCombatAction(action, 60000);
-                        m_creature->SetSpellList(SPELL_LIST_PHASE_2);
-                        m_phaseTwo = true;
+                        if (urand(0, 1))
+                            DoScriptText(SAY_SPIDER_SPAWN, m_creature);
+
+                        pEgg->Use(m_creature);
+                        m_uiSpawnSpiderTimer = 60000;
+                    }
+                }
+            }
+            else
+                m_uiSpawnSpiderTimer -= uiDiff;
+        }
+        // Spider phase
+        else
+        {
+            if (m_uiWebsTimer < uiDiff)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_ENVELOPING_WEBS) == CAST_OK)
+                {
+                    m_uiWebsTimer = urand(15000, 20000);
+                    m_uiChargeTimer = 1000;
+                }
+            }
+            else
+                m_uiWebsTimer -= uiDiff;
+
+            if (m_uiChargeTimer)
+            {
+                if (m_uiChargeTimer < uiDiff)
+                {
+                    // ToDo: research if the selected target shouldn't have the enveloping webs aura
+                    if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_CHARGE, SELECT_FLAG_NOT_IN_MELEE_RANGE))
+                    {
+                        if (DoCastSpellIfCan(pTarget, SPELL_CHARGE) == CAST_OK)
+                        {
+                            DoResetThreat();
+                            m_uiChargeTimer = 0;
+                        }
                     }
                 }
                 else
+                    m_uiChargeTimer -= uiDiff;
+            }
+
+            if (m_uiCorrosivePoisonTimer < uiDiff)
+            {
+                if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
                 {
-                    if (DoCastSpellIfCan(nullptr, SPELL_TRANSFORM_BACK) == CAST_OK)
-                    {
-                        DoScriptText(SAY_TRANSFORM_BACK, m_creature);
-                        m_creature->RemoveAurasDueToSpell(SPELL_SPIDER_FORM);
-                        ResetCombatAction(action, 60000);
-                        m_creature->SetSpellList(SPELL_LIST_PHASE_1);
-                        m_phaseTwo = false;
-                    }
+                    if (DoCastSpellIfCan(pTarget, SPELL_CORROSIVE_POISON) == CAST_OK)
+                        m_uiCorrosivePoisonTimer = urand(25000, 35000);
                 }
-                break;
-            case MARLI_CHARGE:
-                if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, SPELL_CHARGE, SELECT_FLAG_PLAYER))
-                    if (DoCastSpellIfCan(target, SPELL_CHARGE) == CAST_OK)
-                        DisableCombatAction(action);
-                break;
+            }
+            else
+                m_uiCorrosivePoisonTimer -= uiDiff;
         }
+
+        // Transform from Troll to Spider and back
+        if (m_uiTransformTimer < uiDiff)
+        {
+            if (!m_bIsInPhaseTwo)
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_SPIDER_FORM) == CAST_OK)
+                {
+                    DoScriptText(SAY_TRANSFORM, m_creature);
+                    DoResetThreat();
+                    m_uiTransformTimer = 60000;
+                    m_uiWebsTimer = 5000;
+                    m_bIsInPhaseTwo = true;
+                }
+            }
+            else
+            {
+                if (DoCastSpellIfCan(m_creature, SPELL_TRANSFORM_BACK) == CAST_OK)
+                {
+                    DoScriptText(SAY_TRANSFORM_BACK, m_creature);
+                    m_creature->RemoveAurasDueToSpell(SPELL_SPIDER_FORM);
+                    m_bIsInPhaseTwo = false;
+                    m_uiTransformTimer = 60000;
+                }
+            }
+        }
+        else
+            m_uiTransformTimer -= uiDiff;
+
+        if (m_uiTrashTimer < uiDiff)
+        {
+            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TRASH) == CAST_OK)
+                m_uiTrashTimer = urand(10000, 20000);
+        }
+        else
+            m_uiTrashTimer -= uiDiff;
+
+        DoMeleeAttackIfReady();
     }
 };
+
+UnitAI* GetAI_boss_marli(Creature* pCreature)
+{
+    return new boss_marliAI(pCreature);
+}
 
 void AddSC_boss_marli()
 {
     Script* pNewScript = new Script;
     pNewScript->Name = "boss_marli";
-    pNewScript->GetAI = &GetNewAIInstance<boss_marliAI>;
+    pNewScript->GetAI = &GetAI_boss_marli;
     pNewScript->RegisterSelf();
 }

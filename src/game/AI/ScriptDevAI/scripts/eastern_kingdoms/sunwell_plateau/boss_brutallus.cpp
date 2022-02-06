@@ -84,12 +84,9 @@ enum
 
     SPELL_PERMANENT_FEIGN_DEATH     = 29266,
 
-    SPELL_SELF_STUN                 = 45066,
-
     POINT_MOVE_GROUND               = 1,
     POINT_MOVE_ICE_BLOCK            = 2,
     POINT_MOVE_ENCAPSULATE          = 3,
-    POINT_MOVE_FEL_FIREBALL         = 4,
 };
 
 static const DialogueEntry aIntroDialogue[] =
@@ -108,8 +105,7 @@ static const DialogueEntry aIntroDialogue[] =
     {YELL_MADR_TRAP,            NPC_MADRIGOSA,  3000},
     {POINT_MOVE_ENCAPSULATE,    0,              7000},
     {YELL_INTRO_CHARGE,         NPC_BRUTALLUS,  2000},
-    {SPELL_CHARGE,              NPC_BRUTALLUS,  5000},
-    {SPELL_SELF_STUN,           0,              5000},
+    {SPELL_CHARGE,              NPC_BRUTALLUS,  10000},
     {YELL_INTRO_KILL_MADRIGOSA, NPC_BRUTALLUS,  8000},
     {YELL_INTRO_TAUNT,          NPC_BRUTALLUS,  0},
     {0, 0, 0},
@@ -240,14 +236,7 @@ struct boss_brutallusAI : public CombatAI, private DialogueHelper
 
         if (pointId == POINT_MOVE_GROUND)
         {
-            // summoned->SetLevitate(false);
-            summoned->SetHover(false);
-        }
-        else if (pointId == POINT_MOVE_FEL_FIREBALL)
-        {
-            summoned->HandleEmote(EMOTE_ONESHOT_LAND);
-            summoned->GetMotionMaster()->MoveFall();
-            // summoned->SetLevitate(false);
+            summoned->SetLevitate(false);
             summoned->SetHover(false);
         }
     }
@@ -269,8 +258,7 @@ struct boss_brutallusAI : public CombatAI, private DialogueHelper
             target->ClearAllReactives();
             target->GetMotionMaster()->Clear();
             target->GetMotionMaster()->MoveIdle();
-            target->GetMotionMaster()->MoveFall();
-            target->CastSpell(nullptr, SPELL_SELF_STUN, TRIGGERED_OLD_TRIGGERED);
+            target->CastSpell(nullptr, SPELL_PERMANENT_FEIGN_DEATH, TRIGGERED_OLD_TRIGGERED);
 
             // Brutallus evades
             EnterEvadeMode();
@@ -345,13 +333,13 @@ struct boss_brutallusAI : public CombatAI, private DialogueHelper
                 break;
             case POINT_MOVE_GROUND:
                 if (Creature* madrigosa = m_instance->GetSingleCreatureFromStorage(NPC_MADRIGOSA))
-                    madrigosa->GetMotionMaster()->MovePoint(POINT_MOVE_FEL_FIREBALL, aMadrigosaLoc[2]);
+                    madrigosa->GetMotionMaster()->MovePoint(POINT_MOVE_GROUND, aMadrigosaLoc[0].x, aMadrigosaLoc[0].y, aMadrigosaLoc[0].z);
                 DisableTimer(BRUTALLUS_MADRIGOSA_FROSTBOLT);
                 break;
             case YELL_MADR_TRAP:
                 m_creature->SetImmobilizedState(false);
                 m_creature->SetHover(true);
-                // m_creature->SetLevitate(true);
+                m_creature->SetLevitate(true);
                 SetCombatMovement(false);
                 if (Creature* madrigosa = m_instance->GetSingleCreatureFromStorage(NPC_MADRIGOSA))
                 {
@@ -361,39 +349,24 @@ struct boss_brutallusAI : public CombatAI, private DialogueHelper
                 }
                 break;
             case POINT_MOVE_ENCAPSULATE:
-                m_creature->SetIgnoreMMAP(true);
-                m_creature->GetMotionMaster()->MovePoint(POINT_MOVE_ENCAPSULATE, Position(1463.13f, 578.7533f, 44.51308f, 0.f), FORCED_MOVEMENT_RUN);
+                m_creature->GetMotionMaster()->MovePoint(POINT_MOVE_GROUND, Position(1463.13f, 578.7533f, 44.51308f, 0.f));
                 break;
             case YELL_INTRO_CHARGE:
                 m_creature->RemoveAurasDueToSpell(SPELL_ENCAPSULATE);
-                m_creature->GetMotionMaster()->MoveFall();
+                m_creature->GetMotionMaster()->MovePoint(POINT_MOVE_GROUND, Position(1463.13f, 578.7533f, 21.91025f, 4.69107f));
                 break;
             case SPELL_CHARGE:
-                m_creature->SetIgnoreMMAP(false);
                 m_creature->SetHover(false);
-                // m_creature->SetLevitate(false);
+                m_creature->SetLevitate(false);
                 SetMeleeEnabled(true);
                 SetCombatMovement(true, true);
                 DoCastSpellIfCan(nullptr, SPELL_CHARGE);
-                break;
-            case SPELL_SELF_STUN:
-                if (Creature* madrigosa = m_instance->GetSingleCreatureFromStorage(NPC_MADRIGOSA))
-                {
-                    madrigosa->RemoveAurasDueToSpell(SPELL_SELF_STUN);
-                    madrigosa->CastSpell(nullptr, SPELL_PERMANENT_FEIGN_DEATH, TRIGGERED_OLD_TRIGGERED);
-                }
                 break;
             case YELL_INTRO_KILL_MADRIGOSA:
                 DoCastSpellIfCan(nullptr, SPELL_FULL_HEAL);
                 // Face the players
                 if (GameObject* pIceWall = m_instance->GetSingleGameObjectFromStorage(GO_ICE_BARRIER))
                     m_creature->SetFacingToObject(pIceWall);
-
-                if (Creature* madrigosa = m_instance->GetSingleCreatureFromStorage(NPC_MADRIGOSA))
-                {
-                    madrigosa->RemoveAurasDueToSpell(SPELL_SELF_STUN);
-                    madrigosa->CastSpell(nullptr, SPELL_PERMANENT_FEIGN_DEATH, TRIGGERED_OLD_TRIGGERED);
-                }
                 break;
             case YELL_INTRO_TAUNT:
                 m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
@@ -420,10 +393,7 @@ struct boss_brutallusAI : public CombatAI, private DialogueHelper
     void HandleMadrigosaSpawnMove()
     {
         if (Creature* madrigosa = m_instance->GetSingleCreatureFromStorage(NPC_MADRIGOSA))
-        {
-            madrigosa->SetIgnoreMMAP(true);
             madrigosa->GetMotionMaster()->MovePoint(0, aMadrigosaLoc[1].x, aMadrigosaLoc[1].y, aMadrigosaLoc[1].z);
-        }
     }
 
     void ExecuteAction(uint32 action) override

@@ -45,10 +45,8 @@ class AuthSocket : public MaNGOS::Socket
         AuthSocket(boost::asio::io_service& service, std::function<void (Socket*)> closeHandler);
 
         void SendProof(Sha1Hash sha);
-        void LoadRealmlist(ByteBuffer& pkt, uint32 acctid, uint8 accountSecurityLevel = 0);
+        void LoadRealmlist(ByteBuffer& pkt, uint32 acctid);
         int32 generateToken(char const* b32key);
-
-        uint8 getEligibleRealmCount(uint8 accountSecurityLevel);
 
         bool VerifyVersion(uint8 const* a, int32 aLength, uint8 const* versionProof, bool isReconnect);
         bool _HandleLogonChallenge();

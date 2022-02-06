@@ -269,7 +269,7 @@ uint32 WaypointMovementGenerator<Creature>::BuildIntPath(PointsArray& path, Crea
 }
 
 
-bool WaypointMovementGenerator<Creature>::GetNodeAfter(WaypointPath::const_iterator& nodeItr, bool)
+bool WaypointMovementGenerator<Creature>::GetNodeAfter(WaypointPath::const_iterator& nodeItr)
 {
     ++nodeItr;
     if (nodeItr == i_path->end())
@@ -337,24 +337,14 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
     // compute path to next node and put it in the path
     uint32 travelTime = BuildIntPath(genPath, creature, Vector3(nextNode->x, nextNode->y, nextNode->z));
 
-    bool looped = false;
     auto currPointItr = m_currentWaypointNode;
     // add more node until travel time is big enough
     while (!nextNode->delay && travelTime < MinimumPathTime)
     {
         // we'll add path to node after this one too to make animation more smoother
         auto nodeAfterItr = currPointItr;
-
-        if (!GetNodeAfter(nodeAfterItr, looped))
-        {
-            if (looped) //that should never happen. (Well can but with abnormally short path)
-                break;
-
-            // we reach the end of the path better is to retry in the opposite direction
-            looped = true;
-            if (!GetNodeAfter(nodeAfterItr, true))
-                break; // did all the path and not reached MinimumPathTime?
-        }
+        if (!GetNodeAfter(nodeAfterItr))
+            break; // did all the path and not reached MinimumPathTime?
 
         auto const nodeAfter = nodeAfterItr->second;
 
@@ -364,6 +354,28 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
         travelTime += BuildIntPath(genPath, creature, nodeAfterCoord);
         currPointItr = nodeAfterItr;
         nextNode = &nodeAfterItr->second;
+    }
+
+    // show path in the client if need
+    if (creature.HaveDebugFlag(CMDEBUGFLAG_WP_PATH))
+    {
+        for (uint32 ptIdx = 0; ptIdx < genPath.size(); ++ptIdx)
+        {
+            auto pt = genPath[ptIdx];
+            TempSpawnSettings settings;
+            settings.spawner = &creature;
+            settings.entry = VISUAL_WAYPOINT;
+            settings.x = pt.x; settings.y = pt.y; settings.z = pt.z; settings.ori = 0.0f;
+            settings.activeObject = true;
+            settings.despawnTime = 10 * IN_MILLISECONDS;
+
+            settings.tempSpawnMovegen = true;
+            settings.waypointId = i_currentNode;
+            settings.spawnPathId = m_pathId;
+            settings.pathOrigin = uint32(m_PathOrigin);
+
+            WorldObject::SummonCreature(settings, creature.GetMap());
+        }
     }
 
     Movement::MoveSplineInit init(creature);
@@ -623,11 +635,9 @@ void LinearWPMovementGenerator<Creature>::SwitchToNextNode(Creature& creature, W
     }
 }
 
-bool LinearWPMovementGenerator<Creature>::GetNodeAfter(WaypointPath::const_iterator& nodeItr, bool looped /*= false*/)
+bool LinearWPMovementGenerator<Creature>::GetNodeAfter(WaypointPath::const_iterator& nodeItr)
 {
-    bool movingToLastNode = looped ? m_driveWayBack : !m_driveWayBack;
-
-    if (!movingToLastNode)
+    if (!m_driveWayBack)
     {
         if (std::next(nodeItr) == i_path->end())
             return false;

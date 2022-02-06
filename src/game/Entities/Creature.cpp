@@ -1798,7 +1798,7 @@ void Creature::DeleteFromDB(uint32 lowguid, CreatureData const* data)
     WorldDatabase.BeginTransaction();
     WorldDatabase.PExecuteLog("DELETE FROM creature WHERE guid=%u", lowguid);
     WorldDatabase.PExecuteLog("DELETE FROM creature_addon WHERE guid=%u", lowguid);
-    WorldDatabase.PExecuteLog("DELETE FROM creature_movement WHERE Id=%u", lowguid);
+    WorldDatabase.PExecuteLog("DELETE FROM creature_movement WHERE id=%u", lowguid);
     WorldDatabase.PExecuteLog("DELETE FROM game_event_creature WHERE guid=%u", lowguid);
     WorldDatabase.PExecuteLog("DELETE FROM game_event_creature_data WHERE guid=%u", lowguid);
     WorldDatabase.PExecuteLog("DELETE FROM creature_battleground WHERE guid=%u", lowguid);
@@ -1853,8 +1853,6 @@ void Creature::SetDeathState(DeathState s)
 
         SetWalk(true, true);
         ResetEntry(true);
-
-        m_killer = ObjectGuid();
 
         ResetSpellHitCounter();
 
@@ -2084,11 +2082,10 @@ bool Creature::IsVisibleInGridForPlayer(Player* pl) const
     return false;
 }
 
-void Creature::CallAssistance(Unit* enemy)
+void Creature::CallAssistance()
 {
     // FIXME: should player pets call for assistance?
-    Unit* target = enemy ? enemy : GetVictim();
-    if (!m_AlreadyCallAssistance && target && !HasCharmer())
+    if (!m_AlreadyCallAssistance && GetVictim() && !HasCharmer())
     {
         SetNoCallAssistance(true);
 
@@ -2098,7 +2095,7 @@ void Creature::CallAssistance(Unit* enemy)
         float radius = sWorld.getConfig(CONFIG_FLOAT_CREATURE_FAMILY_ASSISTANCE_RADIUS);
         if (GetCreatureInfo()->CallForHelp > 0)
             radius = GetCreatureInfo()->CallForHelp;
-        AI()->SendAIEventAround(AI_EVENT_CALL_ASSISTANCE, target, sWorld.getConfig(CONFIG_UINT32_CREATURE_FAMILY_ASSISTANCE_DELAY), radius);
+        AI()->SendAIEventAround(AI_EVENT_CALL_ASSISTANCE, GetVictim(), sWorld.getConfig(CONFIG_UINT32_CREATURE_FAMILY_ASSISTANCE_DELAY), radius);
     }
 }
 
@@ -2315,12 +2312,7 @@ void Creature::UpdateSpell(int32 index, int32 newSpellId)
 {
     auto itr = m_spellList.Spells.find(index);
     if (itr != m_spellList.Spells.end())
-    {
-        if (newSpellId == 0)
-            m_spellList.Spells.erase(itr);
-        else
-            (*itr).second.SpellId = newSpellId;
-    }
+        (*itr).second.SpellId = newSpellId;
 }
 
 void Creature::SetSpellList(uint32 spellSet)

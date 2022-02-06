@@ -40,25 +40,9 @@ PetAI::PetAI(Creature* creature) : CreatureAI(creature), inCombat(false), m_foll
     m_AllySet.clear();
     UpdateAllies();
 
-    if (creature->IsPet())
-    {
-        Pet* pet = dynamic_cast<Pet*>(creature);
-        if (pet->isControlled())
-        {
-            if (sWorld.getConfig(CONFIG_BOOL_PET_ATTACK_FROM_BEHIND))
-                m_attackAngle = M_PI_F;
-
-            if (Unit* owner = m_unit->GetOwner())
-            {
-                if (owner->IsPlayer())
-                {
-                    auto data = static_cast<Player*>(owner)->RequestFollowData(creature->GetObjectGuid());
-                    m_followAngle = data.first;
-                    m_followDist = data.second;
-                }
-            }
-        }
-    }
+    if (creature->IsPet() && dynamic_cast<Pet*>(creature)->isControlled()
+        && sWorld.getConfig(CONFIG_BOOL_PET_ATTACK_FROM_BEHIND))
+        m_attackAngle = M_PI_F;
 
     switch (creature->GetUInt32Value(UNIT_CREATED_BY_SPELL))
     {
@@ -315,7 +299,14 @@ void PetAI::UpdateAI(const uint32 diff)
                 targets.setUnitTarget(target);
 
                 if (!m_unit->HasInArc(target))
-                    m_unit->SetFacingToObject(target);
+                {
+                    m_unit->SetInFront(target);
+                    if (target->GetTypeId() == TYPEID_PLAYER)
+                        m_unit->SendCreateUpdateToPlayer((Player*)target);
+
+                    if (owner && owner->GetTypeId() == TYPEID_PLAYER)
+                        m_unit->SendCreateUpdateToPlayer((Player*)owner);
+                }
             }
 
             if (pet)
