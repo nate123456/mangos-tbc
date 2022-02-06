@@ -407,8 +407,7 @@ void UnitAI::OnSpellCastStateChange(Spell const* spell, bool state, WorldObject*
     }
     else
     {
-        std::set<uint32> spellIdsForTurning = { 31306, 33813, 38739, 44811, 46292 };
-        if (!spell->GetCastTime() && spellIdsForTurning.find(spellInfo->Id) != spellIdsForTurning.end())
+        if (!spell->GetCastTime() && forceTarget)
         {
             HandleDelayedInstantAnimation(spellInfo);
         }
@@ -707,6 +706,34 @@ CreatureList UnitAI::DoFindFriendlyEligibleDispel(SpellEntry const* spellInfo, b
     return DoFindFriendlyEligibleDispel(maxRange, dispelMask, mechanicMask, self);
 }
 
+CreatureList UnitAI::DoFindFriendlyMissingBuff(float range, uint32 spellId, bool inCombat, bool self) const
+{
+    return DoFindFriendlyMissingBuff(sSpellTemplate.LookupEntry<SpellEntry>(spellId), inCombat, self);
+}
+
+CreatureList UnitAI::DoFindFriendlyMissingBuff(SpellEntry const* spellInfo, bool inCombat, bool self) const
+{
+    CreatureList list;
+    float maxRange = CalculateSpellRange(spellInfo);
+    if (inCombat == false)
+    {
+        MaNGOS::FriendlyMissingBuffInRangeInCombatCheck u_check(m_unit, maxRange, spellInfo->Id);
+        MaNGOS::CreatureListSearcher<MaNGOS::FriendlyMissingBuffInRangeInCombatCheck> searcher(list, u_check);
+        Cell::VisitGridObjects(m_unit, searcher, maxRange);
+    }
+    else if (inCombat == true)
+    {
+        MaNGOS::FriendlyMissingBuffInRangeNotInCombatCheck u_check(m_unit, maxRange, spellInfo->Id);
+        MaNGOS::CreatureListSearcher<MaNGOS::FriendlyMissingBuffInRangeNotInCombatCheck> searcher(list, u_check);
+
+        Cell::VisitGridObjects(m_unit, searcher, maxRange);
+    }
+
+    if (!self) // just fooling compiler if non-unit - safe because we dont access any actual members/functions
+        list.erase(std::remove(list.begin(), list.end(), (Creature*)m_unit), list.end());
+    return list;
+}
+
 CreatureList UnitAI::DoFindFriendlyEligibleDispel(float range, uint32 dispelMask, uint32 mechanicMask, bool self) const
 {
     CreatureList list;
@@ -942,6 +969,7 @@ void UnitAI::SetCurrentRangedMode(bool state)
     {
         m_currentRangedMode = true;
         m_attackDistance = m_chaseDistance;
+        m_unit->SetIgnoreRangedTargets(false);
         DoStartMovement(m_unit->GetVictim());
     }
     else
@@ -951,6 +979,7 @@ void UnitAI::SetCurrentRangedMode(bool state)
 
         m_currentRangedMode = false;
         m_attackDistance = 0.f;
+        m_unit->SetIgnoreRangedTargets(m_unit->hasUnitState(UNIT_STAT_STUNNED | UNIT_STAT_ROOT));
         DoStartMovement(m_unit->GetVictim());
         if (m_meleeEnabled && !m_unit->hasUnitState(UNIT_STAT_MELEE_ATTACKING))
             m_unit->MeleeAttackStart(m_unit->GetVictim());
@@ -1180,7 +1209,7 @@ void UnitAI::UpdateSpellLists()
                 if (castResult == CAST_OK)
                 {
                     success = true;
-                    OnSpellCast(sSpellTemplate.LookupEntry<SpellEntry>(spellId));
+                    OnSpellCast(sSpellTemplate.LookupEntry<SpellEntry>(spellId), target);
                     if (scriptId)
                         m_unit->GetMap()->ScriptsStart(sRelayScripts, scriptId, m_unit, target);
                     break;
@@ -1222,6 +1251,25 @@ std::pair<bool, Unit*> UnitAI::ChooseTarget(CreatureSpellListTargeting* targetDa
                     }
                     break;
                 }
+                case SPELL_LIST_TARGET_FRIENDLY_MISSING_BUFF:
+                case SPELL_LIST_TARGET_FRIENDLY_MISSING_BUFF_NO_SELF:
+                {
+                    SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+                    CreatureList list = DoFindFriendlyMissingBuff(spellInfo, true, targetData->Id == SPELL_LIST_TARGET_FRIENDLY_MISSING_BUFF);
+                    if (list.empty())
+                        result = false;
+                    else
+                    {
+                        auto itr = list.begin();
+                        std::advance(itr, urand(0, list.size() - 1));
+                        target = *itr;
+                    }
+                    break;
+                }
+                case SPELL_LIST_TARGET_CURRENT_NOT_ALONE:
+                    result = m_unit->getThreatManager().getThreatList().size() > 1;
+                    target = m_unit->GetVictim();
+                    break;
             }
             break;
         case SPELL_LIST_TARGETING_ATTACK:

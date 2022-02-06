@@ -84,6 +84,17 @@ void Pet::RemoveFromWorld()
     if (IsInWorld())
         GetMap()->GetObjectsStore().erase<Pet>(GetObjectGuid(), (Pet*)nullptr);
 
+    if (isControlled())
+    {
+        if (Unit* owner = GetOwner())
+        {
+            if (owner->IsPlayer())
+            {
+                static_cast<Player*>(owner)->RelinquishFollowData(this->GetObjectGuid());
+            }
+        }
+    }
+
     ///- Don't call the function for Creature, normal mobs + totems go in a different storage
     Unit::RemoveFromWorld();
 }
@@ -359,8 +370,6 @@ bool Pet::LoadPetFromDB(Player* owner, Position const& spawnPos, uint32 petentry
 
     // The following call was moved here to fix health is not full after pet invocation (before, they where placed after map->Add())
     _LoadSpells();
-    // TODO: confirm line above work in all situation
-    InitPetScalingAuras();
 
     UpdateAllStats();
 
@@ -670,6 +679,10 @@ void Pet::SetDeathState(DeathState s)                       // overwrite virtual
         CastPetAuras(true);
     }
     CastOwnerTalentAuras();
+
+    if (getPetType() == GUARDIAN_PET)
+        if (Unit* owner = GetOwner())
+            owner->RemoveGuardian(this);
 }
 
 void Pet::Update(const uint32 diff)
@@ -962,14 +975,11 @@ int32 Pet::GetTPForSpell(uint32 spellid) const
     uint32 basetrainp = 0;
 
     SkillLineAbilityMapBounds bounds = sSpellMgr.GetSkillLineAbilityMapBoundsBySpellId(spellid);
-
-    for (SkillLineAbilityMap::const_iterator _spell_idx = bounds.first; _spell_idx != bounds.second; ++_spell_idx)
+    if (bounds.first != bounds.second)
     {
-        if (!_spell_idx->second->reqtrainpoints)
+        basetrainp = bounds.first->second->reqtrainpoints;
+        if (basetrainp == 0)
             return 0;
-
-        basetrainp = _spell_idx->second->reqtrainpoints;
-        break;
     }
 
     uint32 spenttrainp = 0;
@@ -1712,12 +1722,6 @@ void Pet::_SaveSpells()
 
 void Pet::_LoadAuras(uint32 timediff)
 {
-    RemoveAllAuras();
-
-    // all aura related fields
-    for (int i = UNIT_FIELD_AURA; i <= UNIT_FIELD_AURASTATE; ++i)
-        SetUInt32Value(i, 0);
-
     QueryResult* result = CharacterDatabase.PQuery("SELECT caster_guid,item_guid,spell,stackcount,remaincharges,basepoints0,basepoints1,basepoints2,periodictime0,periodictime1,periodictime2,maxduration,remaintime,effIndexMask FROM pet_aura WHERE guid = '%u'", m_charmInfo->GetPetNumber());
 
     if (result)

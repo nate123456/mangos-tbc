@@ -38,6 +38,9 @@ enum SpellListTargetingHardcoded
     SPELL_LIST_TARGET_SELF    = 2,
     SPELL_LIST_TARGET_DISPELLABLE_FRIENDLY = 3,
     SPELL_LIST_TARGET_DISPELLABLE_FRIENDLY_NO_SELF = 4,
+    SPELL_LIST_TARGET_FRIENDLY_MISSING_BUFF = 5,
+    SPELL_LIST_TARGET_FRIENDLY_MISSING_BUFF_NO_SELF = 6,
+    SPELL_LIST_TARGET_CURRENT_NOT_ALONE = 7, // current target exists and more than 1 on threat list
     SPELL_LIST_HARDCODED_MAX  = 100,
 };
 
@@ -48,6 +51,7 @@ struct CreatureSpellListTargeting
     uint32 Param1;
     uint32 Param2;
     uint32 Param3;
+    std::string Comment;
 };
 
 enum SpellListFlags

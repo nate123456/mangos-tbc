@@ -456,16 +456,17 @@ class Spell
         {
             CreaturePosition() :
                 x(0.0f), y(0.0f), z(0.0f),
-                creature(nullptr)
+                creature(nullptr), processed(false)
             {}
 
             float x, y, z;
             Creature* creature;
+            bool processed;
         };
         typedef std::vector<CreaturePosition> CreatureSummonPositions;
 
         bool DoCreateItem(SpellEffectIndex eff_idx, uint32 itemtype, bool reportError = true);
-        bool DoSummonPet(SpellEffectIndex eff_idx);
+        bool DoSummonPet(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx);
         bool DoSummonTotem(CreatureSummonPositions& list, SpellEffectIndex eff_idx, uint8 slot_dbc = 0);
         bool DoSummonWild(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx, uint32 level);
         bool DoSummonGuardian(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx, uint32 level);
@@ -606,8 +607,6 @@ class Spell
 
         bool CanBeInterrupted() const { return m_spellState <= SPELL_STATE_DELAYED || m_spellState == SPELL_STATE_CHANNELING; }
 
-        uint64 GetScriptValue() const { return m_scriptValue; }
-        void SetScriptValue(uint64 value) { m_scriptValue = value; }
         void RegisterAuraProc(Aura* aura);
         bool IsAuraProcced(Aura* aura);
         // setting 0 disables the trigger
@@ -665,8 +664,8 @@ class Spell
         {
             uint32 effectMask;
             uint64 timeDelay;
-            bool processed;
-            DestTargetInfo() : effectMask(0), timeDelay(0), processed(false) {}
+            uint32 effectMaskProcessed;
+            DestTargetInfo() : effectMask(0), timeDelay(0), effectMaskProcessed(0) {}
         };
 
         typedef std::list<TargetInfo>     TargetList;
@@ -692,6 +691,9 @@ class Spell
 
         // Scripting system
         SpellScript* GetSpellScript() const { return m_spellScript; }
+        // Variable storage
+        uint64 GetScriptValue() const { return m_scriptValue; }
+        void SetScriptValue(uint64 value) { m_scriptValue = value; }
         // hooks
         void OnInit();
         void OnSuccessfulStart();

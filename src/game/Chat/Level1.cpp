@@ -949,7 +949,7 @@ bool ChatHandler::HandleModifyASpeedCommand(char* args)
 
     float modSpeed = (float)atof(args);
 
-    if (modSpeed > 10 || modSpeed < 0.1)
+    if (modSpeed > 50 || modSpeed < 0.1)
     {
         SendSysMessage(LANG_BAD_VALUE);
         SetSentErrorMessage(true);
@@ -997,7 +997,7 @@ bool ChatHandler::HandleModifySpeedCommand(char* args)
 
     float modSpeed = (float)atof(args);
 
-    if (modSpeed > 10 || modSpeed < 0.1)
+    if (modSpeed > 50 || modSpeed < 0.1)
     {
         SendSysMessage(LANG_BAD_VALUE);
         SetSentErrorMessage(true);
@@ -1042,7 +1042,7 @@ bool ChatHandler::HandleModifySwimCommand(char* args)
 
     float modSpeed = (float)atof(args);
 
-    if (modSpeed > 10.0f || modSpeed < 0.01f)
+    if (modSpeed > 50.0f || modSpeed < 0.01f)
     {
         SendSysMessage(LANG_BAD_VALUE);
         SetSentErrorMessage(true);
@@ -1132,7 +1132,7 @@ bool ChatHandler::HandleModifyFlyCommand(char* args)
 
     float modSpeed = (float)atof(args);
 
-    if (modSpeed > 10.0f || modSpeed < 0.1f)
+    if (modSpeed > 50.0f || modSpeed < 0.1f)
     {
         SendSysMessage(LANG_BAD_VALUE);
         SetSentErrorMessage(true);
@@ -1724,7 +1724,7 @@ bool ChatHandler::HandleGoHelper(Player* player, uint32 mapid, float x, float y,
     }
     else
     {
-        // we need check x,y before ask Z or can crash at invalide coordinates
+        // we need check x,y before ask Z or can crash at invalid coordinates
         if (!MapManager::IsValidMapCoord(mapid, x, y))
         {
             PSendSysMessage(LANG_INVALID_TARGET_COORD, x, y, mapid);
@@ -1741,6 +1741,8 @@ bool ChatHandler::HandleGoHelper(Player* player, uint32 mapid, float x, float y,
     if (!player->TaxiFlightInterrupt())
         player->SaveRecallPosition();
 
+    player->UpdateAllowedPositionZ(x, y, z);
+    z += 1;
     player->TeleportTo(mapid, x, y, z, ort);
 
     return true;

@@ -575,7 +575,11 @@ bool ChatHandler::HandleGoCreatureCommand(char* args)
             {
                 std::string name = pParam1;
                 WorldDatabase.escape_string(name);
-                QueryResult* result = WorldDatabase.PQuery("SELECT guid FROM creature, creature_template WHERE creature.id = creature_template.entry AND creature_template.name " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'"), name.c_str());
+                QueryResult* result = WorldDatabase.PQuery("SELECT creature.guid, creature_spawn_entry.guid "
+                  "FROM creature, creature_template, creature_spawn_entry "
+                  "WHERE (creature.id = creature_template.entry "
+                    "OR (creature_spawn_entry.entry = creature_template.entry AND creature.guid = creature_spawn_entry.guid)) "
+                  "AND creature_template.name LIKE '%%%s%%' LIMIT 1;", name.c_str());
                 if (!result)
                 {
                     SendSysMessage(LANG_COMMAND_GOCREATNOTFOUND);
@@ -777,7 +781,11 @@ bool ChatHandler::HandleGoObjectCommand(char* args)
             {
                 std::string name = pParam1;
                 WorldDatabase.escape_string(name);
-                QueryResult* result = WorldDatabase.PQuery("SELECT guid FROM gameobject, gameobject_template WHERE gameobject.id = gameobject_template.entry AND gameobject_template.name " _LIKE_ " " _CONCAT3_("'%%'", "'%s'", "'%%'"), name.c_str());
+                QueryResult* result = WorldDatabase.PQuery("SELECT gameobject.guid, gameobject_spawn_entry.guid "
+                    "FROM gameobject, gameobject_template, gameobject_spawn_entry "
+                    "WHERE (gameobject.id = gameobject_template.entry "
+                    "OR (gameobject_spawn_entry.entry = gameobject_template.entry AND gameobject.guid = gameobject_spawn_entry.guid)) "
+                    "AND gameobject_template.name LIKE '%%%s%%' LIMIT 1;", name.c_str());
                 if (!result)
                 {
                     SendSysMessage(LANG_COMMAND_GOOBJNOTFOUND);
@@ -3548,18 +3556,18 @@ bool ChatHandler::HandleWpExportCommand(char* args)
     uint32 key;
     switch (wpOrigin)
     {
-        case PATH_FROM_ENTRY: key = wpOwner->GetEntry();    key_field = "entry";    table = "creature_movement_template"; break;
-        case PATH_FROM_GUID: key = wpOwner->GetGUIDLow();   key_field = "id";       table = "creature_movement"; break;
-        case PATH_FROM_EXTERNAL: key = wpOwner->GetEntry(); key_field = "entry";    table = sWaypointMgr.GetExternalWPTable(); break;
+        case PATH_FROM_ENTRY: key = wpOwner->GetEntry();    key_field = "Entry";    table = "creature_movement_template"; break;
+        case PATH_FROM_GUID: key = wpOwner->GetGUIDLow();   key_field = "Id";       table = "creature_movement"; break;
+        case PATH_FROM_EXTERNAL: key = wpOwner->GetEntry(); key_field = "Entry";    table = sWaypointMgr.GetExternalWPTable(); break;
         default:
             return false;
     }
 
     outfile << "DELETE FROM " << table << " WHERE " << key_field << "=" << key << ";\n";
     if (wpOrigin != PATH_FROM_EXTERNAL)
-        outfile << "INSERT INTO " << table << " (" << key_field << ", point, position_x, position_y, position_z, orientation, waittime, script_id) VALUES\n";
+        outfile << "INSERT INTO " << table << " (" << key_field << ", Point, PositionX, PositionY, PositionZ, Orientation, WaitTime, ScriptId) VALUES\n";
     else
-        outfile << "INSERT INTO " << table << " (" << key_field << ", point, position_x, position_y, position_z, orientation, waittime) VALUES\n";
+        outfile << "INSERT INTO " << table << " (" << key_field << ", Point, PositionX, PositionY, positionZ, Orientation, WaitTime) VALUES\n";
 
     WaypointPath::const_iterator itr = wpPath->begin();
     uint32 countDown = wpPath->size();
