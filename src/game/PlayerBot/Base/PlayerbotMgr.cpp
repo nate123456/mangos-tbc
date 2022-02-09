@@ -195,7 +195,7 @@ void PlayerbotMgr::InitLua()
 			name, account_id))
 		{
 			if (const QueryResult* query_result = CharacterDatabase.PQuery(
-				"SELECT script FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
+				"SELECT script FROM playerbot_scripts WHERE name = '%s' AND accountid = %u", name.c_str(), account_id))
 			{
 				const Field* load_fields = query_result->Fetch();
 
@@ -306,7 +306,7 @@ bool PlayerbotMgr::LoadUserLuaScript()
 	if (VerifyScriptExists("main", m_masterAccountId))
 	{
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
-			"SELECT script FROM scripts WHERE name = 'main' AND accountid = %u", m_masterAccountId))
+			"SELECT script FROM playerbot_scripts WHERE name = 'main' AND accountid = %u", m_masterAccountId))
 		{
 			const Field* load_fields = query_result->Fetch();
 
@@ -671,7 +671,7 @@ void PlayerbotMgr::InitLuaFunctions()
 	m_lua.set_function("get_store_data", [&]
 	{
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
-			"SELECT data FROM scripts WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId))
+			"SELECT data FROM playerbot_scripts WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId))
 		{
 			const Field* load_fields = query_result->Fetch();
 
@@ -685,12 +685,12 @@ void PlayerbotMgr::InitLuaFunctions()
 		CharacterDatabase.escape_string(data);
 
 		return CharacterDatabase.PExecute(
-			"UPDATE scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main", m_masterAccountId);
+			"UPDATE playerbot_scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main", m_masterAccountId);
 	});
 	m_lua.set_function("clear_store_data", [&]
 	{
 		return CharacterDatabase.PExecute(
-			"UPDATE scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId);
+			"UPDATE playerbot_scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId);
 	});
 }
 
@@ -2983,7 +2983,7 @@ uint32 Player::GetSpec()
 bool PlayerbotMgr::VerifyScriptExists(const std::string& name, const uint32 accountId)
 {
 	if (const QueryResult* count_result = CharacterDatabase.PQuery(
-		"SELECT COUNT(*) FROM scripts WHERE name = '%s' AND accountid = %u", name.c_str(), accountId))
+		"SELECT COUNT(*) FROM playerbot_scripts WHERE name = '%s' AND accountid = %u", name.c_str(), accountId))
 	{
 		const Field* count_result_fields = count_result->Fetch();
 
