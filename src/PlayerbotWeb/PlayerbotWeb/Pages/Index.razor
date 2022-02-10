@@ -1,0 +1,141 @@
+﻿@page "/"
+@using MySql.Data.MySqlClient
+@inject IWebHostEnvironment _environment
+
+<div class="mx-auto" style="width: 500px;">
+    <h3>Upload Files</h3>
+
+    <div>
+        <div class="form-outline mb-4">
+            <label for="formFileMultiple" class="form-label">Choose the folder where your AI scripts are located</label>
+            <InputFile class="form-control" type="file" id="formFileMultiple" OnChange="@LoadFiles" multiple webkitdirectory/>
+        </div>
+
+        <div class="form-outline mb-4">
+            @if (_isLoading)
+            {
+                <p>Uploading...</p>
+            }
+            else
+            {
+                @if (!string.IsNullOrEmpty(_errorMsg))
+                {
+                    <p>@_errorMsg</p>
+                }
+                else
+                {
+                    <ul class="list-group">
+                        @foreach (var (path, text) in _loadedScripts)
+                        {
+                            <li class="list-group-item">@path</li>
+                        }
+                    </ul>
+                }
+            }
+        </div>
+
+        <div class="form-outline mb-4">
+            <label for="exampleFormControlInput1">Account Token (acquire in-game by using the command .bot ai token)</label>
+            <input type="text" class="form-control" @bind="_token" placeholder="ABC123" maxlength="6" minlength="6" required>
+        </div>
+
+        <button @onsubmit:preventDefault class="btn btn-primary btn-block" @onclick="SubmitFilesAsync">Submit</button>
+    </div>
+    <div class="mt-4">
+        @if (_isSubmitLoading)
+        {
+            <p>Submitting...</p>
+        }
+        else
+        {
+            <p>@_submitResult</p>
+        }
+    </div>
+
+</div>
+
+
+@code {
+    private readonly List<(string fileName, string code)> _loadedScripts = new();
+        private const int MaxAllowedFiles = 100;
+    private bool _isLoading;
+    private string? _errorMsg;
+    private string? _token;
+
+    private bool _isSubmitLoading;
+    private string? _submitResult;
+
+
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        _isLoading = true;
+        _loadedScripts.Clear();
+
+        foreach (var file in e.GetMultipleFiles(MaxAllowedFiles))
+        {
+            try
+            {
+                if (file.Name.Split(".").Last().ToLower() != "lua")
+                    continue;
+
+                var reader = new StreamReader(file.OpenReadStream());
+                var text = await reader.ReadToEndAsync();
+
+                _loadedScripts.Add((file.Name, text));
+
+                _errorMsg = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _errorMsg = $"File: {file.Name} Error: {ex.Message}";
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SubmitFilesAsync()
+    {
+        _isSubmitLoading = true;
+
+        const string cs = @"server=192.168.1.208;userid=mangos;password=limewire14;database=tbccharacters";
+
+        await using var connection = new MySqlConnection(cs);
+        connection.Open();
+
+        Console.WriteLine($"MySQL version : {connection.ServerVersion}");
+
+        var idSql = $"SELECT accountid from playerbot_tokens where age + INTERVAL 30 MINUTE > NOW() and token = '{_token}'";
+        await using var idCommand = new MySqlCommand(idSql, connection);
+
+        var result = idCommand.ExecuteScalar();
+
+        var id = Convert.ToInt32(result);
+
+        if (id == 0)
+        {
+            _isSubmitLoading = false;
+            _submitResult = $"Token '{_token}' was not found.";
+            await connection.CloseAsync();
+            return;
+        }
+
+        var deleteSql = $"delete FROM playerbot_scripts WHERE accountid = {id}";
+        var deleteCmd = new MySqlCommand(deleteSql, connection);
+        deleteCmd.ExecuteNonQuery();
+
+        foreach (var (name, code) in _loadedScripts)
+        {
+            var sanitizedCode = code.Replace("'", "''");
+            var insertSql = $"INSERT INTO playerbot_scripts (accountid, name, script) VALUES ({id}, '{name}', '{sanitizedCode}')";
+            var insertCmd = new MySqlCommand(insertSql, connection);
+            insertCmd.ExecuteNonQuery();
+        }
+
+        _isSubmitLoading = false;
+        _submitResult = "Update successful.";
+
+        await connection.CloseAsync();
+    }
+
+}
