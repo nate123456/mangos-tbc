@@ -1449,6 +1449,7 @@ void PlayerbotMgr::InitLuaGroupType()
 {
 	sol::usertype<Group> group_type = m_lua.new_usertype<Group>("Group");
 
+	group_type["id"] = sol::property(&Group::GetId);
 	group_type["is_raid"] = sol::property(&Group::IsRaidGroup);
 	group_type["leader"] = sol::property([&](const Group* self)
 	{
