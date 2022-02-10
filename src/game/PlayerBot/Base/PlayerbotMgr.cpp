@@ -564,7 +564,7 @@ void PlayerbotMgr::InitLuaMembers()
 	sol::table specs_table = enum_table["specs"];
 
 	specs_table["mage"] = m_lua.create_table();
-	sol::table mage_specs_table = enum_table["mage"];
+	sol::table mage_specs_table = specs_table["mage"];
 
 	mage_specs_table["arcane"] = 81;
 	mage_specs_table["fire"] = 41;
