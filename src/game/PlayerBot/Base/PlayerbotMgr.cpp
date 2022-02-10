@@ -647,6 +647,11 @@ void PlayerbotMgr::InitLuaMembers()
 
 void PlayerbotMgr::InitLuaFunctions()
 {
+	m_lua.set_function("print",
+		sol::overload(
+			[this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
+	));
+
 	sol::table wow_table = m_lua["wow"];
 
 	wow_table["spell_exists"] = [](const uint32 spellId)
