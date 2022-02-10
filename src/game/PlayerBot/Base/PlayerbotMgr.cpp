@@ -3107,15 +3107,29 @@ write <COMMAND>: send a command string to lua)");
 
 	    if (rem_cmd.find("get token") != std::string::npos)
 	    {
-		    const std::string token = mgr->GenerateToken();
+			if (const QueryResult* token_result = CharacterDatabase.PQuery(
+				"SELECT token FROM playerbot_tokens WHERE where age + INTERVAL 30 MINUTE > NOW() and accountid = %u", m_session->GetAccountId()))
+			{
+				const Field* token_result_fields = token_result->Fetch();
 
-		    if (CharacterDatabase.PExecute(
-			    "INSERT into playerbot_tokens (accountid, token) VALUES (%u, '%s') ON DUPLICATE KEY UPDATE token = '%s'",
-			    m_session->GetAccountId(), token.c_str(), token.c_str()))
-		    {
-			    PSendSysMessage("New token generated: '%s'", token.c_str());
-			    return true;
-		    }
+				if (const auto current_token = token_result_fields[0].GetCppString(); !current_token.empty())
+				{
+					PSendSysMessage("Current token is: '%s'", current_token.c_str());
+					return true;
+				}
+
+				delete token_result;
+			}
+
+			const std::string token = mgr->GenerateToken();
+
+			if (CharacterDatabase.PExecute(
+				"INSERT into playerbot_tokens (accountid, token) VALUES (%u, '%s') ON DUPLICATE KEY UPDATE token = '%s'",
+				m_session->GetAccountId(), token.c_str(), token.c_str()))
+			{
+				PSendSysMessage("New token generated: '%s'", token.c_str());
+				return true;
+			}
 
 		    return false;
 	    }
