@@ -6,10 +6,10 @@ EXPOSE 80
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
-COPY ["PlayerbotWeb/PlayerbotWeb.csproj", "PlayerbotWeb/"]
+COPY ["PlayerbotWeb.csproj", "PlayerbotWeb/"]
 RUN dotnet restore "PlayerbotWeb/PlayerbotWeb.csproj"
-COPY . .
 WORKDIR "/src/PlayerbotWeb"
+COPY . .
 RUN dotnet build "PlayerbotWeb.csproj" -c Release -o /app/build
 
 FROM build AS publish

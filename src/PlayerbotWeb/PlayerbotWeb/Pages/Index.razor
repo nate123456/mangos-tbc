@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using MySql.Data.MySqlClient
 @inject IWebHostEnvironment _environment
+@inject IConfiguration _configuration
 
 <div class="mx-auto" style="width: 500px;">
     <h3>Upload Files</h3>
@@ -98,7 +99,11 @@
     {
         _isSubmitLoading = true;
 
-        const string cs = @"server=192.168.1.208;userid=mangos;password=limewire14;database=tbccharacters";
+        var mysqlHost = _configuration["MYSQL_HOST"];
+        var mysqlUser = _configuration["MYSQL_USER"];
+        var mysqlPass = _configuration["MYSQL_PASS"];
+
+        var cs = $@"server={mysqlHost};userid={mysqlUser};password={mysqlPass};database=tbccharacters";
 
         await using var connection = new MySqlConnection(cs);
         connection.Open();
@@ -127,7 +132,8 @@
         foreach (var (name, code) in _loadedScripts)
         {
             var sanitizedCode = code.Replace("'", "''");
-            var insertSql = $"INSERT INTO playerbot_scripts (accountid, name, script) VALUES ({id}, '{name}', '{sanitizedCode}')";
+            var sanitizedName = name.Replace(".lua", "");
+            var insertSql = $"INSERT INTO playerbot_scripts (accountid, name, script) VALUES ({id}, '{sanitizedName}', '{sanitizedCode}')";
             var insertCmd = new MySqlCommand(insertSql, connection);
             insertCmd.ExecuteNonQuery();
         }
