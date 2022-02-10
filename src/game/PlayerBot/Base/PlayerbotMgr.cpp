@@ -3008,6 +3008,21 @@ bool PlayerbotMgr::VerifyScriptExists(const std::string& name, const uint32 acco
 	return true;
 }
 
+std::string PlayerbotMgr::GenerateToken() const
+{
+	auto rand_char = []() -> char
+	{
+		constexpr char charset[] =
+			"123456789"
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		constexpr size_t max_index = (sizeof(charset) - 1);
+		return charset[rand() % max_index];
+	};
+	std::string str(6, 0);
+	std::generate_n(str.begin(), 6, rand_char);
+	return str;
+}
+
 bool ChatHandler::HandlePlayerbotCommand(char* args)
 {
     if (!(m_session->GetSecurity() > SEC_PLAYER))
@@ -3068,8 +3083,10 @@ write <COMMAND>: send a command string to lua)");
 			if (mgr->LoadUserLuaScript())
 			{
 				PSendSysMessage("AI script loaded successfully.");
-				return false;
+				return true;
 			}
+
+			return false;
 	    }
 
         if (rem_cmd.find("write") != std::string::npos)
@@ -3081,6 +3098,21 @@ write <COMMAND>: send a command string to lua)");
 
             return false;
         }
+
+	    if (rem_cmd.find("get token") != std::string::npos)
+	    {
+		    const std::string token = mgr->GenerateToken();
+
+		    if (CharacterDatabase.PExecute(
+			    "INSERT into playerbot_tokens (accountid, token) VALUES (%u, '%s') ON DUPLICATE KEY UPDATE token = '%s'",
+			    m_session->GetAccountId(), token.c_str(), token.c_str()))
+		    {
+			    PSendSysMessage("New token generated: '%s'", token.c_str());
+			    return true;
+		    }
+
+		    return false;
+	    }
 
 	    return true;
     }

@@ -99,6 +99,7 @@ class PlayerbotMgr
         void LogoutAllBots(bool fullRemove = false);                           // mark all bots to be removed on next update
         void RemoveAllBotsFromGroup();
         bool VerifyScriptExists(const std::string& name, uint32 accountId);
+        std::string GenerateToken() const;
         void OnBotLogin(Player* const bot);
         void Stay();
         void SetLuaMasterMessage(const std::string& message) { m_lastManagerMessage = message; }
