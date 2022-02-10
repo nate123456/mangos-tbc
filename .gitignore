@@ -94,3 +94,6 @@ cmake_install.cmake
 
 /run/
 /etc/
+
+bin
+obj
