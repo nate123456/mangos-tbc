@@ -36,7 +36,7 @@
         </div>
 
         <div class="form-outline mb-4">
-            <label for="exampleFormControlInput1">Account Token (acquire in-game by using the command .bot ai token)</label>
+            <label for="exampleFormControlInput1">Account Token (acquire in-game by using the command .bot ai get token)</label>
             <input type="text" class="form-control" @bind="_token" placeholder="ABC123" maxlength="6" minlength="6" required>
         </div>
 
@@ -107,8 +107,6 @@
 
         await using var connection = new MySqlConnection(cs);
         connection.Open();
-
-        Console.WriteLine($"MySQL version : {connection.ServerVersion}");
 
         var idSql = $"SELECT accountid from playerbot_tokens where age + INTERVAL 30 MINUTE > NOW() and token = '{_token}'";
         await using var idCommand = new MySqlCommand(idSql, connection);

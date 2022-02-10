@@ -128,7 +128,7 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 	if (!act_func.valid())
 	{
-		if (const auto error_msg = "No 'mMain' function defined."; m_lastActErrorMsg !=
+		if (const auto error_msg = "No 'main' function defined."; m_lastActErrorMsg !=
 			error_msg)
 		{
 			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
@@ -766,8 +766,15 @@ void PlayerbotMgr::InitLuaPlayerType()
 	});
 	player_type["specialization"] = sol::property([](const Player* self)
 	{
-		uint32 row = 0, spec = 0;
-		uint32 class_mask = self->getClassMask();
+		uint32 row = 0, spec = 0, class_mask = 0;
+		try
+		{
+			class_mask = self->getClassMask();
+		}
+		catch (...)
+		{
+			return -1;
+		}
 
 		for (unsigned int i = 0; i < sTalentStore.GetNumRows(); ++i)
 		{
