@@ -773,7 +773,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 		catch (...)
 		{
-			return -1;
+			return static_cast<uint32>(-1);
 		}
 
 		for (unsigned int i = 0; i < sTalentStore.GetNumRows(); ++i)
