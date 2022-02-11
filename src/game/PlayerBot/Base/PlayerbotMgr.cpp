@@ -766,15 +766,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 	});
 	player_type["specialization"] = sol::property([](const Player* self)
 	{
-		uint32 row = 0, spec = 0, class_mask = 0;
-		try
-		{
-			class_mask = self->getClassMask();
-		}
-		catch (...)
-		{
-			return static_cast<uint32>(-1);
-		}
+		uint32 row = 0, spec = 0;
 
 		for (unsigned int i = 0; i < sTalentStore.GetNumRows(); ++i)
 		{
@@ -788,7 +780,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 			if (!talent_tab_info)
 				continue;
 
-			if ((class_mask & talent_tab_info->ClassMask) == 0)
+			if ((talent_tab_info->ClassMask) == 0)
 				continue;
 
 			for (int32 k = MAX_TALENT_RANK - 1; k > -1; --k)
@@ -3115,7 +3107,7 @@ write <COMMAND>: send a command string to lua)");
 	    if (rem_cmd.find("get token") != std::string::npos)
 	    {
 			if (const QueryResult* token_result = CharacterDatabase.PQuery(
-				"SELECT token FROM playerbot_tokens WHERE where age + INTERVAL 30 MINUTE > NOW() and accountid = %u", m_session->GetAccountId()))
+				"SELECT token FROM playerbot_tokens WHERE age + INTERVAL 1 DAY > NOW() and accountid = %u", m_session->GetAccountId()))
 			{
 				const Field* token_result_fields = token_result->Fetch();
 
