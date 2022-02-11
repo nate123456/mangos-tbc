@@ -1460,15 +1460,15 @@ void PlayerbotMgr::InitLuaGroupType()
 		const Group::MemberSlotList& slots = self->GetMemberSlots();
 
 		std::vector<Player*> members;
-		members.reserve(slots.size());
+		
+		for (const auto& [guid, name, group, assistant, lastMap] : slots)
+		{
+			Player* group_member = sObjectMgr.GetPlayer(guid);
+			if (!group_member)
+				continue;
 
-		Map* map = m_master->GetMap();
-
-		if (!map)
-			return members;
-
-		for (auto [guid, name, group, assistant, lastMap] : slots)
-			members.push_back(map->GetPlayer(guid));
+			members.push_back(group_member);
+		}
 
 		return members;
 	});
