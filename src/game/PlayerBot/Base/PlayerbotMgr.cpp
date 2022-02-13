@@ -124,19 +124,22 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	for (auto& [id, bot] : m_playerBots)
 		bots.push_back(bot);
 
-	std::vector<Player*> group;
+	std::vector<Player*> group_members;
 
-	const Group::MemberSlotList& group_slot = m_master->GetGroup()->GetMemberSlots();
-	for (const auto& [guid, name, group_num, assistant, lastMap] : group_slot)
+	if (const auto group = m_master->GetGroup())
 	{
-		Player* group_member = sObjectMgr.GetPlayer(guid);
-		if (!group_member)
-			continue;
+		const Group::MemberSlotList& group_slot = group->GetMemberSlots();
+		for (const auto& [guid, name, group_num, assistant, lastMap] : group_slot)
+		{
+			Player* group_member = sObjectMgr.GetPlayer(guid);
+			if (!group_member)
+				continue;
 
-		group.push_back(group_member);
+			group_members.push_back(group_member);
+		}
 	}
 
-	m_lua["wow"]["group"] = group;
+	m_lua["wow"]["group"] = group_members;	
 
 	const sol::protected_function act_func = m_luaEnvironment["main"];	
 
