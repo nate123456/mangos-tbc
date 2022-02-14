@@ -244,7 +244,6 @@ void PlayerbotMgr::InitLua()
 	InitLuaCreatureType();
 	InitLuaObjectType();
 	InitLuaWorldObjectType();
-	InitLuaGroupType();
 	InitLuaMapType();
 	InitLuaGameObjectType();
 	InitLuaPositionType();
@@ -252,7 +251,7 @@ void PlayerbotMgr::InitLua()
 	InitLuaAuraType();
 	InitLuaItemType();
 
-	InitializeLuaEnvironment();
+	InitLuaEnvironment();
 
 	// little shortcut for the python fanboys :)
 	m_lua.script("str = tostring num = tonumber");
@@ -262,7 +261,7 @@ void PlayerbotMgr::InitLua()
 	LoadUserLuaScript();
 }
 
-void PlayerbotMgr::InitializeLuaEnvironment()
+void PlayerbotMgr::InitLuaEnvironment()
 {
 	m_luaEnvironment = sol::environment(m_lua, sol::create, m_lua.globals());
 
@@ -318,7 +317,7 @@ end)";
 
 bool PlayerbotMgr::LoadUserLuaScript()
 {
-	InitializeLuaEnvironment();
+	InitLuaEnvironment();
 
 	if (VerifyScriptExists("main", m_masterAccountId))
 	{
@@ -764,10 +763,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 	{
 		return self->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_TRINKET2);
 	});
-	player_type["group"] = sol::property([](Player* self)
-	{
-		return self->GetGroup();
-	});
 	player_type["destination"] = sol::property([](Player* self)
 	{
 		float x, y, z;
@@ -781,43 +776,13 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 		return sol::tie(x, y, z);
 	});
-	player_type["specialization"] = sol::property([](const Player* self)
+	player_type["specialization"] = sol::property(&Player::GetSpec);
+	player_type["party"] = sol::property([](Player* self)
 	{
-		uint32 row = 0, spec = 0;
+		if (const auto group = self->GetGroup(); !group)
+			return static_cast<uint8>(-1);
 
-		for (unsigned int i = 0; i < sTalentStore.GetNumRows(); ++i)
-		{
-			const TalentEntry* talent_info = sTalentStore.LookupEntry(i);
-
-			if (!talent_info)
-				continue;
-
-			const TalentTabEntry* talent_tab_info = sTalentTabStore.LookupEntry(talent_info->TalentTab);
-
-			if (!talent_tab_info)
-				continue;
-
-			if ((talent_tab_info->ClassMask) == 0)
-				continue;
-
-			for (int32 k = MAX_TALENT_RANK - 1; k > -1; --k)
-			{
-				if (talent_info->RankID[k] && self->HasSpell(talent_info->RankID[k]))
-				{
-					if (row == 0 && spec == 0)
-						spec = talent_info->TalentTab;
-
-					if (talent_info->Row > row)
-					{
-						row = talent_info->Row;
-						spec = talent_info->TalentTab;
-					}
-				}
-			}
-		}
-
-		//Return the tree with the deepest talent
-		return spec;
+		return self->GetSubGroup();
 	});
 
 	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
@@ -1468,19 +1433,6 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 		return gcd_time - current;
 	};
-}
-
-void PlayerbotMgr::InitLuaGroupType()
-{
-	sol::usertype<Group> group_type = m_lua.new_usertype<Group>("Group");
-
-	group_type["id"] = sol::property(&Group::GetId);
-	group_type["is_raid"] = sol::property(&Group::IsRaidGroup);
-	group_type["leader"] = sol::property([&](const Group* self)
-	{
-		const ObjectGuid guid = self->GetLeaderGuid();
-		return m_master->GetMap()->GetPlayer(guid);
-	});
 }
 
 void PlayerbotMgr::InitLuaMapType()

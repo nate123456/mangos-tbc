@@ -44,7 +44,7 @@ class PlayerbotMgr
         virtual ~PlayerbotMgr();
 
         void InitLua();
-        void InitializeLuaEnvironment();
+        void InitLuaEnvironment();
         void ClearNonStandardModules();
         bool LoadUserLuaScript();
 
@@ -56,7 +56,6 @@ class PlayerbotMgr
         void InitLuaCreatureType();
         void InitLuaObjectType();
         void InitLuaWorldObjectType();
-        void InitLuaGroupType();
         void InitLuaMapType();
         void InitLuaGameObjectType();
         void InitLuaPositionType();
