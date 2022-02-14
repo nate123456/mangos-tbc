@@ -1189,6 +1189,15 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return Cast(self, self, spellId);
 	});
+	player_type["in_same_party_as"] = [](Player* self, Player* other)
+	{
+		const auto group = self->GetGroup();
+
+		if (!other || !group)
+			return false;
+
+		return group->SameSubGroup(self, other);
+	};
 };
 
 void PlayerbotMgr::InitLuaUnitType()
