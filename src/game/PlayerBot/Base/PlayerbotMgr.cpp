@@ -1120,18 +1120,34 @@ void PlayerbotMgr::InitLuaPlayerType()
 		return nullptr;
 	});
 	player_type["cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
-	{
-		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
-			return SPELL_FAILED_NOT_READY;
+    {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_NOT_READY;
 
-		return Cast(self, target, spellId);
-	}, [&](Player* self, const uint32 spellId)
-	{
-		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(self, CURRENT_CHANNELED_SPELL) > 0)
-			return SPELL_FAILED_NOT_READY;
+        return Cast(self, target, spellId);
+    }, [&](Player* self, Unit* target, const uint32 spellId, const bool checkIsAlive)
+    {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_NOT_READY;
 
-		return Cast(self, self, spellId);
-	});
+		return Cast(self, target, spellId, checkIsAlive);
+    }, [&](Player* self, const uint32 spellId)
+    {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_NOT_READY;
+
+        return Cast(self, self, spellId);
+    }, [&](Player* self, const uint32 spellId, const bool checkIsAlive)
+    {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_NOT_READY;
+
+        return Cast(self, self, spellId, checkIsAlive);
+    });
 	player_type["force_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (!target)
@@ -1144,6 +1160,18 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 
 		return Cast(self, target, spellId);
+	}, [&](Player* self, Unit* target, const uint32 spellId, const bool checkIsAlive)
+	{
+		if (!target)
+			return SPELL_FAILED_BAD_TARGETS;
+
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return SPELL_FAILED_ERROR;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+		return Cast(self, target, spellId, checkIsAlive);
 	}, [&](Player* self, const uint32 spellId)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -1153,6 +1181,15 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 
 		return Cast(self, self, spellId);
+	}, [&](Player* self, const uint32 spellId, const bool checkIsAlive)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return SPELL_FAILED_ERROR;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+		return Cast(self, self, spellId, checkIsAlive);
 	});
 	player_type["in_same_party_as"] = [](Player* self, Player* other)
 	{
@@ -1744,7 +1781,7 @@ void PlayerbotMgr::FlipLuaTable(const std::string& name)
 	m_lua.script(script);
 }
 
-SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId) const
+SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId, const bool checkIsAlive) const
 {
 	if (!target)
 		return SPELL_FAILED_BAD_TARGETS;
@@ -1755,6 +1792,12 @@ SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spell
 	if (const auto ai = bot->GetPlayerbotAI(); !ai)
 		return SPELL_FAILED_ERROR; // no good option here
 
+	if (checkIsAlive)
+	{
+		if (!target->IsAlive())
+			return SPELL_FAILED_TARGETS_DEAD;
+	}
+
 	// verify spell exists
 	const auto p_spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
 	if (!p_spell_info)
@@ -1764,6 +1807,11 @@ SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spell
 
 	// verify spell is ready
 	if (!bot->IsSpellReady(*p_spell_info))
+		return SPELL_FAILED_NOT_READY;
+
+	const auto gcd_time = bot->GetGCD(p_spell_info).time_since_epoch().count();
+
+	if (const auto current = World::GetCurrentClockTime().time_since_epoch().count(); gcd_time - current > 0)
 		return SPELL_FAILED_NOT_READY;
 
 	// verify caster can afford to cast
