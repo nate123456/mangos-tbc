@@ -1,0 +1,78 @@
+﻿@page "/"
+@inject IWebHostEnvironment _environment
+@inject IConfiguration _configuration
+
+<div class="mx-auto" style="width: 500px;">
+    <h3>Upload Files</h3>
+
+    <div>
+        <div class="form-outline mb-4">
+            @if (_isLoading)
+            {
+                <p>Uploading...</p>
+            }
+            else
+            {
+                @if (!string.IsNullOrEmpty(_errorMsg))
+                {
+                    <p>@_errorMsg</p>
+                }
+                else
+                {
+                    <ul class="list-group">
+                        @foreach (var (path, text) in _loadedScripts)
+                        {
+                            <li class="list-group-item">@path</li>
+                        }
+                    </ul>
+                }
+            }
+        </div>
+
+        <div class="form-outline mb-4">
+            <label for="exampleFormControlInput1">Account Token (acquire in-game by using the command .bot ai get token)</label>
+            <input type="text" class="form-control" @bind="_token" placeholder="ABC123" maxlength="6" minlength="6" required>
+        </div>
+
+        <button @onsubmit:preventDefault class="btn btn-primary btn-block">Submit</button>
+    </div>
+
+</div>
+
+
+@code {
+    private readonly List<(string fileName, string code)> _loadedScripts = new();
+        private const int MaxAllowedFiles = 100;
+    private bool _isLoading;
+    private string? _errorMsg;
+    private string? _token;
+
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        _isLoading = true;
+        _loadedScripts.Clear();
+
+        foreach (var file in e.GetMultipleFiles(MaxAllowedFiles))
+        {
+            try
+            {
+                if (file.Name.Split(".").Last().ToLower() != "lua")
+                    continue;
+
+                var reader = new StreamReader(file.OpenReadStream());
+                var text = await reader.ReadToEndAsync();
+
+                _loadedScripts.Add((file.Name, text));
+
+                _errorMsg = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _errorMsg = $"File: {file.Name} Error: {ex.Message}";
+            }
+        }
+
+        _isLoading = false;
+    }
+
+}

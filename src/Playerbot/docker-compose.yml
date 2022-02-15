@@ -1,0 +1,25 @@
+version: "3.4"
+
+services:
+  playerbot-web:
+    build: .Playerbot/Dockerfile
+    ports:
+      - "5000:80"
+      - "5001:443"
+    environment:
+      - ASPNETCORE_URLS=http://+:80
+      - MYSQL_HOST=localhost
+      - MYSQL_USER=mangos
+      - MYSQL_PASS=mangos
+    volumes:
+      - lua-volume:/scripts/
+  mqtt:
+    image: eclipse-mosquitto
+    volumes:
+      - ./:/mosquitto/:rw
+    ports:
+      - 1883:1883
+      - 9001:9001
+
+volumes:
+  lua-volume:
