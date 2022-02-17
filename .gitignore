@@ -104,3 +104,10 @@ bld/
 [Ll]og/ 
 
 venv
+__pycache__
+*dist*
+src/Playerbot/src
+*.spec
+*.conf
+*.json
+*.lua

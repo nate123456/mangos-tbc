@@ -155,6 +155,8 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
+	m_lua.script("collectgarbage(\"collect\")");
+
 	m_lua["wow"]["command_message"] = m_lastManagerMessage;
 	m_lua["wow"]["command_position"] = m_lastCommandPosition;
 	m_lua["wow"]["bots"] = bots;
@@ -306,12 +308,15 @@ end
 for _, name in pairs(deletes) do
     package.loaded[name] = nil
     _G[name] = nil
-end)";
+end
+
+collectgarbage("collect")
+)";
 
 	if (const auto result = m_lua.safe_script(script); !result.valid())
 	{
 		const sol::error error = result;
-		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load clean lua modules:\n%s", error.what());
+		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to clean lua modules:\n%s", error.what());
 	}
 }
 
