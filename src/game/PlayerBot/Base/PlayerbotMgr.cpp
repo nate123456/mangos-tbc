@@ -1814,7 +1814,7 @@ void PlayerbotMgr::SendMsg(const std::string& msg, const bool isError, const boo
 
 	if (sendSysMessage)
 	{
-		m_masterChatHandler.PSendSysMessage((msg + std::string(isError ? "|cffff0000" : "")).c_str());
+		m_masterChatHandler.PSendSysMessage("%s", (msg + std::string(isError ? "|cffff0000" : "")).c_str());
 		m_masterChatHandler.SetSentErrorMessage(isError);
 	}
 }
