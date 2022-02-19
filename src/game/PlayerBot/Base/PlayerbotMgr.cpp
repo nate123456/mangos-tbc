@@ -88,8 +88,6 @@ PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master), m_masterCha
 
 PlayerbotMgr::~PlayerbotMgr()
 {
-	m_mqttClient->disconnect();
-
 	LogoutAllBots(true);
 }
 
