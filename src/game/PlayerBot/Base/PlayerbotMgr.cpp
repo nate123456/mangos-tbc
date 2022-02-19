@@ -1316,7 +1316,7 @@ void PlayerbotMgr::InitLuaUnitType()
 			ref = ref->next();
 		}
 
-		return 0.0f;
+		return -1.0f;
 	};
 	unit_type["in_melee_range"] = [](const Unit* self, const Unit* target)
 	{
