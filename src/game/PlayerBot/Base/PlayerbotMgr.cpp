@@ -793,7 +793,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 		return sol::tie(x, y, z);
 	});
-	player_type["specialization"] = sol::property(&Player::GetSpec);
+	player_type["spec"] = sol::property(&Player::GetSpec);
 	player_type["party"] = sol::property([](Player* self)
 	{
 		if (const auto group = self->GetGroup(); !group)
