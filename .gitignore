@@ -111,3 +111,6 @@ src/Playerbot/src
 *.conf
 *.json
 *.lua
+!mosquitto.conf
+run
+etc

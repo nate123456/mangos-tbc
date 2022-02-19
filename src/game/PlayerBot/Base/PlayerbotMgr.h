@@ -44,6 +44,7 @@ class PlayerbotMgr
         virtual ~PlayerbotMgr();
 
         void InitLua();
+        void InitMqtt();
         void InitLuaEnvironment();
         void ClearNonStandardModules();
         bool LoadUserLuaScript();
@@ -65,6 +66,7 @@ class PlayerbotMgr
 
         Unit* GetRaidIcon(uint8 iconIndex) const;
         void FlipLuaTable(const std::string& name);
+        void SendMsg(const std::string& msg, bool isError = false, bool sendLog = true, bool sendSysMessage = true);
         SpellCastResult Cast(Player* bot, Unit* target, uint32 spellId, bool checkIsAlive = true) const;
         static uint32 CurrentCast(const Unit* unit, CurrentSpellTypes type);
         void UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
@@ -135,6 +137,10 @@ class PlayerbotMgr
         Position m_lastCommandPosition;
         ChatHandler m_masterChatHandler;
         uint32 m_masterAccountId;
+        std::shared_ptr<mqtt::callable_overlay<mqtt::sync_client<
+	        mqtt::tcp_endpoint<boost::asio::basic_stream_socket<boost::asio::ip::tcp>, boost::asio::io_context::strand>,
+	        2>>> m_mqttClient;
+        boost::asio::io_context m_ioc;
 };
 
 #endif

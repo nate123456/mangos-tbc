@@ -83,11 +83,14 @@ PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master), m_masterCha
 	}
 
 	InitLua();
+	InitMqtt();
 }
 
 PlayerbotMgr::~PlayerbotMgr()
 {
-    LogoutAllBots(true);
+	m_mqttClient->disconnect();
+
+	LogoutAllBots(true);
 }
 
 class PlayerbotChatHandler : protected ChatHandler
@@ -148,7 +151,7 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		if (const auto error_msg = "No 'main' function defined."; m_lastActErrorMsg !=
 			error_msg)
 		{
-			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
+			SendMsg(std::string("Script failure: ") + error_msg, true);
 			m_lastActErrorMsg = error_msg;
 		}
 
@@ -179,7 +182,7 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 		if (const char* error_msg = error.what(); m_lastActErrorMsg != error_msg)
 		{
-			m_masterChatHandler.PSendSysMessage("|cffff0000%s", error_msg);
+			SendMsg(error_msg, true);
 			m_lastActErrorMsg = error_msg;
 		}
 
@@ -196,6 +199,11 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 	if (!m_lastCommandPosition.IsEmpty())
 		m_lastCommandPosition = Position();
+}
+
+void PlayerbotMgr::InitMqtt()
+{
+	
 }
 
 void PlayerbotMgr::InitLua()
@@ -316,7 +324,7 @@ collectgarbage("collect")
 	if (const auto result = m_lua.safe_script(script); !result.valid())
 	{
 		const sol::error error = result;
-		m_masterChatHandler.PSendSysMessage("|cffff0000Failed to clean lua modules:\n%s", error.what());
+		SendMsg(std::string("Failed to clean lua modules: '") + error.what() + "'", true);
 	}
 }
 
@@ -336,7 +344,7 @@ bool PlayerbotMgr::LoadUserLuaScript()
 			if (const auto result = m_lua.safe_script(script, m_luaEnvironment); !result.valid())
 			{
 				const sol::error error = result;
-				m_masterChatHandler.PSendSysMessage("|cffff0000Failed to load ai script:\n%s", error.what());
+				SendMsg(std::string("Failed to load ai script: '") + error.what() + "'", true);
 				return false;
 			}
 
@@ -347,8 +355,7 @@ bool PlayerbotMgr::LoadUserLuaScript()
 	}
 	else
 	{
-		m_masterChatHandler.PSendSysMessage("|cffff0000Could not find a stored AI script.");
-		m_masterChatHandler.SetSentErrorMessage(true);
+		SendMsg("Could not find a stored AI script.'", true);
 		return false;
 	}
 
@@ -670,7 +677,10 @@ void PlayerbotMgr::InitLuaFunctions()
 {
 	m_lua.set_function("print",
 		sol::overload(
-			[this](const char* msg) { m_masterChatHandler.PSendSysMessage("[AI] %s", msg); }
+			[this](const char* msg)
+			{
+				SendMsg(msg);
+			}
 	));
 
 	sol::table wow_table = m_lua["wow"];
@@ -717,6 +727,10 @@ void PlayerbotMgr::InitLuaFunctions()
 	{
 		return CharacterDatabase.PExecute(
 			"UPDATE playerbot_scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId);
+	});
+	m_lua.set_function("log", [&](const char* msg)
+	{
+		SendMsg(msg, false, true, false);
 	});
 }
 
@@ -1325,13 +1339,19 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return self->CanAssist(target);
 	};
-	unit_type["get_aura"] = [](const Unit* self, const uint32 auraId)-> SpellAuraHolder*
+	unit_type["get_aura"] = sol::overload([](const Unit* self, const uint32 auraId)-> SpellAuraHolder*
 	{
 		if (auraId == 0)
 			return nullptr;
 
 		return self->GetSpellAuraHolder(auraId);
-	};
+	}, [](const Unit* self, const uint32 auraId, const Unit* caster)-> SpellAuraHolder*
+	{
+		if (auraId == 0)
+			return nullptr;
+
+		return self->GetSpellAuraHolder(auraId, caster->GetObjectGuid());
+	});
 }
 
 void PlayerbotMgr::InitLuaCreatureType()
@@ -1665,6 +1685,7 @@ void PlayerbotMgr::InitLuaAuraType()
 	aura_type["duration"] = sol::property(&SpellAuraHolder::GetAuraDuration);
 	aura_type["max_duration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
 	aura_type["charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
+	aura_type["caster"] = sol::property(&SpellAuraHolder::GetCaster);
 }
 
 void PlayerbotMgr::InitLuaItemType()
@@ -1784,6 +1805,20 @@ void PlayerbotMgr::FlipLuaTable(const std::string& name)
 	// add to table by making each value a key with the key as the value
 	const std::string script = "for k, v in pairs(" + name + ") do " + name + "[v] = k end";
 	m_lua.script(script);
+}
+
+void PlayerbotMgr::SendMsg(const std::string& msg, const bool isError, const bool sendLog, const bool sendSysMessage)
+{
+	if (sendLog)
+	{
+		
+	}
+
+	if (sendSysMessage)
+	{
+		m_masterChatHandler.PSendSysMessage((msg + std::string(isError ? "|cffff0000" : "")).c_str());
+		m_masterChatHandler.SetSentErrorMessage(isError);
+	}
 }
 
 SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId, const bool checkIsAlive) const
@@ -3008,8 +3043,7 @@ bool PlayerbotMgr::VerifyScriptExists(const std::string& name, const uint32 acco
 
 		if (const int name_count = count_result_fields[0].GetInt32(); name_count == 0)
 		{
-			m_masterChatHandler.PSendSysMessage("|cffff0000No script was found by the name '%s'", name.c_str());
-			m_masterChatHandler.SetSentErrorMessage(true);
+			SendMsg(std::string("No script was found by the name '") + name + "'", true);
 			delete count_result;
 			return false;
 		}
@@ -3018,8 +3052,7 @@ bool PlayerbotMgr::VerifyScriptExists(const std::string& name, const uint32 acco
 	}
 	else
 	{
-		m_masterChatHandler.PSendSysMessage("|cffff0000No script result for the name '%s'", name.c_str());
-		m_masterChatHandler.SetSentErrorMessage(true);
+		SendMsg(std::string("No script result for the name '") + name + "'", true);
 		delete count_result;
 		return false;
 	}
