@@ -137,10 +137,6 @@ class PlayerbotMgr
         Position m_lastCommandPosition;
         ChatHandler m_masterChatHandler;
         uint32 m_masterAccountId;
-        std::shared_ptr<mqtt::callable_overlay<mqtt::sync_client<
-	        mqtt::tcp_endpoint<boost::asio::basic_stream_socket<boost::asio::ip::tcp>, boost::asio::io_context::strand>,
-	        2>>> m_mqttClient;
-        boost::asio::io_context m_ioc;
 };
 
 #endif
