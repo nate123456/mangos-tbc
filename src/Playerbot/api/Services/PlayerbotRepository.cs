@@ -39,9 +39,14 @@ public class PlayerbotRepository : IPlayerbotRepository
         scriptsList.ForEach(s => s.AccountId = accountId);
 
         if (isComplete)
+        {
             _context.Scripts.RemoveRange(_context.Scripts.Where(s => s.AccountId == accountId));
-
-        _context.UpdateRange(scriptsList);
+            _context.Scripts.AddRange(scriptsList);
+        }
+        else
+        {
+            _context.Scripts.UpdateRange(scriptsList);
+        }
 
         _context.SaveChanges();
     }
