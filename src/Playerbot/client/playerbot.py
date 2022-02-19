@@ -1,11 +1,11 @@
-import argparse, glob, time, os
+import argparse, glob, time, os, queue
 from pathlib import Path
 
 from config import get_config
 from logs import setup_log_streaming
 from crud import get_account_id, get_scripts, set_scripts
 from scripts import download_scripts, upload_scripts, get_all_script_paths, init_script_dir
-from watch import setup_file_watch
+from watch import FileChangeProducerThread, FileChangeConsumerThread
 
 
 def main():
@@ -51,8 +51,16 @@ def main():
     else:
         download_scripts(config, account_id, args.overwrite)
 
+    p = None
+    c = None
+    
     if args.watch:
-        setup_file_watch(config, account_id)
+        q = queue.Queue()
+        p = FileChangeProducerThread(config, account_id, q)
+        c = FileChangeConsumerThread(config, account_id, q)
+
+        p.start()
+        c.start()
         print(f"File watcher ready.")
 
     if len(get_all_script_paths(config)) == 0:
@@ -64,7 +72,8 @@ def main():
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            return
+            p.stop()
+            c.stop()
 
     print("All tasks complete.")
 

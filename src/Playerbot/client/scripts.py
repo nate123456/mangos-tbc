@@ -70,6 +70,12 @@ def upload_scripts(config, script_file_paths, account_id, is_complete):
             continue
         with open(script_file) as f:
             name = get_name_from_path(config, script_file)
-            scripts.append({"accountId": account_id, "script": f.read(), "name": name})
+            f.seek(0)
+            script = f.read()
+            scripts.append({"accountId": account_id, "script": script, "name": name})
+
+    if len(scripts) > 0:
+        if scripts[0]["name"] == "constants":
+            print(scripts[0])
 
     set_scripts(config["API_HOST"], scripts, account_id, is_complete)
