@@ -107,13 +107,30 @@ public:
 void PlayerbotMgr::UpdateAI(const uint32 time)
 {
 	if (m_playerBots.empty())
+	{
+		const std::string msg = "There are no bots currently online to manage.";
+		SendMsg(msg);
+		m_lastActErrorMsg = msg;
 		return;
+	}
 
 	if (!m_luaEnvironment)
+	{
+		const std::string msg =
+			"The lua environment has not been initialized. If the issue persists, log out then log back in.";
+		SendMsg(msg);
+		m_lastActErrorMsg = msg;
 		return;
+	}
 
 	if (!m_hasLoadedScript)
+	{
+		const std::string msg =
+			"No lua script has been provided. Use `.bot ai load` to load any stored bot scripts for your account.";
+		SendMsg(msg);
+		m_lastActErrorMsg = msg;
 		return;
+	}
 
 	// hopefully this prevents lua requesting a map during loading
 	if (m_master->GetSession()->PlayerLoading())
