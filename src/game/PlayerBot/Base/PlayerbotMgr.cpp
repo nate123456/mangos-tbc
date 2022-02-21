@@ -1690,7 +1690,7 @@ void PlayerbotMgr::InitLuaAuraType()
 	aura_type["stacks"] = sol::property(&SpellAuraHolder::GetStackAmount);
 	aura_type["duration"] = sol::property([](const SpellAuraHolder* aura)
 	{
-		const auto duration = aura->GetAuraDuration();
+		const uint32 duration = aura->GetAuraDuration();
 
 		if (duration == -1)
 			return (aura->GetAuraApplyTime());
