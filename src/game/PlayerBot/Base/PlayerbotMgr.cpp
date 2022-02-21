@@ -269,7 +269,6 @@ void PlayerbotMgr::InitLua()
 	InitLuaCreatureType();
 	InitLuaObjectType();
 	InitLuaWorldObjectType();
-	InitLuaMapType();
 	InitLuaGameObjectType();
 	InitLuaPositionType();
 	InitLuaPetType();
@@ -583,23 +582,23 @@ void PlayerbotMgr::InitLuaMembers()
 	enum_table["equip_slots"] = m_lua.create_table();
 	sol::table equip_slots_table = enum_table["equip_slots"];
 
-	equip_slots_table["Head"] = 0;
-	equip_slots_table["Neck"] = 1;
-	equip_slots_table["Shoulders"] = 2;
-	equip_slots_table["Chest"] = 4;
-	equip_slots_table["Waist"] = 5;
-	equip_slots_table["Legs"] = 6;
-	equip_slots_table["Feet"] = 7;
-	equip_slots_table["Wrists"] = 8;
-	equip_slots_table["Hands"] = 9;
-	equip_slots_table["Finger1"] = 10;
-	equip_slots_table["Finger2"] = 11;
-	equip_slots_table["Trinket1"] = 12;
-	equip_slots_table["Trinket2"] = 13;
-	equip_slots_table["Back"] = 14;
-	equip_slots_table["MainHand"] = 15;
-	equip_slots_table["OffHand"] = 16;
-	equip_slots_table["Ranged"] = 17;
+	equip_slots_table["head"] = 0;
+	equip_slots_table["neck"] = 1;
+	equip_slots_table["shoulders"] = 2;
+	equip_slots_table["chest"] = 4;
+	equip_slots_table["waist"] = 5;
+	equip_slots_table["legs"] = 6;
+	equip_slots_table["feet"] = 7;
+	equip_slots_table["wrists"] = 8;
+	equip_slots_table["hands"] = 9;
+	equip_slots_table["finger_1"] = 10;
+	equip_slots_table["finger_2"] = 11;
+	equip_slots_table["trinket_1"] = 12;
+	equip_slots_table["trinket_2"] = 13;
+	equip_slots_table["back"] = 14;
+	equip_slots_table["main_hand"] = 15;
+	equip_slots_table["off_hand"] = 16;
+	equip_slots_table["ranged"] = 17;
 	
 	FlipLuaTable("wow.enums.equip_slots");
 
@@ -691,12 +690,12 @@ void PlayerbotMgr::InitLuaMembers()
 void PlayerbotMgr::InitLuaFunctions()
 {
 	m_lua.set_function("print",
-		sol::overload(
-			[this](const char* msg)
-			{
-				SendMsg(msg);
-			}
-	));
+	                   sol::overload(
+		                   [this](const char* msg)
+		                   {
+			                   SendMsg(msg);
+		                   }
+	                   ));
 
 	sol::table wow_table = m_lua["wow"];
 
@@ -719,7 +718,10 @@ void PlayerbotMgr::InitLuaFunctions()
 		return IsPositiveSpell(spellId);
 	};
 
-	m_lua.set_function("get_store_data", [&]
+	wow_table["store"] = m_lua.create_table();
+	sol::table store_table = wow_table["store"];
+
+	store_table.set_function("get", [&]
 	{
 		if (const QueryResult* query_result = CharacterDatabase.PQuery(
 			"SELECT data FROM playerbot_scripts WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId))
@@ -731,18 +733,20 @@ void PlayerbotMgr::InitLuaFunctions()
 
 		return "";
 	});
-	m_lua.set_function("set_store_data", [&](std::string data)
+	store_table.set_function("set", [&](std::string data)
 	{
 		CharacterDatabase.escape_string(data);
 
 		return CharacterDatabase.PExecute(
-			"UPDATE playerbot_scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main", m_masterAccountId);
+			"UPDATE playerbot_scripts set data = '%s' WHERE name = '%s' AND accountid = %u", data.c_str(), "main",
+			m_masterAccountId);
 	});
-	m_lua.set_function("clear_store_data", [&]
+	store_table.set_function("clear", [&]
 	{
 		return CharacterDatabase.PExecute(
 			"UPDATE playerbot_scripts set data = NULL WHERE name = '%s' AND accountid = %u", "main", m_masterAccountId);
 	});
+
 	m_lua.set_function("log", [&](const char* msg)
 	{
 		SendMsg(msg, false, true, false);
@@ -1435,7 +1439,6 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 	world_object_type["orientation"] = sol::property(&WorldObject::GetOrientation);
 	world_object_type["name"] = sol::property(&WorldObject::GetName);
-	world_object_type["map"] = sol::property(&WorldObject::GetMap);
 	world_object_type["zone_id"] = sol::property(&WorldObject::GetZoneId);
 	world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
 	world_object_type["position"] = sol::property([](const WorldObject* self)
@@ -1510,18 +1513,6 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 		return gcd_time - current;
 	};
-}
-
-void PlayerbotMgr::InitLuaMapType()
-{
-	sol::usertype<Map> map_type = m_lua.new_usertype<Map>("Map");
-
-	map_type["players"] = sol::property(&Map::GetPlayers);
-	map_type["map_name"] = sol::property(&Map::GetMapName);
-	map_type["is_heroic"] = sol::property([&](const Map* self)
-	{
-		return self->GetDifficulty() == DUNGEON_DIFFICULTY_HEROIC;
-	});
 }
 
 void PlayerbotMgr::InitLuaGameObjectType()
@@ -1792,6 +1783,7 @@ void PlayerbotMgr::InitLuaItemType()
 
 		UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
 	});
+
 }
 
 Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const

@@ -57,7 +57,6 @@ class PlayerbotMgr
         void InitLuaCreatureType();
         void InitLuaObjectType();
         void InitLuaWorldObjectType();
-        void InitLuaMapType();
         void InitLuaGameObjectType();
         void InitLuaPositionType();
         void InitLuaPetType();
