@@ -114,3 +114,5 @@ src/Playerbot/src
 !mosquitto.conf
 run
 etc
+mysql
+mosquitto
