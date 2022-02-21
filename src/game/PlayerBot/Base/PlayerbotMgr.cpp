@@ -1729,6 +1729,8 @@ void PlayerbotMgr::InitLuaItemType()
 				}
 			}
 		}
+
+		return count;
 	});
 	item_type["is_potion"] = sol::property(&Item::IsPotion);
 	item_type["max_stack_count"] = sol::property(&Item::GetMaxStackCount);
@@ -1768,13 +1770,9 @@ void PlayerbotMgr::InitLuaItemType()
 	});
 	item_type["charges"] = sol::property([](const Item* self)
 	{
-		for (auto i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
-		{
-			if (auto const& spell = self->GetProto()->Spells[i]; spell.SpellId != 0)
-			{
-				return spell.SpellCharges;
-			}
-		}
+			for (uint32 i = 0; i < 5; ++i)
+				if (self->GetProto()->Spells[i].SpellCharges)
+					return self->GetSpellCharges(i);
 	});
 
 	item_type["use"] = sol::overload([&](Item* self)
