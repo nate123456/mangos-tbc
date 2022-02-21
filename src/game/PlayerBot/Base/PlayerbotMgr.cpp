@@ -1743,8 +1743,14 @@ void PlayerbotMgr::InitLuaItemType()
 
 		return false;
 	});
-	item_type["spell_charges"] = sol::property(&Item::GetSpellCharges);
-	item_type["enchant_charges"] = sol::property(&Item::GetEnchantmentCharges);
+	item_type["spell_charges"] = sol::property([](const Item* self)
+	{
+		return self->GetSpellCharges();
+	});
+	item_type["enchant_charges"] = sol::property([](const Item* self)
+	{
+		return self->GetEnchantmentCharges();
+	});
 
 	item_type["use"] = sol::overload([&](Item* self)
 	{
