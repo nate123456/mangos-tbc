@@ -1688,19 +1688,14 @@ void PlayerbotMgr::InitLuaAuraType()
 	sol::usertype<SpellAuraHolder> aura_type = m_lua.new_usertype<SpellAuraHolder>("Aura");
 
 	aura_type["stacks"] = sol::property(&SpellAuraHolder::GetStackAmount);
-	aura_type["duration"] = sol::property([](const SpellAuraHolder* aura)->long long
+	aura_type["duration"] = sol::property([](const SpellAuraHolder* aura)
 	{
-		auto duration = aura->GetAuraDuration();
+		const auto duration = aura->GetAuraDuration();
 
 		if (duration == -1)
-			duration = static_cast<long long>(aura->GetAuraApplyMSTime());
+			return (aura->GetAuraApplyTime());
 
-		if (duration == -1)
-			return -1;
-
-		const auto current = World::GetCurrentClockTime().time_since_epoch().count();
-
-		return duration - current;
+		return duration;
 	});
 	aura_type["max_duration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
 	aura_type["charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
