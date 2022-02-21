@@ -1161,28 +1161,28 @@ void PlayerbotMgr::InitLuaPlayerType()
     {
         if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
             self, CURRENT_CHANNELED_SPELL) > 0)
-            return SPELL_FAILED_NOT_READY;
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
 
         return Cast(self, target, spellId);
     }, [&](Player* self, Unit* target, const uint32 spellId, const bool checkIsAlive)
     {
         if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
             self, CURRENT_CHANNELED_SPELL) > 0)
-            return SPELL_FAILED_NOT_READY;
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
 
 		return Cast(self, target, spellId, checkIsAlive);
     }, [&](Player* self, const uint32 spellId)
     {
         if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
             self, CURRENT_CHANNELED_SPELL) > 0)
-            return SPELL_FAILED_NOT_READY;
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
 
         return Cast(self, self, spellId);
     }, [&](Player* self, const uint32 spellId, const bool checkIsAlive)
     {
         if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
             self, CURRENT_CHANNELED_SPELL) > 0)
-            return SPELL_FAILED_NOT_READY;
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
 
         return Cast(self, self, spellId, checkIsAlive);
     });
@@ -1883,14 +1883,10 @@ SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spell
 		return SPELL_NOT_FOUND;
 	}
 
-	// verify spell is ready
-	if (!bot->IsSpellReady(*p_spell_info))
-		return SPELL_FAILED_NOT_READY;
-
 	const auto gcd_time = bot->GetGCD(p_spell_info).time_since_epoch().count();
 
 	if (const auto current = World::GetCurrentClockTime().time_since_epoch().count(); gcd_time - current > 0)
-		return SPELL_FAILED_NOT_READY;
+		return SPELL_FAILED_TRY_AGAIN;
 
 	// verify caster can afford to cast
 	const auto tmp_spell = new Spell(bot, p_spell_info, false);
