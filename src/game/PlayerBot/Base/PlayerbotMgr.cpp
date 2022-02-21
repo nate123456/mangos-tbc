@@ -1770,9 +1770,11 @@ void PlayerbotMgr::InitLuaItemType()
 	});
 	item_type["charges"] = sol::property([](const Item* self)
 	{
-			for (uint32 i = 0; i < 5; ++i)
-				if (self->GetProto()->Spells[i].SpellCharges)
-					return self->GetSpellCharges(i);
+		for (uint32 i = 0; i < 5; ++i)
+			if (self->GetProto()->Spells[i].SpellCharges)
+				return self->GetSpellCharges(i);
+
+		return 0;
 	});
 
 	item_type["use"] = sol::overload([&](Item* self)
