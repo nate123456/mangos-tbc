@@ -1772,7 +1772,7 @@ void PlayerbotMgr::InitLuaItemType()
 	{
 		for (uint32 i = 0; i < 5; ++i)
 			if (self->GetProto()->Spells[i].SpellCharges)
-				return self->GetSpellCharges(i);
+				return self->GetSpellCharges(i) * -1;
 
 		return 0;
 	});
