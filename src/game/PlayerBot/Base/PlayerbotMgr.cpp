@@ -1740,6 +1740,9 @@ void PlayerbotMgr::InitLuaItemType()
 	{
 		Player* owner = self->GetOwner();
 
+		if (!owner->GetPlayerbotAI())
+			return;
+
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
 			return;
 
@@ -1750,6 +1753,9 @@ void PlayerbotMgr::InitLuaItemType()
 			return;
 
 		Player* owner = self->GetOwner();
+
+		if (!owner->GetPlayerbotAI())
+			return;
 
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
 			return;
@@ -1767,6 +1773,9 @@ void PlayerbotMgr::InitLuaItemType()
 
 		Player* owner = self->GetOwner();
 
+		if (!owner->GetPlayerbotAI())
+			return;
+
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
 			return;
 
@@ -1778,12 +1787,26 @@ void PlayerbotMgr::InitLuaItemType()
 
 		Player* owner = self->GetOwner();
 
+		if (!owner->GetPlayerbotAI())
+			return;
+
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
 			return;
 
 		UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
 	});
+	item_type["destroy"] = sol::overload([&](const Item* self)
+	{
+		Player* owner = self->GetOwner();
 
+		if (!owner->GetPlayerbotAI())
+			return;
+
+		if (const auto ai = owner->GetPlayerbotAI(); !ai)
+			return;
+
+		self->DestroyForPlayer(owner);
+	});
 }
 
 Unit* PlayerbotMgr::GetRaidIcon(const uint8 iconIndex) const
