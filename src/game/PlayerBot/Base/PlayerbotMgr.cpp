@@ -1159,15 +1159,31 @@ void PlayerbotMgr::InitLuaPlayerType()
 	});
 	player_type["cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
     {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
+
         return Cast(self, target, spellId);
     }, [&](Player* self, Unit* target, const uint32 spellId, const bool checkIsAlive)
     {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
+
 		return Cast(self, target, spellId, checkIsAlive);
     }, [&](Player* self, const uint32 spellId)
     {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
+
         return Cast(self, self, spellId);
     }, [&](Player* self, const uint32 spellId, const bool checkIsAlive)
     {
+        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+            self, CURRENT_CHANNELED_SPELL) > 0)
+            return SPELL_FAILED_SPELL_IN_PROGRESS;
+
         return Cast(self, self, spellId, checkIsAlive);
     });
 	player_type["force_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
