@@ -1946,12 +1946,7 @@ uint32 PlayerbotMgr::CurrentCast(const Unit* unit, const CurrentSpellTypes type)
 	if (!current_spell)
 		return 0;
 
-	const auto current_spell_info = current_spell->m_spellInfo;
-
-	if (!current_spell_info)
-		return 0;
-
-	return static_cast<int>(current_spell_info->Id);
+	return current_spell->GetCastTime();
 }
 
 void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const ObjectGuid targetGuid) const
