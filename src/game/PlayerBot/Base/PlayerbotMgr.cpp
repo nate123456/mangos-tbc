@@ -1706,7 +1706,30 @@ void PlayerbotMgr::InitLuaItemType()
 {
 	sol::usertype<Item> item_type = m_lua.new_usertype<Item>("Item", sol::base_classes, sol::bases<Object>());
 
-	item_type["stack_count"] = sol::property(&Item::GetCount);
+	item_type["total_count"] = sol::property([](const Item* self)
+	{
+		uint32 count = 0;
+
+		for (int i = EQUIPMENT_SLOT_START; i < INVENTORY_SLOT_ITEM_END; ++i)
+		{
+			Item* p_item = self->GetOwner()->GetItemByPos(INVENTORY_SLOT_BAG_0, i);
+			if (p_item && p_item->GetEntry() == self->GetEntry() && !p_item->IsInTrade())
+				count += p_item->GetCount();
+		}
+
+		for (int i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; ++i)
+		{
+			if (const Bag* p_bag = static_cast<Bag*>(self->GetOwner()->GetItemByPos(INVENTORY_SLOT_BAG_0, i)))
+			{
+				for (uint32 j = 0; j < p_bag->GetBagSize(); ++j)
+				{
+					Item* p_item = self->GetOwner()->GetItemByPos(i, j);
+					if (p_item && p_item->GetEntry() == self->GetEntry() && !p_item->IsInTrade())
+						count += p_item->GetCount();
+				}
+			}
+		}
+	});
 	item_type["is_potion"] = sol::property(&Item::IsPotion);
 	item_type["max_stack_count"] = sol::property(&Item::GetMaxStackCount);
 	item_type["id"] = sol::property([](const Item* self)
@@ -1745,7 +1768,13 @@ void PlayerbotMgr::InitLuaItemType()
 	});
 	item_type["charges"] = sol::property([](const Item* self)
 	{
-		return self->GetSpellCharges();
+		for (auto i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+		{
+			if (auto const& spell = self->GetProto()->Spells[i]; spell.SpellId != 0)
+			{
+				return spell.SpellCharges;
+			}
+		}
 	});
 
 	item_type["use"] = sol::overload([&](Item* self)
