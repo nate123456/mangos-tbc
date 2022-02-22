@@ -68,7 +68,7 @@ class PlayerbotMgr
         void SendMsg(const std::string& msg, bool isError = false, bool sendLog = true, bool sendSysMessage = true);
         SpellCastResult Cast(Player* bot, Unit* target, uint32 spellId, bool checkIsAlive = true) const;
         static uint32 CurrentCast(const Unit* unit, CurrentSpellTypes type);
-        void UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
+        SpellCastResult UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
         void TellMaster(const std::string& text, const Player* fromPlayer) const;
         void SendWhisper(const std::string& text, const Player* fromPlayer, const Player* toPlayer) const;
         void SendChatMessage(const std::string& text, const Player* fromPlayer, const uint32 opCode) const;

@@ -1302,6 +1302,15 @@ void PlayerbotMgr::InitLuaUnitType()
 	{
 		return CurrentCast(self, CURRENT_GENERIC_SPELL);
 	});
+	unit_type["current_cast_time"] = sol::property([](const Unit* self)->uint32
+	{
+		const auto current_spell = self->GetCurrentSpell(CURRENT_GENERIC_SPELL);
+
+		if (!current_spell)
+			return 0;
+
+		return current_spell->GetCastedTime();
+	});
 	unit_type["current_auto_attack"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_AUTOREPEAT_SPELL);
@@ -1310,6 +1319,7 @@ void PlayerbotMgr::InitLuaUnitType()
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
 	});
+
 
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
@@ -1779,28 +1789,14 @@ void PlayerbotMgr::InitLuaItemType()
 
 	item_type["use"] = sol::overload([&](Item* self)
 	{
-		Player* owner = self->GetOwner();
-
-		if (!owner->GetPlayerbotAI())
-			return;
-
-		if (const auto ai = owner->GetPlayerbotAI(); !ai)
-			return;
-
-		UseItem(owner, self, TARGET_FLAG_UNIT, self->GetOwnerGuid());
+		UseItem(self->GetOwner(), self, TARGET_FLAG_UNIT, self->GetOwnerGuid());
 	}, [&](Item* self, const uint8 slot)
 	{
 		if (slot >= EQUIPMENT_SLOT_END || slot < EQUIPMENT_SLOT_START)
 			return;
 
 		Player* owner = self->GetOwner();
-
-		if (!owner->GetPlayerbotAI())
-			return;
-
-		if (const auto ai = owner->GetPlayerbotAI(); !ai)
-			return;
-
+		
 		Item* const item = owner->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
 
 		if (!item)
@@ -1813,9 +1809,6 @@ void PlayerbotMgr::InitLuaItemType()
 			return;
 
 		Player* owner = self->GetOwner();
-
-		if (!owner->GetPlayerbotAI())
-			return;
 
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
 			return;
@@ -1830,10 +1823,7 @@ void PlayerbotMgr::InitLuaItemType()
 
 		if (!owner->GetPlayerbotAI())
 			return;
-
-		if (const auto ai = owner->GetPlayerbotAI(); !ai)
-			return;
-
+		
 		UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
 	});
 	item_type["destroy"] = sol::overload([&](const Item* self)
@@ -1979,16 +1969,21 @@ uint32 PlayerbotMgr::CurrentCast(const Unit* unit, const CurrentSpellTypes type)
 	if (!current_spell)
 		return 0;
 
-	return current_spell->GetCastedTime();
+	const auto current_spell_info = current_spell->m_spellInfo;
+
+	if (!current_spell_info)
+		return 0;
+
+	return static_cast<int>(current_spell_info->Id);
 }
 
-void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const ObjectGuid targetGuid) const
+SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const ObjectGuid targetGuid) const
 {
 	if (!item)
-		return;
+		return SPELL_FAILED_ERROR;
 
 	if (const auto ai = bot->GetPlayerbotAI(); !ai)
-		return;
+		return SPELL_FAILED_ERROR;
 
 	const uint8 bag_index = item->GetBagSlot();
 	const uint8 slot = item->GetSlot();
@@ -2007,7 +2002,7 @@ void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const Obj
 			bot->GetSession()->QueuePacket(std::move(packet)); // queue the packet to get around race condition
 			// "|cffffff00Quest taken |r" << qInfo->GetTitle();
 		}
-		return;
+		return SPELL_CAST_OK;
 	}
 
 	uint32 spell_id = 0;
@@ -2030,19 +2025,19 @@ void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const Obj
 		*packet << item->GetBagSlot();
 		*packet << item->GetSlot();
 		bot->GetSession()->QueuePacket(std::move(packet)); // queue the packet to get around race condition
-		return;
+		return SPELL_CAST_OK;
 	}
 
 	const auto spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
 	if (!spell_info)
 	{
-		return;
+		return SPELL_FAILED_ITEM_NOT_FOUND;
 	}
 
 	if (const SpellCastTimesEntry* casting_time_entry = sSpellCastTimesStore.LookupEntry(spell_info->CastingTimeIndex);
 		!casting_time_entry)
 	{
-		return;
+		return SPELL_FAILED_ITEM_NOT_FOUND;
 	}
 
 	// stop movement to prevent cancel spell casting
@@ -2052,7 +2047,7 @@ void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const Obj
 	}
 
 	if (!bot->IsSpellReady(*spell_info))
-		return;
+		return SPELL_FAILED_NOT_READY;
 
 	std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_USE_ITEM, 20));
 	*packet << bag_index;
@@ -2066,6 +2061,8 @@ void PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag, const Obj
 		*packet << targetGuid.WriteAsPacked();
 
 	bot->GetSession()->QueuePacket(std::move(packet));
+
+	return SPELL_CAST_OK;
 }
 
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
