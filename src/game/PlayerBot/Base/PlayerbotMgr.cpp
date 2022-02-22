@@ -2010,7 +2010,7 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 
 	for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
 	{
-		if (item->GetProto()->Spells[i].SpellId > 0)
+		if (item->GetProto()->Spells[i].SpellId > 0 && item->GetProto()->Spells[i].SpellTrigger == ITEM_SPELLTRIGGER_ON_USE)
 		{
 			spell_id = item->GetProto()->Spells[i].SpellId;
 			spell_index = i;
