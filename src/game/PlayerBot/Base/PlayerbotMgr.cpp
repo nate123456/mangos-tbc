@@ -106,9 +106,9 @@ public:
 
 void PlayerbotMgr::UpdateAI(const uint32 time)
 {
-	if (m_playerBots.empty())
+	if (const std::string msg = "There are no bots currently online to manage."; m_playerBots.empty() &&
+		m_lastActErrorMsg != msg)
 	{
-		const std::string msg = "There are no bots currently online to manage.";
 		SendMsg(msg);
 		m_lastActErrorMsg = msg;
 		return;
