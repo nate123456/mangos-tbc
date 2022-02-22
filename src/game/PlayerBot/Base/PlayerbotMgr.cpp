@@ -1789,42 +1789,42 @@ void PlayerbotMgr::InitLuaItemType()
 
 	item_type["use"] = sol::overload([&](Item* self)
 	{
-		UseItem(self->GetOwner(), self, TARGET_FLAG_UNIT, self->GetOwnerGuid());
+		return UseItem(self->GetOwner(), self, TARGET_FLAG_UNIT, self->GetOwner()->GetObjectGuid());
 	}, [&](Item* self, const uint8 slot)
 	{
 		if (slot >= EQUIPMENT_SLOT_END || slot < EQUIPMENT_SLOT_START)
-			return;
+			return SPELL_FAILED_ITEM_NOT_FOUND;
 
 		Player* owner = self->GetOwner();
 		
 		Item* const item = owner->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
 
 		if (!item)
-			return;
+			return SPELL_FAILED_ITEM_NOT_FOUND;
 
-		UseItem(owner, self, TARGET_FLAG_ITEM, item->GetObjectGuid());
+		return UseItem(owner, self, TARGET_FLAG_ITEM, item->GetObjectGuid());
 	}, [&](Item* self, const Item* target)
 	{
 		if (!target)
-			return;
+			return SPELL_FAILED_ITEM_NOT_FOUND;
 
 		Player* owner = self->GetOwner();
 
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
-			return;
+			return SPELL_FAILED_ITEM_NOT_FOUND;
 
-		UseItem(owner, self, TARGET_FLAG_ITEM, target->GetObjectGuid());
+		return UseItem(owner, self, TARGET_FLAG_ITEM, target->GetObjectGuid());
 	}, [&](Item* self, GameObject* obj)
 	{
 		if (!obj)
-			return;
+			return SPELL_FAILED_ITEM_NOT_FOUND;
 
 		Player* owner = self->GetOwner();
 
 		if (!owner->GetPlayerbotAI())
-			return;
+			return SPELL_FAILED_ITEM_NOT_FOUND;
 		
-		UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
+		return UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
 	});
 	item_type["destroy"] = sol::overload([&](const Item* self)
 	{
