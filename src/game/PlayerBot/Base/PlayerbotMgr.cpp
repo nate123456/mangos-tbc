@@ -1755,7 +1755,7 @@ void PlayerbotMgr::InitLuaItemType()
 	item_type["spell_id"] = sol::property([](const Item* self)
 	{
 		for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
-			if (self->GetProto()->Spells[i].SpellId > 0)
+			if (const auto spell = self->GetProto()->Spells[i]; spell.SpellId > 0 && spell.SpellTrigger == ITEM_SPELLTRIGGER_ON_USE)
 				return self->GetProto()->Spells[i].SpellId;
 		return static_cast<uint32>(0);
 	});
@@ -2010,7 +2010,7 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 
 	for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
 	{
-		if (item->GetProto()->Spells[i].SpellId > 0 && item->GetProto()->Spells[i].SpellTrigger == ITEM_SPELLTRIGGER_ON_USE)
+		if (const auto spell = item->GetProto()->Spells[i]; spell.SpellId > 0 && spell.SpellTrigger == ITEM_SPELLTRIGGER_ON_USE)
 		{
 			spell_id = item->GetProto()->Spells[i].SpellId;
 			spell_index = i;
