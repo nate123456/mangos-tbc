@@ -1856,6 +1856,9 @@ void PlayerbotMgr::InitLuaItemType()
 		if (!item)
 			return SPELL_FAILED_ITEM_NOT_FOUND;
 
+		owner->InterruptSpell(CURRENT_GENERIC_SPELL);
+		owner->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
 		return UseItem(owner, self, TARGET_FLAG_ITEM, item->GetObjectGuid());
 	}, [&](Item* self, const Item* target)
 	{
@@ -1867,6 +1870,9 @@ void PlayerbotMgr::InitLuaItemType()
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
 			return SPELL_FAILED_ITEM_NOT_FOUND;
 
+		owner->InterruptSpell(CURRENT_GENERIC_SPELL);
+		owner->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
 		return UseItem(owner, self, TARGET_FLAG_ITEM, target->GetObjectGuid());
 	}, [&](Item* self, GameObject* obj)
 	{
@@ -1877,6 +1883,9 @@ void PlayerbotMgr::InitLuaItemType()
 
 		if (!owner->GetPlayerbotAI())
 			return SPELL_FAILED_ITEM_NOT_FOUND;
+
+		owner->InterruptSpell(CURRENT_GENERIC_SPELL);
+		owner->InterruptSpell(CURRENT_CHANNELED_SPELL);
 
 		return UseItem(owner, self, TARGET_FLAG_GAMEOBJECT, obj->GetObjectGuid());
 	});
