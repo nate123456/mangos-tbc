@@ -2043,7 +2043,7 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 	// stop movement to prevent cancel spell casting
 	else if (casting_time_entry && casting_time_entry->CastTime)
 	{
-		bot->StopMoving();
+		bot->GetMotionMaster()->Initialize();
 	}
 
 	if (!bot->IsSpellReady(*spell_info))
