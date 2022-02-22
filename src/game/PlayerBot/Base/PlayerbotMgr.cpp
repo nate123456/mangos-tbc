@@ -1166,9 +1166,9 @@ void PlayerbotMgr::InitLuaPlayerType()
         return Cast(self, target, spellId);
     }, [&](Player* self, Unit* target, const uint32 spellId, const bool checkIsAlive)
     {
-        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
-            self, CURRENT_CHANNELED_SPELL) > 0)
-            return SPELL_FAILED_SPELL_IN_PROGRESS;
+		if (const auto current_cast_time = self->GetCurrentSpell(CURRENT_GENERIC_SPELL); current_cast_time &&
+			current_cast_time->GetCastedTime() > 0)
+			return SPELL_FAILED_SPELL_IN_PROGRESS;
 
 		return Cast(self, target, spellId, checkIsAlive);
     }, [&](Player* self, const uint32 spellId)
@@ -1180,11 +1180,11 @@ void PlayerbotMgr::InitLuaPlayerType()
         return Cast(self, self, spellId);
     }, [&](Player* self, const uint32 spellId, const bool checkIsAlive)
     {
-        if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
-            self, CURRENT_CHANNELED_SPELL) > 0)
-            return SPELL_FAILED_SPELL_IN_PROGRESS;
+	    if (const auto current_cast_time = self->GetCurrentSpell(CURRENT_GENERIC_SPELL); current_cast_time &&
+		    current_cast_time->GetCastedTime() > 0)
+		    return SPELL_FAILED_SPELL_IN_PROGRESS;
 
-        return Cast(self, self, spellId, checkIsAlive);
+	    return Cast(self, self, spellId, checkIsAlive);
     });
 	player_type["force_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
@@ -1319,7 +1319,6 @@ void PlayerbotMgr::InitLuaUnitType()
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
 	});
-
 
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
