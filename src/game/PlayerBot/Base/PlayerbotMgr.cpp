@@ -1899,7 +1899,10 @@ void PlayerbotMgr::InitLuaItemType()
 		if (const auto ai = owner->GetPlayerbotAI(); !ai)
 			return;
 
-		self->DestroyForPlayer(owner);
+		const uint8 bag_index = self->GetBagSlot();
+		const uint8 slot = self->GetSlot();
+
+		owner->DestroyItem(bag_index, slot, true);
 	});
 }
 
