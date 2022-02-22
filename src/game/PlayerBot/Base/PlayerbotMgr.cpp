@@ -1762,7 +1762,7 @@ void PlayerbotMgr::InitLuaItemType()
 	{
 		for (const auto& spell : self->GetProto()->Spells)
 		{
-			if (spell.SpellId > 0)
+			if (spell.SpellId > 0 && spell.SpellTrigger == ITEM_SPELLTRIGGER_ON_USE)
 			{
 				const auto spell_id = spell.SpellId;
 
@@ -2109,7 +2109,7 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 	// stop movement to prevent cancel spell casting
 	else if (casting_time_entry && casting_time_entry->CastTime)
 	{
-		bot->GetMotionMaster()->Initialize();
+		bot->GetMotionMaster()->Clear();
 	}
 
 	if (!bot->IsSpellReady(*spell_info))
