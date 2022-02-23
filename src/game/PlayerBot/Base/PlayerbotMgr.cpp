@@ -3010,17 +3010,23 @@ void PlayerbotMgr::UseLuaAI(const bool useLua)
 
 	m_usingLuaAI = useLua;
 
-	m_masterChatHandler.PSendSysMessage("[1/3] Logging out all bots.");
+	m_masterChatHandler.PSendSysMessage("[1/4] Moving all bots to master.");
 
 	std::vector<ObjectGuid> bot_ids;
 	bot_ids.reserve(m_playerBots.size());
 
 	for (auto &[id, player] : m_playerBots)
+	{
 		bot_ids.push_back(id);
+		// avoids a possible silent failure that occurs when the bots are logged out then back in and they are not in the same map
+		player->GetPlayerbotAI()->DoTeleport(*m_master);
+	}
+
+	m_masterChatHandler.PSendSysMessage("[2/4] Logging out all bots.");
 
 	LogoutAllBots(true);
 
-	m_masterChatHandler.PSendSysMessage("[2/3] Logging in all bots.");
+	m_masterChatHandler.PSendSysMessage("[3/4] Logging in all bots.");
 
 	for (ObjectGuid id : bot_ids)
 	{
@@ -3030,12 +3036,12 @@ void PlayerbotMgr::UseLuaAI(const bool useLua)
 
 	if (m_usingLuaAI)
 	{
-		m_masterChatHandler.PSendSysMessage("[3/3] Loading scripts.");
+		m_masterChatHandler.PSendSysMessage("[4/4] Loading scripts.");
 		LoadUserLuaScript();
 	}
 	else
 	{
-		m_masterChatHandler.PSendSysMessage("[3/3] Initializing legacy AI.");
+		m_masterChatHandler.PSendSysMessage("[4/4] Initializing legacy AI.");
 		// No init is needed currently, but it is still good to notify user.
 	}
 }
