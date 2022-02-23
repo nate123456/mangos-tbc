@@ -3014,29 +3014,29 @@ void PlayerbotMgr::UseLuaAI(const bool useLua)
 
 	m_usingLuaAI = useLua;
 
-	m_masterChatHandler.PSendSysMessage("[1/4] Moving all bots to master.");
+	//m_masterChatHandler.PSendSysMessage("[1/4] Moving all bots to master.");
 
-	std::vector<ObjectGuid> bot_ids;
-	bot_ids.reserve(m_playerBots.size());
+	//std::vector<ObjectGuid> bot_ids;
+	//bot_ids.reserve(m_playerBots.size());
 
-	for (auto &[id, player] : m_playerBots)
-	{
-		bot_ids.push_back(id);
-		// avoids a possible silent failure that occurs when the bots are taken over 
-		player->GetPlayerbotAI()->DoTeleport(*m_master);
-	}
+	//for (auto &[id, player] : m_playerBots)
+	//{
+	//	bot_ids.push_back(id);
+	//	// avoids a possible silent failure that occurs when the bots are taken over 
+	//	player->GetPlayerbotAI()->DoTeleport(*m_master);
+	//}
 
-	m_masterChatHandler.PSendSysMessage("[2/4] Logging out all bots.");
+	//m_masterChatHandler.PSendSysMessage("[2/4] Logging out all bots.");
 
-	LogoutAllBots(true);
+	//LogoutAllBots(true);
 
-	m_masterChatHandler.PSendSysMessage("[3/4] Logging in all bots.");
+	//m_masterChatHandler.PSendSysMessage("[3/4] Logging in all bots.");
 
-	for (ObjectGuid id : bot_ids)
-	{
-		CharacterDatabase.DirectPExecute("UPDATE characters SET online = 1 WHERE guid = '%u'", id.GetCounter());
-		LoginPlayerBot(id, m_masterAccountId);
-	}
+	//for (ObjectGuid id : bot_ids)
+	//{
+	//	CharacterDatabase.DirectPExecute("UPDATE characters SET online = 1 WHERE guid = '%u'", id.GetCounter());
+	//	LoginPlayerBot(id, m_masterAccountId);
+	//}
 
 	if (m_usingLuaAI)
 	{
