@@ -587,6 +587,8 @@ class PlayerbotAI
         Player* GetPlayer() const { return m_bot; }
         Player* GetMaster() const;
 
+        void ExecuteCommand(char* str);
+
         BotState GetState() { return m_botState; };
         void SetState(BotState state);
         void SetQuestNeedItems();

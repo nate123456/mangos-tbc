@@ -995,6 +995,18 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->StopMoving();
 	};
+	player_type["exec"] = [&](Player* self, char* text)
+	{
+		if (!text || !text[0])
+			return;
+
+		const auto ai = self->GetPlayerbotAI();
+
+		if (!ai)
+			return;
+
+		ai->ExecuteCommand(text);
+	};
 	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
 		if (!to || !text || !text[0] || self == to)

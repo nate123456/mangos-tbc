@@ -87,6 +87,8 @@ class PlayerbotChatHandler : protected ChatHandler
         bool Teleport(Player& botPlayer) { return HandleNamegoCommand((char*) botPlayer.GetName()); }
         void SendSysMessage(const char* str) { SendSysMessage(str); }
         bool DropQuest(char* str) { return HandleQuestRemoveCommand(str); }
+        bool ExecuteCommand(char* str) { return ExecuteCommand(str);
+        }
 };
 
 PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper, sol::state& lua) :
@@ -146,6 +148,13 @@ PlayerbotAI::PlayerbotAI(PlayerbotMgr &mgr, Player* const bot, bool debugWhisper
 PlayerbotAI::~PlayerbotAI()
 {
     if (m_classAI) delete m_classAI;
+}
+
+void PlayerbotAI::ExecuteCommand(char* str)
+{
+    PlayerbotChatHandler ch(m_bot);
+
+    ch.ExecuteCommand(str);
 }
 
 Player* PlayerbotAI::GetMaster() const
