@@ -58,7 +58,7 @@ void PlayerbotMgr::SetInitialWorldSettings()
 }
 
 PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master), m_masterChatHandler(master),
-                                                   m_masterAccountId(master->GetSession()->GetAccountId())
+                                                   m_masterAccountId(master->GetSession()->GetAccountId()), m_usingLuaAI(false)
 {
 	// load config variables
 	m_confMaxNumBots = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
