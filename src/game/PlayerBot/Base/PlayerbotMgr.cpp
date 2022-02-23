@@ -3003,7 +3003,7 @@ void PlayerbotMgr::OnBotLogin(Player* const bot)
 	    const Field* fields = result->Fetch();
 	    const auto account = fields[0].GetUInt32();
 	    m_masterChatHandler.PSendSysMessage("Added bot account: %u, master account: %u", account,
-	                                        m_master->GetObjectGuid().GetCounter());
+	                                        m_master->GetSession()->GetAccountId());
     }
 }
 
