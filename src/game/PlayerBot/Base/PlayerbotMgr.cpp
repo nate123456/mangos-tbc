@@ -34,6 +34,10 @@
 #include "../../Tools/Language.h"
 #include "../../World/World.h"
 #include <boost/algorithm/string.hpp>
+#include <mutex>
+
+std::mutex mtx;
+
 
 class LoginQueryHolder;
 class CharacterHandler;
@@ -106,6 +110,14 @@ public:
 
 void PlayerbotMgr::UpdateAI(const uint32 time)
 {
+	if (const std::string msg = "Lua scripting is currently disabled."; m_playerBots.empty() &&
+		m_lastActErrorMsg != msg)
+	{
+		SendMsg(msg);
+		m_lastActErrorMsg = msg;
+		return;
+	}
+
 	if (const std::string msg = "There are no bots currently online to manage."; m_playerBots.empty() &&
 		m_lastActErrorMsg != msg)
 	{
@@ -2991,6 +3003,44 @@ void PlayerbotMgr::RemoveAllBotsFromGroup()
     }
 }
 
+void PlayerbotMgr::UseLuaAI(const bool useLua)
+{
+	if (m_usingLuaAI == useLua)
+		return;
+
+	m_usingLuaAI = useLua;
+
+	m_masterChatHandler.PSendSysMessage("[1/3] Logging out all bots.");
+
+	std::vector<ObjectGuid> bot_ids;
+	bot_ids.reserve(m_playerBots.size());
+
+	for (auto &[id, player] : m_playerBots)
+		bot_ids.push_back(id);
+
+	LogoutAllBots(true);
+
+	m_masterChatHandler.PSendSysMessage("[2/3] Logging in all bots.");
+
+	for (ObjectGuid id : bot_ids)
+	{
+		CharacterDatabase.DirectPExecute("UPDATE characters SET online = 1 WHERE guid = '%u'", id.GetCounter());
+		LoginPlayerBot(id, m_masterAccountId);
+	}
+
+	if (m_usingLuaAI)
+	{
+		m_masterChatHandler.PSendSysMessage("[3/3] Loading scripts.");
+		LoadUserLuaScript();
+	}
+	else
+	{
+		m_masterChatHandler.PSendSysMessage("[3/3] Initializing legacy AI.");
+		// No init is needed currently, but it is still good to notify user.
+	}
+}
+
+
 void Creature::LoadBotMenu(Player* pPlayer)
 {
 
@@ -3187,6 +3237,26 @@ bool PlayerbotMgr::VerifyScriptExists(const std::string& name, const uint32 acco
 
 std::string PlayerbotMgr::GenerateToken() const
 {
+	// we want to ensure no data race can occur that could result in two players having the same token
+	mtx.lock();
+
+	std::vector<std::string> tokens;
+
+	if (QueryResult* token_result = CharacterDatabase.PQuery(
+		"SELECT token FROM playerbot_tokens"))
+	{
+		tokens.resize(token_result->GetRowCount());
+
+		do
+		{
+			const Field* fields = token_result->Fetch();
+			std::string token = fields[0].GetCppString();
+		}
+		while (token_result->NextRow());
+
+		delete token_result;
+	}
+
 	auto rand_char = []() -> char
 	{
 		constexpr char charset[] =
@@ -3195,8 +3265,31 @@ std::string PlayerbotMgr::GenerateToken() const
 		constexpr size_t max_index = (sizeof(charset) - 1);
 		return charset[rand() % max_index];
 	};
+
 	std::string str(6, 0);
-	std::generate_n(str.begin(), 6, rand_char);
+
+	do
+	{
+		std::generate_n(str.begin(), 6, rand_char);
+
+		auto found = false;
+
+		for (const auto& token : tokens)
+		{
+			if (str == token)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if (found)
+			break;
+	}
+	while (true);
+
+	mtx.unlock();
+
 	return str;
 }
 
@@ -3227,21 +3320,20 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
     }
 
     std::string cmd_string = args;
+	boost::algorithm::to_lower(cmd_string);
     boost::algorithm::trim(cmd_string);
+
+	// create the playerbot manager if it doesn't already exist
+	PlayerbotMgr* mgr = m_session->GetPlayer()->GetPlayerbotMgr();
+	if (!mgr)
+	{
+		mgr = new PlayerbotMgr(m_session->GetPlayer());
+		m_session->GetPlayer()->SetPlayerbotMgr(mgr);
+	}
 
     // if args starts with ai
     if (cmd_string.find("ai") != std::string::npos)
     {
-		
-
-	    // create the playerbot manager if it doesn't already exist
-	    PlayerbotMgr* mgr = m_session->GetPlayer()->GetPlayerbotMgr();
-	    if (!mgr)
-	    {
-		    mgr = new PlayerbotMgr(m_session->GetPlayer());
-		    m_session->GetPlayer()->SetPlayerbotMgr(mgr);
-	    }
-
 	    std::string rem_cmd = cmd_string.substr(2);
 	    boost::algorithm::trim(rem_cmd);
 
@@ -3250,36 +3342,18 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 	    {
 		    PSendSysMessage(
 			    R"(usage: 
+get token: retrieve or regenerate an AI authorization token
 load: load ai lua script from database
+use 'lua' or 'legacy': switch between lua or legacy AI
 write <COMMAND>: send a command string to lua)");
 		    return true;
 	    }
 
-	    if (rem_cmd.find("load") != std::string::npos)
-	    {
-			if (mgr->LoadUserLuaScript())
-			{
-				PSendSysMessage("AI script loaded successfully.");
-				return true;
-			}
-
-			return false;
-	    }
-
-        if (rem_cmd.find("write") != std::string::npos)
-        {
-            std::string message = rem_cmd.substr(5);
-            boost::algorithm::trim(message);
-
-            mgr->SetLuaMasterMessage(message);
-
-            return false;
-        }
-
-	    if (rem_cmd.find("get token") != std::string::npos)
-	    {
+		if (rem_cmd.find("get token") != std::string::npos)
+		{
 			if (const QueryResult* token_result = CharacterDatabase.PQuery(
-				"SELECT token FROM playerbot_tokens WHERE age + INTERVAL 1 DAY > NOW() and accountid = %u", m_session->GetAccountId()))
+				"SELECT token FROM playerbot_tokens WHERE age + INTERVAL 1 DAY > NOW() and accountid = %u",
+				m_session->GetAccountId()))
 			{
 				const Field* token_result_fields = token_result->Fetch();
 
@@ -3302,8 +3376,51 @@ write <COMMAND>: send a command string to lua)");
 				return true;
 			}
 
+			return false;
+		}
+
+	    if (rem_cmd.find("load") != std::string::npos)
+	    {
+			if (!mgr->IsUsingLuaAI())
+			{
+				PSendSysMessage("|cffff0000Lua scripts are currently disabled. To enable lua script usage, use '.bot ai use lua'.");
+				SetSentErrorMessage(true);
+			}
+
+		    if (mgr->LoadUserLuaScript())
+		    {
+			    PSendSysMessage("AI script loaded successfully.");
+			    return true;
+		    }
+
 		    return false;
 	    }
+
+	    if (rem_cmd.find("write") != std::string::npos)
+	    {
+			if (!mgr->IsUsingLuaAI())
+			{
+				PSendSysMessage("|cffff0000Lua scripts are currently disabled. To enable lua script usage, use '.bot ai use lua'.");
+				SetSentErrorMessage(true);
+			}
+
+		    std::string message = rem_cmd.substr(5);
+		    boost::algorithm::trim(message);
+
+		    mgr->SetLuaMasterMessage(message);
+
+		    return false;
+	    }
+
+		if (rem_cmd.find("use") != std::string::npos)
+		{
+			std::string mode = rem_cmd.substr(3);
+			boost::algorithm::trim(mode);
+
+			mgr->UseLuaAI(mode == "lua");
+
+			return false;
+		}
 
 	    return true;
     }
@@ -3339,14 +3456,6 @@ write <COMMAND>: send a command string to lua)");
         SetSentErrorMessage(true);
         return false;
     }*/
-
-    // create the playerbot manager if it doesn't already exist
-    PlayerbotMgr* mgr = m_session->GetPlayer()->GetPlayerbotMgr();
-    if (!mgr)
-    {
-        mgr = new PlayerbotMgr(m_session->GetPlayer());
-        m_session->GetPlayer()->SetPlayerbotMgr(mgr);
-    }
 
     QueryResult* resultchar = CharacterDatabase.PQuery("SELECT COUNT(*) FROM characters WHERE online = '1' AND account = '%u'", m_session->GetAccountId());
     if (resultchar)

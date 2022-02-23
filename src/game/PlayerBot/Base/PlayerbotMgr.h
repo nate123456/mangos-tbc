@@ -77,7 +77,7 @@ class PlayerbotMgr
         // should be called from worldsession::Update only to avoid possible problem with invalid session or player pointer
         void RemoveBots();
 
-        // This is called from Unit.cpp and is called every second (I think)
+        // This is called from Unit.cpp and is called every ~50ms or so depending on main thread performance
         void UpdateAI(const uint32 time);
 
         // This is called whenever the master sends a packet to the server.
@@ -103,6 +103,8 @@ class PlayerbotMgr
         void OnBotLogin(Player* const bot);
         void Stay();
         void SetLuaMasterMessage(const std::string& message) { m_lastManagerMessage = message; }
+        void UseLuaAI(const bool useLua);
+        bool IsUsingLuaAI() const { return m_usingLuaAI; }
 
     public:
         // config variables
@@ -136,6 +138,7 @@ class PlayerbotMgr
         Position m_lastCommandPosition;
         ChatHandler m_masterChatHandler;
         uint32 m_masterAccountId;
+        bool m_usingLuaAI;
 };
 
 #endif

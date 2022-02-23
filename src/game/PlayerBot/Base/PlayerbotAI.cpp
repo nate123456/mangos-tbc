@@ -1983,7 +1983,18 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
                     if (sender != m_bot && sender->GetPlayerbotAI())
                         return;
 
-                    m_lastMessage = text;
+                    bool pass_through = false;
+                    if (text[0] == '*')
+                    {
+                        pass_through = true;
+                        text = text.substr(1);
+                    }
+
+                    if (m_mgr.IsUsingLuaAI()  && !pass_through)
+                        m_lastMessage = text;
+                    else
+                        HandleCommand(text, *sender);
+
                     return;
                 }
                 default:
@@ -4969,7 +4980,8 @@ void PlayerbotAI::Announce(AnnounceFlags msg)
 
 void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
 {   
-    return;
+    if (m_mgr.IsUsingLuaAI())
+        return;
     
     if (GetClassAI()->GetWaitUntil() <= CurrentTime())
         GetClassAI()->ClearWait();
