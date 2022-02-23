@@ -110,21 +110,25 @@ public:
 
 void PlayerbotMgr::UpdateAI(const uint32 time)
 {
-	if (const std::string msg = "Lua scripting is currently disabled."; !IsUsingLuaAI() &&
-		m_lastActErrorMsg != msg)
+	if (!IsUsingLuaAI())
 	{
-		SendMsg(msg);
-		m_lastActErrorMsg = msg;
-		return;
+		if (const std::string msg = "Lua scripting is currently disabled."; m_lastActErrorMsg != msg)
+		{
+			SendMsg(msg);
+			m_lastActErrorMsg = msg;
+			return;
+		}
 	}
 
-	if (const std::string msg = "There are no bots currently online to manage."; m_playerBots.empty() &&
-		m_lastActErrorMsg != msg)
+	if (m_playerBots.empty())
 	{
-		SendMsg(msg);
-		m_lastActErrorMsg = msg;
-		return;
-	}
+		if (const std::string msg = "There are no bots currently online to manage."; m_lastActErrorMsg != msg)
+		{
+			SendMsg(msg);
+			m_lastActErrorMsg = msg;
+			return;
+		}
+	}	
 
 	if (!m_luaEnvironment)
 	{
