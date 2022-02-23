@@ -3275,8 +3275,8 @@ std::string PlayerbotMgr::GenerateToken() const
 	auto rand_char = []() -> char
 	{
 		constexpr char charset[] =
-			"123456789"
-			"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			"23456789"
+			"ABCDEFGHJKMNOPQRSTUVWXYZ";
 		constexpr size_t max_index = (sizeof(charset) - 1);
 		return charset[rand() % max_index];
 	};
