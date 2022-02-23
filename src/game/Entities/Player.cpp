@@ -16535,6 +16535,24 @@ void Player::SaveToDB()
     static SqlStatementID delChar ;
     static SqlStatementID insChar ;
 
+
+#ifdef BUILD_PLAYERBOT
+    uint32 account_id = m_session->GetAccountId();
+
+    if (GetPlayerbotAI())
+    {
+        // we want to re-use the account the bot was originally on to allow for bots to be from other accounts
+	    if (const QueryResult* result = CharacterDatabase.PQuery(
+		    "SELECT account FROM characters WHERE online = '1' AND guid = '%u'",
+		    GetGUIDLow()))
+	    {
+		    const Field* fields = result->Fetch();
+		    account_id = fields[0].GetUInt32();
+	    }
+    }
+#endif
+
+
     SqlStatement stmt = CharacterDatabase.CreateStatement(delChar, "DELETE FROM characters WHERE guid = ?");
     stmt.PExecute(GetGUIDLow());
 
@@ -16556,7 +16574,7 @@ void Player::SaveToDB()
                               "?, ?, ?, ?, ?, ?, ?, ?) ");
 
     uberInsert.addUInt32(GetGUIDLow());
-    uberInsert.addUInt32(GetSession()->GetAccountId());
+    uberInsert.addUInt32(account_id);
     uberInsert.addString(m_name);
     uberInsert.addUInt8(getRace());
     uberInsert.addUInt8(getClass());

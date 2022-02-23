@@ -2995,16 +2995,6 @@ void PlayerbotMgr::OnBotLogin(Player* const bot)
             }
         }
     }
-
-    if (const QueryResult* result = CharacterDatabase.PQuery(
-	    "SELECT account FROM characters WHERE online = '1' AND guid = '%u'",
-	    bot->GetObjectGuid().GetCounter()))
-    {
-	    const Field* fields = result->Fetch();
-	    const auto account = fields[0].GetUInt32();
-	    m_masterChatHandler.PSendSysMessage("Added bot account: %u, master account: %u", account,
-	                                        m_master->GetSession()->GetAccountId());
-    }
 }
 
 void PlayerbotMgr::RemoveAllBotsFromGroup()
