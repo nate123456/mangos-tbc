@@ -116,8 +116,8 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		{
 			SendMsg(msg);
 			m_lastActErrorMsg = msg;
-			return;
 		}
+		return;
 	}
 
 	if (m_playerBots.empty())
@@ -126,8 +126,8 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		{
 			SendMsg(msg);
 			m_lastActErrorMsg = msg;
-			return;
 		}
+		return;
 	}	
 
 	if (!m_luaEnvironment)
