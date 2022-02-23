@@ -110,7 +110,7 @@ public:
 
 void PlayerbotMgr::UpdateAI(const uint32 time)
 {
-	if (const std::string msg = "Lua scripting is currently disabled."; m_playerBots.empty() &&
+	if (const std::string msg = "Lua scripting is currently disabled."; !IsUsingLuaAI() &&
 		m_lastActErrorMsg != msg)
 	{
 		SendMsg(msg);
@@ -3018,7 +3018,7 @@ void PlayerbotMgr::UseLuaAI(const bool useLua)
 	for (auto &[id, player] : m_playerBots)
 	{
 		bot_ids.push_back(id);
-		// avoids a possible silent failure that occurs when the bots are logged out then back in and they are not in the same map
+		// avoids a possible silent failure that occurs when the bots are taken over 
 		player->GetPlayerbotAI()->DoTeleport(*m_master);
 	}
 
