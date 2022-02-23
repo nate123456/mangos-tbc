@@ -2995,6 +2995,16 @@ void PlayerbotMgr::OnBotLogin(Player* const bot)
             }
         }
     }
+
+    if (const QueryResult* result = CharacterDatabase.PQuery(
+	    "SELECT account FROM characters WHERE online = '1' AND guid = '%u'",
+	    bot->GetObjectGuid().GetCounter()))
+    {
+	    const Field* fields = result->Fetch();
+	    const auto account = fields[0].GetUInt32();
+	    m_masterChatHandler.PSendSysMessage("Added bot account: %u, master account: %u", account,
+	                                        m_master->GetObjectGuid().GetCounter());
+    }
 }
 
 void PlayerbotMgr::RemoveAllBotsFromGroup()
@@ -3045,7 +3055,7 @@ void PlayerbotMgr::UseLuaAI(const bool useLua)
 
 	if (m_usingLuaAI)
 	{
-		m_masterChatHandler.PSendSysMessage("[4/4] Loading scripts.");
+		m_masterChatHandler.PSendSysMessage("[4/4] Initializing Lua AI: Loading scripts.");
 		LoadUserLuaScript();
 	}
 	else

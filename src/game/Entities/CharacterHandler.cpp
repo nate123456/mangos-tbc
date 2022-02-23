@@ -739,7 +739,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder, const bool checkA
     stmt.PExecute(pCurrChar->GetGUIDLow());
 
     stmt = LoginDatabase.CreateStatement(updAccount, "UPDATE account SET active_realm_id = ? WHERE id = ?");
-    stmt.PExecute(realmID, GetAccountId());
+    stmt.PExecute(realmID, _player->GetSession()->GetAccountId());
 
     pCurrChar->SetInGameTime(WorldTimer::getMSTime());
 
