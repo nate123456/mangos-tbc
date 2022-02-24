@@ -24,9 +24,9 @@ USE_VMAPS="0"
 USE_MMAPS="0"
 USE_MMAPS_OFFMESH="0"
 USE_MMAPS_DELAY=""
-AD_RES=""
-VMAP_RES=""
-NUM_THREAD=""
+AD_RES="-f 0"
+VMAP_RES="-l"
+NUM_THREAD="4"
 
 if [ "$1" = "a" ]
 then
