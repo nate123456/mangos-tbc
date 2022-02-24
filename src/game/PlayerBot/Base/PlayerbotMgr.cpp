@@ -982,7 +982,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->StopMoving();
 	};
-	player_type["exec"] = [](Player* self, char* text)
+	player_type["exec"] = [](Player* self, const char* text)
 	{
 		if (!text || !text[0])
 			return;
@@ -992,7 +992,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!ai)
 			return;
 
-		ai->ExecuteCommand(text);
+		// lua doesn't like non-const char*
+		ai->ExecuteCommand(const_cast<char*>(text));
 	};
 	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
