@@ -128,10 +128,13 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 	if (!m_hasLoadedScript)
 	{
-		const std::string msg =
-			"No lua script has been provided. Use `.bot ai load` to load any stored bot scripts for your account.";
-		SendMsg(msg);
-		m_lastActErrorMsg = msg;
+		if (const std::string msg =
+				"No lua script has been provided. Use `.bot ai load` to load any stored bot scripts for your account.";
+			m_lastActErrorMsg != msg)
+		{
+			m_lastActErrorMsg = msg;
+			SendMsg(msg);
+		}
 		return;
 	}
 
