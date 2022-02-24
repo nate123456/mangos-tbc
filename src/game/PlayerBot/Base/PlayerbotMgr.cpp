@@ -982,9 +982,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->StopMoving();
 	};
-	player_type["exec"] = [&](Player* self, char* text)
+	player_type["exec"] = [&](Player* self, std::string& text)
 	{
-		if (!text || !text[0])
+		if (text.empty())
 			return;
 
 		const auto ai = self->GetPlayerbotAI();
@@ -992,7 +992,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!ai)
 			return;
 
-		ai->ExecuteCommand(text);
+		ai->ExecuteCommand(text.data());
 	};
 	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
