@@ -3423,7 +3423,7 @@ write <COMMAND>: send a command string to lua)");
 
 		    mgr->SetLuaMasterMessage(message);
 
-		    return false;
+		    return true;
 	    }
 
 		if (rem_cmd.find("use") != std::string::npos)
