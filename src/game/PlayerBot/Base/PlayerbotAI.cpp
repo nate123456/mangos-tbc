@@ -79,15 +79,16 @@ enum NPCFlags VENDOR_MASK = (enum NPCFlags)(UNIT_NPC_FLAG_VENDOR
 // ChatHandler already implements some useful commands the master can call on bots
 // These commands are protected inside the ChatHandler class so this class provides access to the commands
 // we'd like to call on our bots
+// All methods must be called a different name otherwise stack overflow can occur
 class PlayerbotChatHandler : protected ChatHandler
 {
     public:
         explicit PlayerbotChatHandler(Player* bot) : ChatHandler(bot) {}
         bool Revive(Player& botPlayer) { return HandleReviveCommand((char*) botPlayer.GetName()); }
         bool Teleport(Player& botPlayer) { return HandleNamegoCommand((char*) botPlayer.GetName()); }
-        void SendSysMessage(const char* str) { SendSysMessage(str); }
+        void SendSystemMessage(const char* str) { SendSysMessage(str); }
         bool DropQuest(char* str) { return HandleQuestRemoveCommand(str); }
-        bool ExecuteCommand(char* str) { return ExecuteCommand(str);
+        void ExecCommand(char* str) { return ExecuteCommand(str);
         }
 };
 
@@ -154,7 +155,7 @@ void PlayerbotAI::ExecuteCommand(char* str)
 {
     PlayerbotChatHandler ch(m_bot);
 
-    ch.ExecuteCommand(str);
+    ch.ExecCommand(str);
 }
 
 Player* PlayerbotAI::GetMaster() const
@@ -5083,7 +5084,7 @@ void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
             PlayerbotChatHandler ch(GetMaster());
             if (!ch.Revive(*m_bot))
             {
-                ch.SendSysMessage(".. could not be revived ..");
+                ch.SendSystemMessage(".. could not be revived ..");
                 return;
             }
             // set back to normal
@@ -7304,7 +7305,7 @@ bool PlayerbotAI::DoTeleport(WorldObject& /*obj*/)
         PlayerbotChatHandler ch(GetMaster());
         if (!ch.Teleport(*m_bot))
         {
-            ch.SendSysMessage(".. could not be teleported ..");
+            ch.SendSystemMessage(".. could not be teleported ..");
             // DEBUG_LOG ("[PlayerbotAI]: DoTeleport - %s failed to teleport", m_bot->GetName() );
             return false;
         }
@@ -10246,7 +10247,7 @@ void PlayerbotAI::_HandleCommandQuest(std::string& text, Player& fromPlayer)
         {
             if (!ch.DropQuest((char*) text.substr(linkStart).c_str()))
             {
-                ch.SendSysMessage("ERROR: could not drop quest");
+                ch.SendSystemMessage("ERROR: could not drop quest");
             }
             else
             {

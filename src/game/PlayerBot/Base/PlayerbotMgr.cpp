@@ -3278,8 +3278,9 @@ std::string PlayerbotMgr::GenerateToken() const
 		{
 			const Field* fields = token_result->Fetch();
 			std::string token = fields[0].GetCppString();
-		}
-		while (token_result->NextRow());
+			if (!token.empty())
+				tokens.push_back(token);
+		} while (token_result->NextRow());
 
 		delete token_result;
 	}
@@ -3310,10 +3311,9 @@ std::string PlayerbotMgr::GenerateToken() const
 			}
 		}
 
-		if (found)
+		if (!found)
 			break;
-	}
-	while (true);
+	} while (true);
 
 	mtx.unlock();
 
@@ -3489,7 +3489,7 @@ write <COMMAND>: send a command string to lua)");
     {
         Field* fields = resultchar->Fetch();
         int acctcharcount = fields[0].GetUInt32();
-        int maxnum = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 40);
+        int maxnum = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 100);
         if (!(m_session->GetSecurity() > SEC_PLAYER))
             if (acctcharcount > maxnum && (cmdStr == "add" || cmdStr == "login"))
             {
