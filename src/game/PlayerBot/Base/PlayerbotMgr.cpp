@@ -58,7 +58,7 @@ void PlayerbotMgr::SetInitialWorldSettings()
 }
 
 PlayerbotMgr::PlayerbotMgr(Player* const master) : m_master(master), m_masterChatHandler(master),
-                                                   m_masterAccountId(master->GetSession()->GetAccountId()), m_usingLuaAI(true)
+                                                   m_masterAccountId(master->GetSession()->GetAccountId()), m_usingLuaAI(false)
 {
 	// load config variables
 	m_confMaxNumBots = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
@@ -94,19 +94,6 @@ PlayerbotMgr::~PlayerbotMgr()
 {
 	LogoutAllBots(true);
 }
-
-class PlayerbotChatHandler : protected ChatHandler
-{
-public:
-	explicit PlayerbotChatHandler(Player* bot) : ChatHandler(bot)
-	{
-	}
-
-	bool Revive(Player& bot) { return HandleReviveCommand(const_cast<char*>(bot.GetName())); }
-	bool Teleport(Player& bot) { return HandleNamegoCommand(const_cast<char*>(bot.GetName())); }
-	void SendSysMessage(const char* str) override { SendSysMessage(str); }
-	bool DropQuest(char* str) { return HandleQuestRemoveCommand(str); }
-};
 
 void PlayerbotMgr::UpdateAI(const uint32 time)
 {
