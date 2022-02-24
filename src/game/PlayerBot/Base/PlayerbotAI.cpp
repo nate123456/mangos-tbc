@@ -88,7 +88,7 @@ class PlayerbotChatHandler : protected ChatHandler
         bool Teleport(Player& botPlayer) { return HandleNamegoCommand((char*) botPlayer.GetName()); }
         void SendSystemMessage(const char* str) { SendSysMessage(str); }
         bool DropQuest(char* str) { return HandleQuestRemoveCommand(str); }
-        void ExecCommand(char* str) { return ExecuteCommand(str);
+        bool ExecAddItemCommand(char* str) { return HandleAddItemCommand(str);
         }
 };
 
@@ -151,11 +151,11 @@ PlayerbotAI::~PlayerbotAI()
     if (m_classAI) delete m_classAI;
 }
 
-void PlayerbotAI::ExecuteCommand(char* str)
+bool PlayerbotAI::ExecAddItemCommand(char* str)
 {
     PlayerbotChatHandler ch(m_bot);
 
-    ch.ExecCommand(str);
+    return ch.ExecAddItemCommand(str);
 }
 
 Player* PlayerbotAI::GetMaster() const

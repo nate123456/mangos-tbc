@@ -982,21 +982,17 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		self->StopMoving();
 	};
-	player_type["exec"] = [&](Player* self, const char* text)
+	player_type["add_item"] = [](Player* self, const char* text)
 	{
 		if (!text || !text[0])
-			return;
+			return false;
 
 		const auto ai = self->GetPlayerbotAI();
 
 		if (!ai)
-			return;
+			return false;
 
-		const auto txt = std::string(text);
-
-		// lua doesn't like non-const char*
-		SendMsg(std::string("Executing '") + txt + "'");
-		ai->ExecuteCommand(const_cast<char*>(txt.c_str()));
+		return ai->ExecAddItemCommand(const_cast<char*>(text));
 	};
 	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
 	{
