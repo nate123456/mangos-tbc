@@ -1283,7 +1283,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		players.remove_if([&](const Player* player)
 		{
-			return player->GetObjectGuid() == self->GetObjectGuid() || player->IsInGroup(self);
+			return player->GetObjectGuid() == self->GetObjectGuid() || !player->IsInGroup(self);
 		});
 
 		players.sort([=](const Player* a, const Player* b) -> bool
