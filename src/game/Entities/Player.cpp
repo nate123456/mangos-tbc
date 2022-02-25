@@ -16535,10 +16535,9 @@ void Player::SaveToDB()
     static SqlStatementID delChar ;
     static SqlStatementID insChar ;
 
-
-#ifdef BUILD_PLAYERBOT
     uint32 account_id = m_session->GetAccountId();
 
+#ifdef BUILD_PLAYERBOT    
     if (GetPlayerbotAI())
     {
         // we want to re-use the account the bot was originally on to allow for bots to be from other accounts
