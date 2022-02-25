@@ -1257,6 +1257,48 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return group->SameSubGroup(self, other);
 	};
+	player_type["get_nearby_group_members"] = [&](const Player* self, const float radius)
+	{
+		PlayerList players;
+		std::set<uint32> entries;
+
+		MaNGOS::AnyPlayerInObjectRangeCheck u_check(self, radius);
+		MaNGOS::PlayerListSearcher checker(players, u_check);
+		Cell::VisitWorldObjects(self, checker, radius);
+
+		players.remove_if([&](const Player* player)
+		{
+			return player->IsInGroup(self);
+		});
+
+		players.sort([=](const Player* a, const Player* b) -> bool
+		{
+			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
+		});
+
+		return players;
+	};
+	player_type["get_nearby_party_members"] = [&](const Player* self, const float radius)
+	{
+		PlayerList players;
+		std::set<uint32> entries;
+
+		MaNGOS::AnyPlayerInObjectRangeCheck u_check(self, radius);
+		MaNGOS::PlayerListSearcher checker(players, u_check);
+		Cell::VisitWorldObjects(self, checker, radius);
+
+		players.remove_if([&](const Player* player)
+		{
+			return player->IsInGroup(self) && player->GetSubGroup() == self->GetSubGroup();
+		});
+
+		players.sort([=](const Player* a, const Player* b) -> bool
+		{
+			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
+		});
+
+		return players;
+	};
 };
 
 void PlayerbotMgr::InitLuaUnitType()
@@ -1490,6 +1532,22 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		
 		return objects;
 	};
+	world_object_type["get_nearby_units"] = [&](const WorldObject* self, const float radius)
+	{
+		UnitList units;
+		std::set<uint32> entries;
+
+		MaNGOS::AnyUnitInObjectRangeCheck u_check(self, radius);
+		MaNGOS::UnitListSearcher checker(units, u_check);
+		Cell::VisitWorldObjects(self, checker, radius);
+
+		units.sort([=](const Unit* a, const Unit* b) -> bool
+		{
+			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
+		});
+
+		return units;
+	};	
 	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
