@@ -1473,7 +1473,8 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	{
 		return self->GetPosition();
 	});
-	world_object_type["nearby_objects"] = [&](const WorldObject* self, const float radius)
+
+	world_object_type["get_nearby_game_objects"] = [&](const WorldObject* self, const float radius)
 	{
 		GameObjectList objects;
 		std::set<uint32> entries;
@@ -1485,13 +1486,10 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		objects.sort([=](const GameObject* a, const GameObject* b) -> bool
 		{
 			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
-		});
-
-		std::vector result(objects.begin(), objects.end());
-
-		return result;
+		});		
+		
+		return objects;
 	};
-
 	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
@@ -2061,6 +2059,8 @@ SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spell
 
 	if (!bot->HasInArc(target, M_PI_F / 2))
 		bot->SetFacingTo(bot->GetAngle(target));
+
+	bot->SetTarget(target);
 
 	return bot->CastSpell(target, p_spell_info, TRIGGERED_NONE);
 }
