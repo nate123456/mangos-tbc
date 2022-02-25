@@ -33,6 +33,7 @@
 #include "../../Spells/SpellMgr.h"
 #include "../../Tools/Language.h"
 #include "../../World/World.h"
+#include "Grids/GridNotifiers.h"
 #include <boost/algorithm/string.hpp>
 #include <mutex>
 
@@ -1336,7 +1337,7 @@ void PlayerbotMgr::InitLuaUnitType()
 	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
-	});
+	});	
 
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
@@ -1471,6 +1472,22 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	world_object_type["position"] = sol::property([](const WorldObject* self)
 	{
 		return self->GetPosition();
+	});
+	world_object_type["nearby_objects"] = sol::property([&](const WorldObject* self, const float radius)
+	{
+		GameObjectList objects;
+		std::set<uint32> entries;
+
+		MaNGOS::AllGameObjectEntriesListInObjectRangeCheck go_check(*self, entries, radius);
+		MaNGOS::GameObjectListSearcher checker(objects, go_check);
+		Cell::VisitGridObjects(self, checker, radius);
+
+		objects.sort([=](const GameObject* a, const GameObject* b) -> bool
+		{
+			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
+		});
+
+		return objects;
 	});
 
 	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
