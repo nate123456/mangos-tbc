@@ -1283,7 +1283,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		players.remove_if([&](const Player* player)
 		{
-			return player->IsInGroup(self);
+			return player->GetObjectGuid() == self->GetObjectGuid() || player->IsInGroup(self);
 		});
 
 		players.sort([=](const Player* a, const Player* b) -> bool
@@ -1304,7 +1304,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		players.remove_if([&](const Player* player)
 		{
-			return player->IsInGroup(self) && player->GetSubGroup() == self->GetSubGroup();
+			return player->GetObjectGuid() == self->GetObjectGuid() || player->IsInGroup(self) && player->GetSubGroup()
+				== self->GetSubGroup();
 		});
 
 		players.sort([=](const Player* a, const Player* b) -> bool
@@ -1540,6 +1541,11 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		MaNGOS::GameObjectListSearcher checker(objects, go_check);
 		Cell::VisitGridObjects(self, checker, radius);
 
+		objects.remove_if([&](const GameObject* obj)
+		{
+			return self->GetObjectGuid() == obj->GetObjectGuid();
+		});		
+
 		objects.sort([=](const GameObject* a, const GameObject* b) -> bool
 		{
 			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
@@ -1555,6 +1561,11 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		MaNGOS::AnyUnitInObjectRangeCheck u_check(self, radius);
 		MaNGOS::UnitListSearcher checker(units, u_check);
 		Cell::VisitWorldObjects(self, checker, radius);
+
+		units.remove_if([&](const Unit* unit)
+		{
+			return self->GetObjectGuid() == unit->GetObjectGuid();
+		});
 
 		units.sort([=](const Unit* a, const Unit* b) -> bool
 		{
