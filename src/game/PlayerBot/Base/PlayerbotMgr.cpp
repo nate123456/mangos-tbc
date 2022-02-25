@@ -1473,7 +1473,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	{
 		return self->GetPosition();
 	});
-	world_object_type["nearby_objects"] = sol::property([&](const WorldObject* self, const float radius)
+	world_object_type["nearby_objects"] = [&](const WorldObject* self, const float radius)
 	{
 		GameObjectList objects;
 		std::set<uint32> entries;
@@ -1488,7 +1488,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		});
 
 		return objects;
-	});
+	};
 
 	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
 	{
