@@ -1553,6 +1553,23 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		
 		return objects;
 	};
+	world_object_type["get_nearby_creatures"] = [&](const WorldObject* self, const float radius)
+	{
+		CreatureList creature_list;
+
+		const CellPair pair(MaNGOS::ComputeCellPair(self->GetPositionX(), self->GetPositionY()));
+		const Cell cell(pair);
+
+		MaNGOS::AnyUnitInObjectRangeCheck go_check(self, radius);
+		MaNGOS::CreatureListSearcher go_search(creature_list, go_check);
+		TypeContainerVisitor<MaNGOS::CreatureListSearcher<MaNGOS::AnyUnitInObjectRangeCheck>, GridTypeMapContainer>
+			go_visit(go_search);
+
+		// Get Creatures
+		cell.Visit(pair, go_visit, *self->GetMap(), *self, radius);
+
+		return creature_list;
+	};
 	world_object_type["get_nearby_units"] = [&](const WorldObject* self, const float radius)
 	{
 		UnitList units;
