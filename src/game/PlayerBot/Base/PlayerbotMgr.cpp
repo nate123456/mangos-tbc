@@ -890,7 +890,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		motion_master->MovePoint(0, x, y, z);
+		motion_master->MovePoint(0, x, y, z, FORCED_MOVEMENT_RUN);
 	}, [](Player* self, const Position* pos)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -903,7 +903,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		motion_master->MovePoint(0, pos->x, pos->y, pos->z);
+		motion_master->MovePoint(0, pos->x, pos->y, pos->z, FORCED_MOVEMENT_RUN);
 	}, [](Player* self, const Unit* target)
 	{
 		if (!target)
@@ -921,7 +921,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		float x, y, z;
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-		motion_master->MovePoint(0, x, y, z);
+		motion_master->MovePoint(0, x, y, z, FORCED_MOVEMENT_RUN);
 	});
 	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
 	{
