@@ -996,7 +996,22 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!ai)
 			return false;
 
+		if (self->IsInCombat())
+			return false;
+
 		return ai->ExecAddItemCommand(const_cast<char*>(text));
+	};
+	player_type["revive"] = [](Player* self)
+	{
+		const auto ai = self->GetPlayerbotAI();
+
+		if (!ai)
+			return false;
+
+		if (self->IsInCombat())
+			return false;
+
+		return ai->ExecReviveCommand();
 	};
 	player_type["whisper"] = [&](Player* self, const Player* to, const char* text)
 	{

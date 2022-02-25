@@ -153,9 +153,16 @@ PlayerbotAI::~PlayerbotAI()
 
 bool PlayerbotAI::ExecAddItemCommand(char* str)
 {
-    PlayerbotChatHandler ch(m_bot);
+	PlayerbotChatHandler ch(m_bot);
 
-    return ch.ExecAddItemCommand(str);
+	return ch.ExecAddItemCommand(str);
+}
+
+bool PlayerbotAI::ExecReviveCommand()
+{
+	PlayerbotChatHandler ch(m_bot);
+
+	return ch.Revive(*m_bot);
 }
 
 Player* PlayerbotAI::GetMaster() const

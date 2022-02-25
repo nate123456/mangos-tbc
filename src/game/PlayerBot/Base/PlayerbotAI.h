@@ -588,6 +588,7 @@ class PlayerbotAI
         Player* GetMaster() const;
 
         bool ExecAddItemCommand(char* str);
+        bool ExecReviveCommand();
 
         BotState GetState() { return m_botState; };
         void SetState(BotState state);
