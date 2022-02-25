@@ -1487,7 +1487,9 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
 		});
 
-		return objects;
+		std::vector result(objects.begin(), objects.end());
+
+		return result;
 	};
 
 	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
