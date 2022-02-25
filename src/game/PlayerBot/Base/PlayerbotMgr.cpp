@@ -1279,7 +1279,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		MaNGOS::AnyPlayerInObjectRangeCheck u_check(self, radius);
 		MaNGOS::PlayerListSearcher checker(players, u_check);
-		Cell::VisitAllObjects(self, checker, radius);
+		Cell::VisitWorldObjects(self, checker, radius);
 
 		players.remove_if([&](const Player* player)
 		{
@@ -1300,7 +1300,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		MaNGOS::AnyPlayerInObjectRangeCheck u_check(self, radius);
 		MaNGOS::PlayerListSearcher checker(players, u_check);
-		Cell::VisitAllObjects(self, checker, radius);
+		Cell::VisitWorldObjects(self, checker, radius);
 
 		players.remove_if([&](const Player* player)
 		{
@@ -1539,7 +1539,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 		MaNGOS::AllGameObjectEntriesListInObjectRangeCheck go_check(*self, entries, radius);
 		MaNGOS::GameObjectListSearcher checker(objects, go_check);
-		Cell::VisitAllObjects(self, checker, radius);
+		Cell::VisitGridObjects(self, checker, radius);
 
 		objects.remove_if([&](const GameObject* obj)
 		{
@@ -1560,7 +1560,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 		MaNGOS::AnyUnitInObjectRangeCheck u_check(self, radius);
 		MaNGOS::UnitListSearcher checker(units, u_check);
-		Cell::VisitAllObjects(self, checker, radius);
+		Cell::VisitWorldObjects(self, checker, radius);
 
 		units.remove_if([&](const Unit* unit)
 		{
@@ -3539,7 +3539,7 @@ write <COMMAND>: send a command string to lua)");
 
 			mgr->UseLuaAI(mode == "lua");
 
-			return true;
+			return false;
 		}
 
 	    return true;
