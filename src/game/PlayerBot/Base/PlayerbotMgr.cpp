@@ -1574,10 +1574,10 @@ void PlayerbotMgr::InitLuaPositionType()
 	sol::usertype<Position> position_type = m_lua.new_usertype<Position>(
 		"Position");
 
-	position_type["x"] = sol::property(&Position::x);
-	position_type["y"] = sol::property(&Position::y);
-	position_type["z"] = sol::property(&Position::z);
-	position_type["o"] = sol::property(&Position::o);
+	position_type["x"] = sol::readonly_property(&Position::x);
+	position_type["y"] = sol::readonly_property(&Position::y);
+	position_type["z"] = sol::readonly_property(&Position::z);
+	position_type["o"] = sol::readonly_property(&Position::o);
 	position_type["is_empty"] = sol::property(&Position::IsEmpty);
 
 	position_type["get_distance_to"] = [](const Position* self, const Position* other)
