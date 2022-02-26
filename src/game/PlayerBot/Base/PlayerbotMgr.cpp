@@ -612,19 +612,19 @@ void PlayerbotMgr::InitLuaMembers()
 	enum_table["creature_types"] = m_lua.create_table();
 	sol::table types_table = enum_table["creature_types"];
 
-	equip_slots_table["beast"] = 1;
-	equip_slots_table["dragonkin"] = 2;
-	equip_slots_table["demon"] = 3;
-	equip_slots_table["elemental"] = 4;
-	equip_slots_table["giant"] = 5;
-	equip_slots_table["undead"] = 6;
-	equip_slots_table["humanoid"] = 7;
-	equip_slots_table["critter"] = 8;
-	equip_slots_table["mechanical"] = 9;
-	equip_slots_table["unknown"] = 10;
-	equip_slots_table["totem"] = 11;
-	equip_slots_table["non_combat_pet"] = 12;
-	equip_slots_table["gas_cloud"] = 13;
+	types_table["beast"] = 1;
+	types_table["dragonkin"] = 2;
+	types_table["demon"] = 3;
+	types_table["elemental"] = 4;
+	types_table["giant"] = 5;
+	types_table["undead"] = 6;
+	types_table["humanoid"] = 7;
+	types_table["critter"] = 8;
+	types_table["mechanical"] = 9;
+	types_table["unknown"] = 10;
+	types_table["totem"] = 11;
+	types_table["non_combat_pet"] = 12;
+	types_table["gas_cloud"] = 13;
 
 	FlipLuaTable("wow.enums.creature_types");
 
