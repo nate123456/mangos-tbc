@@ -610,23 +610,41 @@ void PlayerbotMgr::InitLuaMembers()
 	FlipLuaTable("wow.enums.equip_slots");
 
 	enum_table["creature_types"] = m_lua.create_table();
-	sol::table types_table = enum_table["creature_types"];
+	sol::table creature_types_table = enum_table["creature_types"];
 
-	types_table["beast"] = 1;
-	types_table["dragonkin"] = 2;
-	types_table["demon"] = 3;
-	types_table["elemental"] = 4;
-	types_table["giant"] = 5;
-	types_table["undead"] = 6;
-	types_table["humanoid"] = 7;
-	types_table["critter"] = 8;
-	types_table["mechanical"] = 9;
-	types_table["unknown"] = 10;
-	types_table["totem"] = 11;
-	types_table["non_combat_pet"] = 12;
-	types_table["gas_cloud"] = 13;
+	creature_types_table["beast"] = 1;
+	creature_types_table["dragonkin"] = 2;
+	creature_types_table["demon"] = 3;
+	creature_types_table["elemental"] = 4;
+	creature_types_table["giant"] = 5;
+	creature_types_table["undead"] = 6;
+	creature_types_table["humanoid"] = 7;
+	creature_types_table["critter"] = 8;
+	creature_types_table["mechanical"] = 9;
+	creature_types_table["unknown"] = 10;
+	creature_types_table["totem"] = 11;
+	creature_types_table["non_combat_pet"] = 12;
+	creature_types_table["gas_cloud"] = 13;
 
 	FlipLuaTable("wow.enums.creature_types");
+
+	enum_table["dispel_types"] = m_lua.create_table();
+	sol::table dispel_types_table = enum_table["dispel_types"];
+
+	dispel_types_table["none"] = 0;
+	dispel_types_table["magic"] = 1;
+	dispel_types_table["curse"] = 2;
+	dispel_types_table["disease"] = 3;
+	dispel_types_table["poison"] = 4;
+	dispel_types_table["stealth"] = 5;
+	dispel_types_table["invisibility"] = 6;
+	dispel_types_table["all"] = 7;
+	dispel_types_table["enrage"] = 9;
+	dispel_types_table["none"] = 0;
+	dispel_types_table["none"] = 0;
+	dispel_types_table["none"] = 0;
+
+	FlipLuaTable("wow.enums.dispel_types");
 
 	enum_table["specs"] = m_lua.create_table();
 	sol::table specs_table = enum_table["specs"];
