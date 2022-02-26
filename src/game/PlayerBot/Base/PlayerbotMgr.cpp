@@ -609,6 +609,25 @@ void PlayerbotMgr::InitLuaMembers()
 	
 	FlipLuaTable("wow.enums.equip_slots");
 
+	enum_table["creature_types"] = m_lua.create_table();
+	sol::table types_table = enum_table["creature_types"];
+
+	equip_slots_table["CREATURE_TYPE_BEAST"] = 1;
+	equip_slots_table["CREATURE_TYPE_DRAGONKIN"] = 2;
+	equip_slots_table["CREATURE_TYPE_DEMON"] = 3;
+	equip_slots_table["CREATURE_TYPE_ELEMENTAL"] = 4;
+	equip_slots_table["CREATURE_TYPE_GIANT"] = 5;
+	equip_slots_table["CREATURE_TYPE_UNDEAD"] = 6;
+	equip_slots_table["CREATURE_TYPE_HUMANOID"] = 7;
+	equip_slots_table["CREATURE_TYPE_CRITTER"] = 8;
+	equip_slots_table["CREATURE_TYPE_MECHANICAL"] = 9;
+	equip_slots_table["CREATURE_TYPE_NOT_SPECIFIED"] = 10;
+	equip_slots_table["CREATURE_TYPE_TOTEM"] = 11;
+	equip_slots_table["CREATURE_TYPE_NON_COMBAT_PET"] = 12;
+	equip_slots_table["CREATURE_TYPE_GAS_CLOUD"] = 13;
+
+	FlipLuaTable("wow.enums.creature_types");
+
 	enum_table["specs"] = m_lua.create_table();
 	sol::table specs_table = enum_table["specs"];
 
@@ -1395,7 +1414,11 @@ void PlayerbotMgr::InitLuaUnitType()
 	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
-	});	
+	});
+	unit_type["type"] = sol::property([&](const Unit* self)
+	{
+		return self->GetCreatureType();
+	});
 
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
@@ -1407,7 +1430,7 @@ void PlayerbotMgr::InitLuaUnitType()
 	unit_type["get_threat"] = [](Unit* self, const Unit* target)
 	{
 		if (!target)
-			return -1.0f;
+			return -1.0f; 
 
 		HostileReference* ref = self->getHostileRefManager().getFirst();
 
