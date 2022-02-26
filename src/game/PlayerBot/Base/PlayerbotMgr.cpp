@@ -1928,6 +1928,10 @@ void PlayerbotMgr::InitLuaAuraType()
 	{
 		return aura->GetSpellProto()->Id;
 	});
+	aura_type["id"] = sol::property([](const SpellAuraHolder* aura)
+	{
+		return aura->GetTarget();
+	});
 }
 
 void PlayerbotMgr::InitLuaItemType()
