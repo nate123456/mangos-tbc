@@ -1413,8 +1413,7 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		while (ref)
 		{
-			if (ThreatManager* threat_mgr = ref->getSource(); threat_mgr->getOwner() == target && threat_mgr->getOwner()
-				->GetVictim() == self)
+			if (ThreatManager* threat_mgr = ref->getSource(); threat_mgr->getOwner() == target)
 			{
 				return threat_mgr->getThreat(self);
 			}
