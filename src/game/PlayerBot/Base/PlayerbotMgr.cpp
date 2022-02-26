@@ -1479,6 +1479,41 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return self->GetSpellAuraHolder(auraId, caster->GetObjectGuid());
 	});
+	unit_type["get_buffs"] = sol::property([](const Unit* self)
+	{
+		const auto &map = self->GetSpellAuraHolderMap();
+
+		std::vector<SpellAuraHolder*> buffs;
+
+		for (auto [spell_id, aura] : map)
+			if (aura->IsPositive())
+				buffs.push_back(aura);
+
+		return buffs;
+	});
+	unit_type["get_debuffs"] = sol::overload([](const Unit* self)
+	{
+		const auto &map = self->GetSpellAuraHolderMap();
+
+		std::vector<SpellAuraHolder*> debuffs;
+
+		for (auto [spell_id, aura] : map)
+			if (!aura->IsPositive())
+				debuffs.push_back(aura);
+
+		return debuffs;
+	}, [](const Unit* self, const uint32 type)
+	{
+		const auto &map = self->GetSpellAuraHolderMap();
+
+		std::vector<SpellAuraHolder*> buffs;
+
+		for (auto [spell_id, aura] : map)
+			if (!aura->IsPositive() && aura->GetSpellProto()->Dispel == type)
+				buffs.push_back(aura);
+
+		return buffs;
+	});
 }
 
 void PlayerbotMgr::InitLuaCreatureType()
@@ -1867,6 +1902,10 @@ void PlayerbotMgr::InitLuaAuraType()
 	aura_type["max_duration"] = sol::property(&SpellAuraHolder::GetAuraMaxDuration);
 	aura_type["charges"] = sol::property(&SpellAuraHolder::GetAuraCharges);
 	aura_type["caster"] = sol::property(&SpellAuraHolder::GetCaster);
+	aura_type["type"] = sol::property([](const SpellAuraHolder* aura)
+	{
+		return aura->GetSpellProto()->Dispel;
+	});
 }
 
 void PlayerbotMgr::InitLuaItemType()
