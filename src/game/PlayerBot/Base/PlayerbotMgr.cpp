@@ -1349,16 +1349,16 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return players;
 	};
-	player_type["cancel_aura"] = [](Player* self, const uint32 auraSpellId)
+	player_type["cancel_aura"] = [](Player* self, const SpellAuraHolder* aura)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		if (auraSpellId == 0)
+		if (!aura)
 			return;
 
 		std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_CANCEL_AURA, 8));
-		*packet << auraSpellId;
+		*packet << aura->GetSpellProto()->Id;
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
 };
