@@ -640,9 +640,6 @@ void PlayerbotMgr::InitLuaMembers()
 	dispel_types_table["invisibility"] = 6;
 	dispel_types_table["all"] = 7;
 	dispel_types_table["enrage"] = 9;
-	dispel_types_table["none"] = 0;
-	dispel_types_table["none"] = 0;
-	dispel_types_table["none"] = 0;
 
 	FlipLuaTable("wow.enums.dispel_types");
 
@@ -1351,6 +1348,18 @@ void PlayerbotMgr::InitLuaPlayerType()
 		});
 
 		return players;
+	};
+	player_type["cancel_aura"] = [](Player* self, const uint32 auraSpellId)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		if (auraSpellId == 0)
+			return;
+
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_CANCEL_AURA, 8));
+		*packet << auraSpellId;
+		self->GetSession()->QueuePacket(std::move(packet));
 	};
 };
 
