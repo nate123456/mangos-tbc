@@ -876,8 +876,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		target->GetPosition();
-
 		motion_master->MoveFollow(target, dist, angle);
 	};
 	player_type["stand"] = [](Player* self)
@@ -986,15 +984,12 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!target)
 			return;
 
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
+		const auto ai = self->GetPlayerbotAI();
+
+		if (!ai)
 			return;
 
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
-
-		float x, y, z;
-		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-		self->TeleportTo(target->GetMapId(), x, y, z, self->GetOrientation());
+		ai->ExecGoCommand(const_cast<char*>(target->GetName()));
 	};
 	player_type["reset_movement"] = [](Player* self)
 	{

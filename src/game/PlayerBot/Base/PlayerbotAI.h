@@ -589,6 +589,7 @@ class PlayerbotAI
 
         bool ExecAddItemCommand(char* str);
         bool ExecReviveCommand();
+        bool ExecGoCommand(char* str);
 
         BotState GetState() { return m_botState; };
         void SetState(BotState state);
