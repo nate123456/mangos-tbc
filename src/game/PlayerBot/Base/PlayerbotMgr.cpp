@@ -628,6 +628,20 @@ void PlayerbotMgr::InitLuaMembers()
 
 	FlipLuaTable("wow.enums.creature_types");
 
+	enum_table["raid_icons"] = m_lua.create_table();
+	sol::table raid_icons_table = enum_table["raid_icons"];
+
+	raid_icons_table["star"] = 0;
+	raid_icons_table["circle"] = 1;
+	raid_icons_table["diamond"] = 2;
+	raid_icons_table["triangle"] = 3;
+	raid_icons_table["moon"] = 4;
+	raid_icons_table["square"] = 5;
+	raid_icons_table["cross"] = 6;
+	raid_icons_table["skull"] = 7;
+
+	FlipLuaTable("wow.enums.raid_icons");
+
 	enum_table["dispel_types"] = m_lua.create_table();
 	sol::table dispel_types_table = enum_table["dispel_types"];
 
