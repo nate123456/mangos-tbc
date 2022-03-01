@@ -180,8 +180,6 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 		return;
 	}
 
-	m_lua.script("collectgarbage(\"collect\")");
-
 	m_lua["wow"]["command_message"] = m_lastManagerMessage;
 	m_lua["wow"]["command_position"] = m_lastCommandPosition;
 	m_lua["wow"]["bots"] = bots;
@@ -221,6 +219,8 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 	if (!m_lastCommandPosition.IsEmpty())
 		m_lastCommandPosition = Position();
+
+	m_lua.script("collectgarbage(\"collect\")");
 }
 
 void PlayerbotMgr::InitMqtt()
@@ -1672,6 +1672,7 @@ void PlayerbotMgr::InitLuaObjectType()
 	sol::usertype<Object> object_type = m_lua.new_usertype<Object>(
 		"Object");
 
+	object_type["id"] = sol::property(&Object::GetGUIDLow);
 	object_type["is_player"] = sol::property(&Object::IsPlayer);
 	object_type["is_creature"] = sol::property(&Object::IsCreature);
 	object_type["is_game_object"] = sol::property(&Object::IsGameObject);
