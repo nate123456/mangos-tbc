@@ -806,6 +806,19 @@ void PlayerbotMgr::InitLuaFunctions()
 	{
 		SendMsg(msg, false, true, false);
 	});
+
+	const std::string script = R"(
+function each(arr)
+   local i = 0
+   local len = #arr
+	
+   return function ()
+      i = i + 1		
+      if i <= len then return arr[i] end		
+   end	
+end
+)";
+	 m_lua.script(script);
 }
 
 void PlayerbotMgr::InitLuaPlayerType()
@@ -1263,6 +1276,35 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	    return Cast(self, self, spellId, checkIsAlive);
     });
+	player_type["cast_simple"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
+	{
+		if (const auto current_cast_time = self->GetCurrentSpell(CURRENT_GENERIC_SPELL); current_cast_time &&
+			current_cast_time->GetCastedTime() > 0)
+			return false;
+
+		return Cast(self, target, spellId) == SPELL_CAST_OK;
+	}, [&](Player* self, Unit* target, const uint32 spellId, const bool checkIsAlive)
+	{
+		if (const auto current_cast_time = self->GetCurrentSpell(CURRENT_GENERIC_SPELL); current_cast_time &&
+			current_cast_time->GetCastedTime() > 0)
+			return false;
+
+		return Cast(self, target, spellId, checkIsAlive) == SPELL_CAST_OK;
+	}, [&](Player* self, const uint32 spellId)
+	{
+		if (CurrentCast(self, CURRENT_GENERIC_SPELL) > 0 || CurrentCast(
+			self, CURRENT_CHANNELED_SPELL) > 0)
+			return false;
+
+		return Cast(self, self, spellId) == SPELL_CAST_OK;
+	}, [&](Player* self, const uint32 spellId, const bool checkIsAlive)
+	{
+		if (const auto current_cast_time = self->GetCurrentSpell(CURRENT_GENERIC_SPELL); current_cast_time &&
+			current_cast_time->GetCastedTime() > 0)
+			return false;
+
+		return Cast(self, self, spellId, checkIsAlive) == SPELL_CAST_OK;
+	});
 	player_type["force_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (!target)
