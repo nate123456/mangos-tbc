@@ -2043,10 +2043,7 @@ void PlayerbotMgr::InitLuaAuraType()
 	{
 		return aura->GetSpellProto()->Id;
 	});
-	aura_type["target"] = sol::property([](const SpellAuraHolder* aura)
-	{
-		return aura->GetTarget();
-	});
+	aura_type["target"] = sol::property(&SpellAuraHolder::GetTarget);
 }
 
 void PlayerbotMgr::InitLuaItemType()
