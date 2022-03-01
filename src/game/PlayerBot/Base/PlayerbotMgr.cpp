@@ -1348,6 +1348,49 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return Cast(self, self, spellId, checkIsAlive);
 	});
+	player_type["simple_force_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
+	{
+		if (!target)
+			return false;
+
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return false;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+		return Cast(self, target, spellId) == SPELL_CAST_OK;
+	}, [&](Player* self, Unit* target, const uint32 spellId, const bool checkIsAlive)
+	{
+		if (!target)
+			return false;
+
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return false;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+		return Cast(self, target, spellId, checkIsAlive) == SPELL_CAST_OK;
+	}, [&](Player* self, const uint32 spellId)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return false;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+		return Cast(self, self, spellId) == SPELL_CAST_OK;
+	}, [&](Player* self, const uint32 spellId, const bool checkIsAlive)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return false;
+
+		self->InterruptSpell(CURRENT_GENERIC_SPELL);
+		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
+
+		return Cast(self, self, spellId, checkIsAlive) == SPELL_CAST_OK;
+	});
 	player_type["in_same_party_as"] = [](Player* self, Player* other)
 	{
 		const auto group = self->GetGroup();
