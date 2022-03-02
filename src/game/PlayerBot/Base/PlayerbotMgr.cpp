@@ -932,7 +932,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->HandleEmote(TEXTEMOTE_DANCE);
+		self->HandleEmote(EMOTE_ONESHOT_DANCE);
 	};
 	player_type["kneel"] = [](Player* self)
 	{
