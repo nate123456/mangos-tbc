@@ -1031,6 +1031,16 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		ai->ExecGoCommand(const_cast<char*>(target->GetName()));
 	};
+	player_type["stop"] = [](Player* self)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return;
+
+		if (self->getStandState() != UNIT_STAND_STATE_STAND)
+			self->SetStandState(UNIT_STAND_STATE_STAND);
+
+		self->StopMoving();
+	};
 	player_type["reset_movement"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -1044,16 +1054,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 		// not sure which one is better yet, clear seem to be used more frequently...
 		// self->GetMotionMaster()->Initialize();
 		motion_master->Clear();
-	};
-	player_type["stop"] = [](Player* self)
-	{
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
-
-		self->StopMoving();
 	};
 	player_type["add_item"] = [](Player* self, const char* text)
 	{
@@ -1289,7 +1289,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 	    return Cast(self, self, spellId, checkIsAlive);
     });
-	player_type["cast_simple"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
+	player_type["simple_cast"] = sol::overload([&](Player* self, Unit* target, const uint32 spellId)
 	{
 		if (const auto current_cast_time = self->GetCurrentSpell(CURRENT_GENERIC_SPELL); current_cast_time &&
 			current_cast_time->GetCastedTime() > 0)
