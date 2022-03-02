@@ -828,6 +828,12 @@ void PlayerbotMgr::InitLuaPlayerType()
 	                                                               sol::base_classes,
 	                                                               sol::bases<Unit, WorldObject, Object>());
 
+	player_type["is_bot"] = sol::property([](Player* self)
+	{
+		if (const auto ai = self->GetPlayerbotAI())
+			return true;
+		return false;
+	});
 	player_type["last_message"] = sol::property([](Player* self)
 	{
 		const auto ai = self->GetPlayerbotAI();
