@@ -1656,7 +1656,6 @@ void PlayerbotMgr::InitLuaCreatureType()
 	creature_type["is_elite"] = sol::property(&Creature::IsElite);
 	creature_type["is_world_boss"] = sol::property(&Creature::IsWorldBoss);
 	creature_type["can_aggro"] = sol::property(&Creature::CanAggro);
-	creature_type["type"] = sol::property(&Creature::GetCreatureType);
 	creature_type["is_regen_hp"] = sol::property(&Creature::IsRegeneratingHealth);
 	creature_type["is_regen_power"] = sol::property(&Creature::IsRegeneratingHealth);
 	creature_type["can_walk"] = sol::property(&Creature::CanWalk);
