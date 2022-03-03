@@ -283,12 +283,7 @@ void PlayerbotMgr::InitLua()
 	InitLuaItemType();
 
 	InitLuaEnvironment();
-
-	// little shortcut for the python fanboys :)
-	m_lua.script("str = tostring num = tonumber");
-
-	m_lua.script("print('[DEBUG] LUA has been initialized.')");
-
+	
 	LoadUserLuaScript();
 }
 
@@ -744,6 +739,9 @@ void PlayerbotMgr::InitLuaMembers()
 
 void PlayerbotMgr::InitLuaFunctions()
 {
+	// little shortcut for the python fanboys :)
+	m_lua.script("str = tostring num = tonumber");
+
 	m_lua.set_function("print",
 	                   sol::overload(
 		                   [this](const char* msg)
