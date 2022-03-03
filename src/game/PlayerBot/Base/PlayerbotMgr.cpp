@@ -1597,13 +1597,16 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return self->CanReachWithMeleeAttack(target);
 	};
-	unit_type["is_enemy"] = [](const Unit* self, const Unit* target)
+	unit_type["is_enemy"] = sol::overload([&](const Unit* self)
+	{
+		return self->CanAttack(m_master);
+	}, [](const Unit* self, const Unit* target)
 	{
 		if (!target)
 			return false;
 
 		return self->CanAttack(target);
-	};
+	});
 	unit_type["is_friendly"] = [](const Unit* self, const Unit* target)
 	{
 		if (!target)
