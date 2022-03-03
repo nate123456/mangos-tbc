@@ -1770,27 +1770,6 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 
 		return creature_list;
 	};
-	world_object_type["get_nearby_units"] = [&](const WorldObject* self, const float radius)
-	{
-		UnitList units;
-		std::set<uint32> entries;
-
-		MaNGOS::AnyUnitInObjectRangeCheck u_check(self, radius);
-		MaNGOS::UnitListSearcher checker(units, u_check);
-		Cell::VisitWorldObjects(self, checker, radius);
-
-		units.remove_if([&](const Unit* unit)
-		{
-			return self->GetObjectGuid() == unit->GetObjectGuid();
-		});
-
-		units.sort([=](const Unit* a, const Unit* b) -> bool
-		{
-			return self->GetDistance(a, true, DIST_CALC_NONE) < self->GetDistance(b, true, DIST_CALC_NONE);
-		});
-
-		return units;
-	};	
 	world_object_type["get_angle"] = sol::overload([](const WorldObject* self, const WorldObject* obj)
 	{
 		return self->GetAngle(obj);
