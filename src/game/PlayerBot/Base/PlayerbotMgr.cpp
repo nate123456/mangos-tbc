@@ -3691,10 +3691,9 @@ get token: retrieve or regenerate an AI authorization token
 load: load ai lua script from database
 use 'lua' or 'legacy': switch between lua or legacy AI
 write <COMMAND>: send a command string to lua)");
-		    return true;
 	    }
 
-		if (rem_cmd.find("get token") != std::string::npos)
+		else if (rem_cmd.find("get token") != std::string::npos)
 		{
 			if (const QueryResult* token_result = CharacterDatabase.PQuery(
 				"SELECT token FROM playerbot_tokens WHERE age + INTERVAL 1 DAY > NOW() and accountid = %u",
@@ -3718,13 +3717,10 @@ write <COMMAND>: send a command string to lua)");
 				m_session->GetAccountId(), token.c_str(), token.c_str()))
 			{
 				PSendSysMessage("New token generated: '%s'", token.c_str());
-				return true;
 			}
-
-			return false;
 		}
 
-	    if (rem_cmd.find("load") != std::string::npos)
+		else if (rem_cmd.find("load") != std::string::npos)
 	    {
 			if (!mgr->IsUsingLuaAI())
 			{
@@ -3737,11 +3733,9 @@ write <COMMAND>: send a command string to lua)");
 			    PSendSysMessage("AI script loaded successfully.");
 			    return true;
 		    }
-
-		    return false;
 	    }
 
-	    if (rem_cmd.find("write") != std::string::npos)
+		else if (rem_cmd.find("write") != std::string::npos)
 	    {
 			if (!mgr->IsUsingLuaAI())
 			{
@@ -3753,21 +3747,17 @@ write <COMMAND>: send a command string to lua)");
 		    boost::algorithm::trim(message);
 
 		    mgr->SetLuaMasterMessage(message);
-
-		    return true;
 	    }
 
-		if (rem_cmd.find("use") != std::string::npos)
+		else if (rem_cmd.find("use") != std::string::npos)
 		{
 			std::string mode = rem_cmd.substr(3);
 			boost::algorithm::trim(mode);
 
 			mgr->UseLuaAI(mode == "lua");
-
-			return false;
 		}
 
-	    return true;
+		return true;
     }
 
     char* cmd = strtok((char*) args, " ");
