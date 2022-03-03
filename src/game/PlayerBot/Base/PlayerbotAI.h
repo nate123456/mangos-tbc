@@ -394,7 +394,7 @@ class PlayerbotAI
         };
 
     public:
-        PlayerbotAI(PlayerbotMgr& mgr, Player* bot, bool debugWhisper, sol::state& lua);
+        PlayerbotAI(PlayerbotMgr& mgr, Player* bot, bool debugWhisper);
         virtual ~PlayerbotAI();
 
         // This is called from Unit.cpp and is called every second (I think)
