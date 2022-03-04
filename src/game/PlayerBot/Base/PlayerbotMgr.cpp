@@ -883,7 +883,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 		{
 			if (const auto ai = self->GetPlayerbotAI(); ai)
 			{
-				self->GetMotionMaster()->GetDestination(x, y, z);
+				if (self->GetMotionMaster()->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
+				{
+					self->GetMotionMaster()->GetDestination(x, y, z);					
+				}
 			}
 		}
 		return Position(x, y, z, self->GetPosition().o);
