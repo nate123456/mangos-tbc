@@ -196,6 +196,8 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 	raid_icons["cross"] = GetRaidIcon(6);
 	raid_icons["skull"] = GetRaidIcon(7);
 
+	m_lua["zone"] = m_master->GetMap()->GetMapName();
+
 	if (const auto act_result = act_func(); !act_result.valid())
 	{
 		const sol::error error = act_result;
