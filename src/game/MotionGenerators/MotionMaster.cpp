@@ -341,16 +341,6 @@ void MotionMaster::DistanceYourself(float dist)
     }
 }
 
-void MotionMaster::SetOffsetAndAngle(const float dist, const float angle, const bool moveFurther)
-{
-    if (GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
-    {
-        auto gen = (ChaseMovementGenerator*)top();
-        gen->SetOffsetAndAngle(dist, angle, moveFurther);
-        return;
-    }
-}
-
 void MotionMaster::MoveFollow(Unit* target, float dist, float angle, bool asMain/* = false*/, bool alwaysBoost/* = false*/)
 {
     if (m_owner->hasUnitState(UNIT_STAT_LOST_CONTROL))
