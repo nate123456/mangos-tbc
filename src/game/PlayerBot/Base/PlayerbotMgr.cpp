@@ -1012,12 +1012,12 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		motion_master->MoveChase(target, distance, angle);
 	};
-	player_type["set_chase_distance"] = [](Player* self, const float distance)
+	player_type["update_chase"] = [](Player* self, const float distance, const float angle)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
 
-		self->GetMotionMaster()->DistanceYourself(distance);
+		self->GetMotionMaster()->SetOffsetAndAngle(distance, angle);
 	};
 	player_type["teleport_to"] = [](Player* self, const Unit* target)
 	{
