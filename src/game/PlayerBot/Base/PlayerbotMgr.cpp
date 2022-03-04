@@ -886,7 +886,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 				self->GetMotionMaster()->GetDestination(x, y, z);
 			}
 		}
-		return sol::tie(x, y, z);
+		return Position(x, y, z, self->GetPosition().o);
 	});
 	player_type["spec"] = sol::property(&Player::GetSpec);
 	player_type["party"] = sol::property([](Player* self)
