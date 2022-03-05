@@ -1034,6 +1034,24 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		ai->ExecGoCommand(const_cast<char*>(target->GetName()));
 	};
+	player_type["attack"] = [](Player* self, Unit* target, const bool isMelee)
+	{
+		if (!target)
+			return false;
+
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return false;
+
+		self->SetTarget(target);
+		return self->Attack(target, isMelee);
+	};
+	player_type["stop_attack"] = [](Player* self)
+	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return false;
+
+		return self->AttackStop(self->GetTarget());
+	};
 	player_type["stop"] = [](Player* self)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
