@@ -891,6 +891,24 @@ void PlayerbotMgr::InitLuaPlayerType()
 		}
 		return Position(x, y, z, self->GetPosition().o);
 	});
+	player_type["has_reached_destination"] = sol::property([](Player* self)
+	{
+		float x = 0, y = 0, z = 0;
+
+		if (self && self->IsAlive() && self->IsInWorld())
+		{
+			if (const auto ai = self->GetPlayerbotAI(); ai)
+			{
+				if (self->GetMotionMaster()->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
+				{
+					self->GetMotionMaster()->GetDestination(x, y, z);
+				}
+			}
+		}
+
+		return self->GetPosition().GetDistance(Position(x, y, z, self->GetPosition().o)) < 1;
+		
+	});
 	player_type["spec"] = sol::property(&Player::GetSpec);
 	player_type["party"] = sol::property([](Player* self)
 	{
