@@ -906,6 +906,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 			}
 		}
 
+		if (x == 0 && y == 0 && z == 0)
+			return true;
+
 		return self->GetPosition().GetDistance(Position(x, y, z, self->GetPosition().o)) < 1;
 		
 	});
