@@ -999,7 +999,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		motion_master->MovePoint(0, pos->x, pos->y, pos->z, FORCED_MOVEMENT_RUN);
+		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN, 1);
 	}, [](Player* self, const Unit* target)
 	{
 		if (!target)
@@ -1597,6 +1597,15 @@ void PlayerbotMgr::InitLuaUnitType()
 	unit_type["current_auto_attack"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_AUTOREPEAT_SPELL);
+	});
+	unit_type["current_auto_attack_time"] = sol::property([&](const Unit* self)
+	{
+			const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
+
+			if (!current_spell)
+				return 0;
+
+			return current_spell->GetCastedTime();
 	});
 	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
