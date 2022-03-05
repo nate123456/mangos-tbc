@@ -879,7 +879,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 	{
 		float x = 0, y = 0, z = 0;
 
-		if (self)
+		if (self && self->IsAlive() && self->IsInWorld())
 		{
 			if (const auto ai = self->GetPlayerbotAI(); ai)
 			{
@@ -1752,6 +1752,10 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	world_object_type["area_id"] = sol::property(&WorldObject::GetAreaId);
 	world_object_type["position"] = sol::property([](const WorldObject* self)
 	{
+		if (!self->IsInWorld())
+		{
+			return Position(0, 0, 0, 0);
+		}
 		return self->GetPosition();
 	});
 
