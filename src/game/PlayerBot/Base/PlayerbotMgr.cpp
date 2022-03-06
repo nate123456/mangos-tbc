@@ -1629,9 +1629,9 @@ void PlayerbotMgr::InitLuaUnitType()
 		const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
 
 		if (!current_spell)
-			return static_cast<uint32>(0);
+			return static_cast<uint64>(-1);
 
-		return current_spell->GetCastedTime();
+		return current_spell->GetDelayStart();
 	};
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
