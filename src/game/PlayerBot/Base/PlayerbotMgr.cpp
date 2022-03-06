@@ -1600,12 +1600,12 @@ void PlayerbotMgr::InitLuaUnitType()
 	});
 	unit_type["current_auto_attack_time"] = sol::property([&](const Unit* self)
 	{
-			const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
+		const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
 
-			if (!current_spell)
-				return 0;
+		if (!current_spell)
+			return static_cast<uint32>(0);
 
-			return current_spell->GetCastedTime();
+		return current_spell->GetCastedTime();
 	});
 	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
@@ -2065,6 +2065,12 @@ void PlayerbotMgr::InitLuaPetType()
 							return true;
 
 		return false;
+	};
+	pet_type["pet_attack"] = [](Pet* self, Unit* target)
+	{
+		self->AttackStop();
+		self->GetMotionMaster()->Clear();
+		self->AI()->AttackStart(target);
 	};
 }
 
