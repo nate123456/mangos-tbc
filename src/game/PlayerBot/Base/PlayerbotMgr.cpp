@@ -2037,13 +2037,12 @@ void PlayerbotMgr::InitLuaPetType()
 
 			if (self->HaveInDiet(p_item_proto))
 			{
-				// sketch- doing the job of the server, could send packet?
-				uint32 used_items = 1;
-				const int benefit = self->GetCurrentFoodBenefitLevel(p_item_proto->ItemLevel) * 15;
-				// nutritional value of food
-				player->DestroyItemCount(pItem, used_items, true); // remove item from inventory
-				player->CastCustomSpell(player, 1738 /*PET_FEED*/, &benefit, nullptr, nullptr,
-				                        TRIGGERED_OLD_TRIGGERED); // feed pet
+				// DEBUG_LOG ("[PlayerbotHunterAI]: DoNonCombatActions - Food for pet: %s",pItemProto->Name1);
+					// caster->CastSpell(caster, 23355, TRIGGERED_OLD_TRIGGERED); // pet feed visual
+				uint32 count = 1; // number of items used
+				const int32 benefit = 15 * self->GetCurrentFoodBenefitLevel(p_item_proto->ItemLevel); // nutritional value of food
+				player->DestroyItemCount(pItem, count, true); // remove item from inventory
+				player->CastCustomSpell(player, 1539, &benefit, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED); // feed pet
 				return true;
 			}
 
