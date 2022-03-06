@@ -1071,9 +1071,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return false;
-
-		return self->Attack(target, isMelee);
-
+		
 		if (isMelee)
 		{
 			self->SetTarget(target);
@@ -1083,7 +1081,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!self->isAttackReady(RANGED_ATTACK))
 			return false;
 
-		return Cast(self, target, 75, true, TRIGGERED_OLD_TRIGGERED) == SPELL_CAST_OK;
+		return Cast(self, target, 75, true, TRIGGERED_AUTOREPEAT) == SPELL_CAST_OK;
 	};
 	player_type["stop_attack"] = [](Player* self)
 	{
