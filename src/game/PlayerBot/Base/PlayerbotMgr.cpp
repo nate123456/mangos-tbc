@@ -1622,10 +1622,10 @@ void PlayerbotMgr::InitLuaUnitType()
 		return self->GetCreatureType();
 	});
 
-	unit_type["auto_attack_time"] = sol::property([&](const Unit* self, const uint32 attack)
+	unit_type["auto_attack_time"] = [&](const Unit* self, const uint32 attack)
 	{
 		return self->getAttackTimer(static_cast<WeaponAttackType>(attack));
-	});
+	};
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
 		if (!target)
