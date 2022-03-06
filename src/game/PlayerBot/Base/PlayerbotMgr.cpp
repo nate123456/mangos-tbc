@@ -1629,7 +1629,7 @@ void PlayerbotMgr::InitLuaUnitType()
 		const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
 
 		if (!current_spell)
-			return 0;
+			return static_cast<uint32>(0);
 
 		return current_spell->GetCastedTime();
 	};
