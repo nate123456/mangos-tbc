@@ -1600,6 +1600,10 @@ void PlayerbotMgr::InitLuaUnitType()
 	{
 		return CurrentCast(self, CURRENT_GENERIC_SPELL);
 	});
+	unit_type["current_auto_attack"] = sol::property([&](const Unit* self)
+	{
+		return CurrentCast(self, CURRENT_AUTOREPEAT_SPELL);
+	});
 	unit_type["current_cast_time"] = sol::property([](const Unit* self)->uint32
 	{
 		const auto current_spell = self->GetCurrentSpell(CURRENT_GENERIC_SPELL);
