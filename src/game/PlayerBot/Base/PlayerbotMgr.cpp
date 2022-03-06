@@ -1626,7 +1626,12 @@ void PlayerbotMgr::InitLuaUnitType()
 
 	unit_type["auto_attack_time"] = [&](const Unit* self, const uint32 attack)
 	{
-		return self->getAttackTimer(static_cast<WeaponAttackType>(attack));
+		const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
+
+		if (!current_spell)
+			return 0;
+
+		return current_spell->GetCastedTime();
 	};
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
