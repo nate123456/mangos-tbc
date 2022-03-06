@@ -1071,7 +1071,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return false;
-			
+
+		return self->Attack(target, isMelee);
 
 		if (isMelee)
 		{
