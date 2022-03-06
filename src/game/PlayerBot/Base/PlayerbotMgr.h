@@ -66,7 +66,7 @@ class PlayerbotMgr
         Unit* GetRaidIcon(uint8 iconIndex) const;
         void FlipLuaTable(const std::string& name);
         void SendMsg(const std::string& msg, bool isError = false, bool sendLog = true, bool sendSysMessage = true);
-        SpellCastResult Cast(Player* bot, Unit* target, uint32 spellId, bool checkIsAlive = true) const;
+        SpellCastResult Cast(Player* bot, Unit* target, uint32 spellId, bool checkIsAlive = true, TriggerCastFlags flags = TRIGGERED_NONE) const;
         static uint32 CurrentCast(const Unit* unit, CurrentSpellTypes type);
         SpellCastResult UseItem(Player* bot, Item* item, uint32 targetFlag, ObjectGuid targetGuid) const;
         void TellMaster(const std::string& text, const Player* fromPlayer) const;

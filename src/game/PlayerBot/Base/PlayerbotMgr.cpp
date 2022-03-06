@@ -1064,15 +1064,24 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		ai->ExecGoCommand(const_cast<char*>(target->GetName()));
 	};
-	player_type["attack"] = [](Player* self, Unit* target, const bool isMelee)
+	player_type["attack"] = [&](Player* self, Unit* target, const bool isMelee)
 	{
 		if (!target)
 			return false;
 
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return false;
+			
 
-		self->SetTarget(target);
+		if (isMelee)
+		{
+			self->SetTarget(target);
+			self->Attack(target, true);
+		}
+		else
+		{
+			Cast(self, target, 75, true, TRIGGERED_OLD_TRIGGERED);
+		}
 	};
 	player_type["stop_attack"] = [](Player* self)
 	{
@@ -1602,10 +1611,6 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return current_spell->GetCastedTime();
 	});
-	unit_type["auto_attack_time"] = sol::property([&](const Unit* self, const uint32 attack)
-	{		
-		return self->getAttackTimer(static_cast<WeaponAttackType>(attack));
-	});
 	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
 			return CurrentCast(self, CURRENT_CHANNELED_SPELL);
@@ -1615,6 +1620,10 @@ void PlayerbotMgr::InitLuaUnitType()
 		return self->GetCreatureType();
 	});
 
+	unit_type["auto_attack_time"] = sol::property([&](const Unit* self, const uint32 attack)
+	{
+		return self->getAttackTimer(static_cast<WeaponAttackType>(attack));
+	});
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
 		if (!target)
@@ -2337,7 +2346,7 @@ void PlayerbotMgr::SendMsg(const std::string& msg, const bool isError, const boo
 	}
 }
 
-SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId, const bool checkIsAlive) const
+SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId, const bool checkIsAlive, TriggerCastFlags flags = TRIGGERED_NONE) const
 {
 	if (!target)
 		return SPELL_FAILED_BAD_TARGETS;
@@ -2416,7 +2425,7 @@ SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spell
 
 	bot->SetTarget(target);
 
-	return bot->CastSpell(target, p_spell_info, TRIGGERED_NONE);
+	return bot->CastSpell(target, p_spell_info, flags);
 }
 
 uint32 PlayerbotMgr::CurrentCast(const Unit* unit, const CurrentSpellTypes type)
