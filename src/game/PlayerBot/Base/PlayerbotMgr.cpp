@@ -390,6 +390,15 @@ void PlayerbotMgr::InitLuaMembers()
 	wow_table["enums"] = m_lua.create_table();
 	sol::table enum_table = wow_table["enums"];
 
+	enum_table["attacks"] = m_lua.create_table();
+	sol::table attack_table = enum_table["attacks"];
+
+	attack_table[0] = "main_hand";
+	attack_table[1] = "off_hand";
+	attack_table[2] = "ranged";
+
+	FlipLuaTable("wow.enums.attacks");
+
 	enum_table["classes"] = m_lua.create_table();
 	sol::table class_table = enum_table["classes"];
 
@@ -1064,7 +1073,6 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return false;
 
 		self->SetTarget(target);
-		return self->Attack(target, isMelee);
 	};
 	player_type["stop_attack"] = [](Player* self)
 	{
@@ -1594,18 +1602,9 @@ void PlayerbotMgr::InitLuaUnitType()
 
 		return current_spell->GetCastedTime();
 	});
-	unit_type["current_auto_attack"] = sol::property([&](const Unit* self)
-	{
-			return CurrentCast(self, CURRENT_AUTOREPEAT_SPELL);
-	});
-	unit_type["current_auto_attack_time"] = sol::property([&](const Unit* self)
-	{
-		const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
-
-		if (!current_spell)
-			return static_cast<uint32>(0);
-
-		return current_spell->GetCastedTime();
+	unit_type["auto_attack_time"] = sol::property([&](const Unit* self, const uint32 attack)
+	{		
+		return self->getAttackTimer(static_cast<WeaponAttackType>(attack));
 	});
 	unit_type["current_channel"] = sol::property([&](const Unit* self)
 	{
