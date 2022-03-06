@@ -1081,11 +1081,12 @@ void PlayerbotMgr::InitLuaPlayerType()
 		constexpr uint32 spell_id = 75;
 		constexpr uint8  cast_count = 0;
 
-		std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_CAST_SPELL, 12));
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_CAST_SPELL, 4 + 1 + 4 + 8));
 		*packet << spell_id;
-		*packet << cast_count;
+		*packet << cast_count;                            // spells cast count;
+		*packet << TARGET_FLAG_UNIT;
+		*packet << target->GetObjectGuid().WriteAsPacked();
 		self->GetSession()->QueuePacket(std::move(packet));
-
 		return true;
 	};
 	player_type["stop_attack"] = [](Player* self)
@@ -1629,14 +1630,14 @@ void PlayerbotMgr::InitLuaUnitType()
 		return self->GetCreatureType();
 	});
 
-	unit_type["auto_attack_time"] = [&](const Unit* self, const uint32 attack)
+	unit_type["auto_attack_time"] = [&](const Unit* self)
 	{
 		const auto current_spell = self->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
 
 		if (!current_spell)
-			return static_cast<uint64>(-1);
+			return -1.0f;
 
-		return current_spell->GetDelayMoment();
+		return static_cast<float>(current_spell->GetDelayMoment());
 	};
 	unit_type["is_attacked_by"] = [](const Unit* self, Unit* target)
 	{
