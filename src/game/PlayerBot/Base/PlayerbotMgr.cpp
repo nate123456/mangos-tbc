@@ -1079,6 +1079,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return self->Attack(target, true);
 		}
 
+		if (self->isAttackReady(RANGED_ATTACK))
+			return false;
+
 		return Cast(self, target, 75, true, TRIGGERED_OLD_TRIGGERED) == SPELL_CAST_OK;
 	};
 	player_type["stop_attack"] = [](Player* self)
