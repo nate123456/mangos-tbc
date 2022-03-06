@@ -1076,12 +1076,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (isMelee)
 		{
 			self->SetTarget(target);
-			self->Attack(target, true);
+			return self->Attack(target, true);
 		}
-		else
-		{
-			Cast(self, target, 75, true, TRIGGERED_OLD_TRIGGERED);
-		}
+
+		return Cast(self, target, 75, true, TRIGGERED_OLD_TRIGGERED) == SPELL_CAST_OK;
 	};
 	player_type["stop_attack"] = [](Player* self)
 	{
