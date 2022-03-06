@@ -2348,7 +2348,7 @@ void PlayerbotMgr::SendMsg(const std::string& msg, const bool isError, const boo
 	}
 }
 
-SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId, const bool checkIsAlive, TriggerCastFlags flags = TRIGGERED_NONE) const
+SpellCastResult PlayerbotMgr::Cast(Player* bot, Unit* target, const uint32 spellId, const bool checkIsAlive, const TriggerCastFlags flags) const
 {
 	if (!target)
 		return SPELL_FAILED_BAD_TARGETS;
