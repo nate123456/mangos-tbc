@@ -1090,7 +1090,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		//*packet << TARGET_FLAG_UNIT;
 		//*packet << target->GetObjectGuid().WriteAsPacked();
 		//self->GetSession()->QueuePacket(std::move(packet));
-		//return true;
+		return true;
 	};
 	player_type["stop_attack"] = [](Player* self)
 	{
