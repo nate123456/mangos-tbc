@@ -1078,10 +1078,13 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return self->Attack(target, true);
 		}
 
-		if (!self->isAttackReady(RANGED_ATTACK))
-			return false;
+		constexpr uint32 spell_id = 75;
+		constexpr uint8  cast_count = 0;
 
-		return Cast(self, target, 75, true, TRIGGERED_AUTOREPEAT) == SPELL_CAST_OK;
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_CAST_SPELL, 12));
+		*packet << spell_id;
+		*packet << cast_count;
+		self->GetSession()->QueuePacket(std::move(packet));
 	};
 	player_type["stop_attack"] = [](Player* self)
 	{
