@@ -1085,6 +1085,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 		*packet << spell_id;
 		*packet << cast_count;
 		self->GetSession()->QueuePacket(std::move(packet));
+
+		return true;
 	};
 	player_type["stop_attack"] = [](Player* self)
 	{
