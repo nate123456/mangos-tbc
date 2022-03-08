@@ -2194,16 +2194,16 @@ void PlayerbotMgr::InitLuaItemType()
 
 		return false;
 	});
-	item_type["equip"] = [&](Item* self, const EquipmentSlots slot)
+	item_type["equip"] = [&](Item* self)
 	{
-		if (slot >= EQUIPMENT_SLOT_END)
-			return SPELL_FAILED_ITEM_NOT_FOUND;
+		const auto owner = self->GetOwner();
 
-		Player* owner = self->GetOwner();
+		const auto ai = owner->GetPlayerbotAI();
 
-		Item* const target_item = owner->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+		if (!ai)
+			return;
 
-		return UseItem(owner, self, TARGET_FLAG_ITEM, target_item ? target_item->GetObjectGuid() : ObjectGuid());
+		ai->EquipItem(self);
 	};
 	item_type["use"] = sol::overload([&](Item* self)
 	{
@@ -2514,31 +2514,28 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 		bot->GetSession()->QueuePacket(std::move(packet)); // queue the packet to get around race condition
 		return SPELL_CAST_OK;
 	}
-
-	if (targetFlag != TARGET_FLAG_ITEM)
+	
+	const auto spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
+	if (!spell_info)
 	{
-		const auto spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
-		if (!spell_info)
-		{
-			return SPELL_FAILED_ITEM_NOT_FOUND;
-		}
-
-		if (const SpellCastTimesEntry* casting_time_entry = sSpellCastTimesStore.LookupEntry(spell_info->CastingTimeIndex);
-			!casting_time_entry)
-		{
-			return SPELL_FAILED_ITEM_NOT_FOUND;
-		}
-
-		// stop movement to prevent cancel spell casting
-		else if (casting_time_entry && casting_time_entry->CastTime)
-		{
-			bot->GetMotionMaster()->Clear();
-		}
-
-		if (!bot->IsSpellReady(*spell_info))
-			return SPELL_FAILED_NOT_READY;
+		return SPELL_FAILED_ITEM_NOT_FOUND;
 	}
 
+	if (const SpellCastTimesEntry* casting_time_entry = sSpellCastTimesStore.LookupEntry(spell_info->CastingTimeIndex);
+		!casting_time_entry)
+	{
+		return SPELL_FAILED_ITEM_NOT_FOUND;
+	}
+
+	// stop movement to prevent cancel spell casting
+	else if (casting_time_entry && casting_time_entry->CastTime)
+	{
+		bot->GetMotionMaster()->Clear();
+	}
+
+	if (!bot->IsSpellReady(*spell_info))
+		return SPELL_FAILED_NOT_READY;
+	}
 	std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_USE_ITEM, 20));
 	*packet << bag_index;
 	*packet << slot;
