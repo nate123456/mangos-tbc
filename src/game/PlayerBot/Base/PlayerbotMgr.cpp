@@ -2194,7 +2194,7 @@ void PlayerbotMgr::InitLuaItemType()
 
 		return false;
 	});
-	item_type["equip"] = [&](Item* self)
+	item_type["equip"] = [&](Item* self, const EquipmentSlots slot)
 	{
 		const auto owner = self->GetOwner();
 
@@ -2514,7 +2514,7 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 		bot->GetSession()->QueuePacket(std::move(packet)); // queue the packet to get around race condition
 		return SPELL_CAST_OK;
 	}
-	
+
 	const auto spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
 	if (!spell_info)
 	{
@@ -2535,7 +2535,7 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 
 	if (!bot->IsSpellReady(*spell_info))
 		return SPELL_FAILED_NOT_READY;
-	}
+
 	std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_USE_ITEM, 20));
 	*packet << bag_index;
 	*packet << slot;
