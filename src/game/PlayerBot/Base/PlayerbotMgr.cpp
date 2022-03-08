@@ -2194,7 +2194,7 @@ void PlayerbotMgr::InitLuaItemType()
 
 		return false;
 	});
-	item_type["equip"] = [&](Item* self, const EquipmentSlots slot)
+	item_type["equip"] = [&](Item* self)
 	{
 		const auto owner = self->GetOwner();
 
