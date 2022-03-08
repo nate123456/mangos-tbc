@@ -2515,26 +2515,29 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 		return SPELL_CAST_OK;
 	}
 
-	const auto spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
-	if (!spell_info)
+	if (targetFlag != TARGET_FLAG_ITEM)
 	{
-		return SPELL_FAILED_ITEM_NOT_FOUND;
-	}
+		const auto spell_info = sSpellTemplate.LookupEntry<SpellEntry>(spell_id);
+		if (!spell_info)
+		{
+			return SPELL_FAILED_ITEM_NOT_FOUND;
+		}
 
-	if (const SpellCastTimesEntry* casting_time_entry = sSpellCastTimesStore.LookupEntry(spell_info->CastingTimeIndex);
-		!casting_time_entry)
-	{
-		return SPELL_FAILED_ITEM_NOT_FOUND;
-	}
+		if (const SpellCastTimesEntry* casting_time_entry = sSpellCastTimesStore.LookupEntry(spell_info->CastingTimeIndex);
+			!casting_time_entry)
+		{
+			return SPELL_FAILED_ITEM_NOT_FOUND;
+		}
 
-	// stop movement to prevent cancel spell casting
-	else if (casting_time_entry && casting_time_entry->CastTime)
-	{
-		bot->GetMotionMaster()->Clear();
-	}
+		// stop movement to prevent cancel spell casting
+		else if (casting_time_entry && casting_time_entry->CastTime)
+		{
+			bot->GetMotionMaster()->Clear();
+		}
 
-	if (!bot->IsSpellReady(*spell_info))
-		return SPELL_FAILED_NOT_READY;
+		if (!bot->IsSpellReady(*spell_info))
+			return SPELL_FAILED_NOT_READY;
+	}
 
 	std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_USE_ITEM, 20));
 	*packet << bag_index;
