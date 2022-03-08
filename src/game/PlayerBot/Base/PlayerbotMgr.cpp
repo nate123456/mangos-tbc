@@ -1865,7 +1865,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 		{
 			float x, y, z;
 			self->GetClosePoint(x, y, z, boundingRadius, distance, angle, self);
-			return sol::tie(x, y, z);
+			return Position(x, y, z, self->GetPosition().o);
 		};
 	world_object_type["has_in_arc"] = [](const WorldObject* self, const Unit* target)
 	{
