@@ -2202,10 +2202,8 @@ void PlayerbotMgr::InitLuaItemType()
 		Player* owner = self->GetOwner();
 
 		Item* const target_item = owner->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
-		if (!target_item)
-			return SPELL_FAILED_ITEM_NOT_FOUND;
 
-		return UseItem(owner, self, TARGET_FLAG_ITEM, target_item->GetObjectGuid());
+		return UseItem(owner, self, TARGET_FLAG_ITEM, target_item ? target_item->GetObjectGuid() : ObjectGuid());
 	};
 	item_type["use"] = sol::overload([&](Item* self)
 	{
