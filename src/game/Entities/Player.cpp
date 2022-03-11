@@ -477,13 +477,15 @@ void TradeData::SetAccepted(bool state, bool crosssend /*= false*/)
 
 Player::Player(WorldSession* session): Unit(), m_taxiTracker(*this), m_mover(this), m_camera(this), m_reputationMgr(this), m_launched(false)
 {
+    m_accountId = 0;
+
 #ifdef BUILD_PLAYERBOT
     m_playerbotAI = 0;
     m_playerbotMgr = 0;
 #endif
+
     m_speakTime = 0;
     m_speakCount = 0;
-
     m_objectType |= TYPEMASK_PLAYER;
     m_objectTypeId = TYPEID_PLAYER;
 
@@ -14823,7 +14825,7 @@ void Player::_LoadIntoDataField(const char* data, uint32 startOffset, uint32 cou
         SetTitle(tEntry, false, false);
 }
 
-bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder, const bool checkAccountMatch)
+bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
 {
     //       0     1        2     3     4      5       6      7   8      9            10            11
     // SELECT guid, account, name, race, class, gender, level, xp, money, playerBytes, playerBytes2, playerFlags,"
@@ -14851,13 +14853,16 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder, const bool chec
 
     // check if the character's account in the db and the logged in account match.
     // player should be able to load/delete character only with correct account!
-    if (checkAccountMatch && dbAccountId != GetSession()->GetAccountId())
+    // should only check if player is not a playerbot
+    if (!GetPlayerbotAI() && dbAccountId != GetSession()->GetAccountId())
     {
         sLog.outError("%s loading from wrong account (is: %u, should be: %u)",
                       guid.GetString().c_str(), GetSession()->GetAccountId(), dbAccountId);
         delete result;
         return false;
     }
+
+    m_accountId = dbAccountId;
 
     m_name = fields[2].GetCppString();
 
@@ -16534,25 +16539,7 @@ void Player::SaveToDB()
 
     static SqlStatementID delChar ;
     static SqlStatementID insChar ;
-
-    uint32 account_id = m_session->GetAccountId();
-
-#ifdef BUILD_PLAYERBOT    
-    if (GetPlayerbotAI())
-    {
-        const auto name = m_name;
-        // we want to re-use the account the bot was originally on to allow for bots to be from other accounts
-	    if (const QueryResult* result = CharacterDatabase.PQuery(
-		    "SELECT account FROM characters WHERE guid = '%u'",
-		    GetGUIDLow()))
-	    {
-		    const Field* fields = result->Fetch();
-		    account_id = fields[0].GetUInt32();
-	    }       
-    }
-#endif
-
-
+    
     SqlStatement stmt = CharacterDatabase.CreateStatement(delChar, "DELETE FROM characters WHERE guid = ?");
     stmt.PExecute(GetGUIDLow());
 
@@ -16574,7 +16561,7 @@ void Player::SaveToDB()
                               "?, ?, ?, ?, ?, ?, ?, ?) ");
 
     uberInsert.addUInt32(GetGUIDLow());
-    uberInsert.addUInt32(account_id);
+    uberInsert.addUInt32(GetAccountId());
     uberInsert.addString(m_name);
     uberInsert.addUInt8(getRace());
     uberInsert.addUInt8(getClass());

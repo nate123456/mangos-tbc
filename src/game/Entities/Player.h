@@ -946,6 +946,8 @@ class Player : public Unit
         explicit Player(WorldSession* session);
         ~Player();
 
+        uint32 GetAccountId() { return m_accountId;  }
+
         void CleanupsBeforeDelete() override;
 
         void AddToWorld() override;
@@ -1420,7 +1422,7 @@ class Player : public Unit
         /***                   LOAD SYSTEM                     ***/
         /*********************************************************/
 
-        bool LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder, bool checkAccountMatch = true);
+        bool LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder);
 
         static uint32 GetZoneIdFromDB(ObjectGuid guid);
         static uint32 GetLevelFromDB(ObjectGuid guid);
@@ -2547,6 +2549,8 @@ class Player : public Unit
 
         Unit* m_mover;
         Camera m_camera;
+
+        uint32 m_accountId;
 
         GridReference<Player> m_gridRef;
         MapReference m_mapRef;

@@ -155,7 +155,7 @@ class CharacterHandler
             // The bot's WorldSession is deleted by PlayerbotMgr::LogoutPlayerBot
             WorldSession* botSession = new WorldSession(lqh->GetAccountId(), nullptr, SEC_PLAYER, masterSession->GetExpansion(), 0, DEFAULT_LOCALE, masterSession->GetAccountName(), 0, masterSession->GetRecruitingFriendId(), false);
             botSession->SetNoAnticheat();
-            botSession->HandlePlayerLogin(lqh, false); // will delete lqh
+            botSession->HandlePlayerLogin(lqh); // will delete lqh
             masterSession->GetPlayer()->GetPlayerbotMgr()->OnBotLogin(botSession->GetPlayer());
         }
 #endif
