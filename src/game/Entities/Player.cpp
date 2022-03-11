@@ -16540,14 +16540,15 @@ void Player::SaveToDB()
 #ifdef BUILD_PLAYERBOT    
     if (GetPlayerbotAI())
     {
+        const auto name = m_name;
         // we want to re-use the account the bot was originally on to allow for bots to be from other accounts
 	    if (const QueryResult* result = CharacterDatabase.PQuery(
-		    "SELECT account FROM characters WHERE online = '1' AND guid = '%u'",
+		    "SELECT account FROM characters WHERE guid = '%u'",
 		    GetGUIDLow()))
 	    {
 		    const Field* fields = result->Fetch();
 		    account_id = fields[0].GetUInt32();
-	    }
+	    }       
     }
 #endif
 
