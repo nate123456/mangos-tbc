@@ -575,7 +575,7 @@ void PlayerbotMgr::LoginPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId)
 }
 #endif
 
-void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
+void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder, const bool checkAccountMatch)
 {
     ObjectGuid playerGuid = holder->GetGuid();
 
@@ -588,7 +588,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     SetOnline();
 
     // "GetAccountId()==db stored account id" checked in LoadFromDB (prevent login not own character using cheating tools)
-    if (!pCurrChar->LoadFromDB(playerGuid, holder))
+    if (!pCurrChar->LoadFromDB(playerGuid, holder, checkAccountMatch))
     {
         KickPlayer();                                       // disconnect client, player no set to session and it will not deleted or saved at kick
         // also deletes player
