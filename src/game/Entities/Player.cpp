@@ -14825,7 +14825,7 @@ void Player::_LoadIntoDataField(const char* data, uint32 startOffset, uint32 cou
         SetTitle(tEntry, false, false);
 }
 
-bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
+bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder, bool checkAccountMatch)
 {
     //       0     1        2     3     4      5       6      7   8      9            10            11
     // SELECT guid, account, name, race, class, gender, level, xp, money, playerBytes, playerBytes2, playerFlags,"
@@ -14854,7 +14854,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
     // check if the character's account in the db and the logged in account match.
     // player should be able to load/delete character only with correct account!
     // should only check if player is not a playerbot
-    if (!GetPlayerbotAI() && dbAccountId != GetSession()->GetAccountId())
+    if (checkAccountMatch && dbAccountId != GetSession()->GetAccountId())
     {
         sLog.outError("%s loading from wrong account (is: %u, should be: %u)",
                       guid.GetString().c_str(), GetSession()->GetAccountId(), dbAccountId);
