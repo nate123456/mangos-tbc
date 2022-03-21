@@ -1018,7 +1018,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 	};
 	player_type["move_raw"] = [](const Player* self, const Opcodes code)
 	{
-		std::unique_ptr<WorldPacket> packet(new WorldPacket(code, 8));
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(code, 4));
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
 	player_type["move"] = sol::overload([](Player* self, const float x, const float y, const float z)
