@@ -390,21 +390,21 @@ void PlayerbotMgr::InitLuaMembers()
 	wow_table["enums"] = m_lua.create_table();
 	sol::table enum_table = wow_table["enums"];
 
-	enum_table["move_codes"] = m_lua.create_table();
-	sol::table move_codes_table = enum_table["move_codes"];
+	enum_table["movements"] = m_lua.create_table();
+	sol::table movements = enum_table["movements"];
 
-	move_codes_table[MSG_MOVE_START_FORWARD] = "forward";
-	move_codes_table[MSG_MOVE_START_BACKWARD] = "backward";
-	move_codes_table[MSG_MOVE_STOP] = "stop";
-	move_codes_table[MSG_MOVE_START_STRAFE_LEFT] = "strafe_left";
-	move_codes_table[MSG_MOVE_START_STRAFE_RIGHT] = "strafe_right";
-	move_codes_table[MSG_MOVE_STOP_STRAFE] = "stop_strafe";
-	move_codes_table[MSG_MOVE_JUMP] = "jump";
-	move_codes_table[MSG_MOVE_START_TURN_LEFT] = "turn_left";
-	move_codes_table[MSG_MOVE_START_TURN_RIGHT] = "turn_right";
-	move_codes_table[MSG_MOVE_STOP_TURN] = "stop_turn";
+	movements[0] = "forward";
+	movements[1] = "backward";
+	movements[2] = "stop";
+	movements[3] = "strafe_left";
+	movements[4] = "strafe_right";
+	movements[5] = "stop_strafe";
+	movements[6] = "jump";
+	movements[7] = "turn_left";
+	movements[8] = "turn_right";
+	movements[9] = "stop_turn";
 
-	FlipLuaTable("wow.enums.move_codes");
+	FlipLuaTable("wow.enums.movements");
 
 	enum_table["attacks"] = m_lua.create_table();
 	sol::table attack_table = enum_table["attacks"];
@@ -1016,9 +1016,30 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_GENERIC_SPELL);
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 	};
-	player_type["move_raw"] = [](const Player* self, const uint8 code)
+	player_type["start_walking_forward"] = [](const Player* self)
 	{
-		std::unique_ptr<WorldPacket> packet(new WorldPacket(static_cast<Opcodes>(code), 200));
+		const auto pos = self->GetPosition();
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_START_FORWARD, 29));
+		*packet << MOVEFLAG_FORWARD;
+		*packet << static_cast<uint8>(0);
+		*packet << sWorld.GetCurrentMSTime();
+		*packet << pos.x;
+		*packet << pos.y;
+		*packet << pos.z;
+		*packet << pos.o;
+		self->GetSession()->QueuePacket(std::move(packet));
+	};
+	player_type["stop_walking_forward"] = [](const Player* self)
+	{
+		const auto &pos = self->GetPosition();
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_STOP, 29));
+		*packet << MOVEFLAG_NONE;
+		*packet << static_cast<uint8>(0);
+		*packet << sWorld.GetCurrentMSTime();
+		*packet << pos.x;
+		*packet << pos.y;
+		*packet << pos.z;
+		*packet << pos.o;
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
 	player_type["move"] = sol::overload([](Player* self, const float x, const float y, const float z)
