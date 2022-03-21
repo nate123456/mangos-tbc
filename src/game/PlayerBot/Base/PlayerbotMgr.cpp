@@ -390,6 +390,22 @@ void PlayerbotMgr::InitLuaMembers()
 	wow_table["enums"] = m_lua.create_table();
 	sol::table enum_table = wow_table["enums"];
 
+	enum_table["move_codes"] = m_lua.create_table();
+	sol::table move_codes_table = enum_table["move_codes"];
+
+	move_codes_table[MSG_MOVE_START_FORWARD] = "forward";
+	move_codes_table[MSG_MOVE_START_BACKWARD] = "backward";
+	move_codes_table[MSG_MOVE_STOP] = "stop";
+	move_codes_table[MSG_MOVE_START_STRAFE_LEFT] = "strafe_left";
+	move_codes_table[MSG_MOVE_START_STRAFE_RIGHT] = "strafe_right";
+	move_codes_table[MSG_MOVE_STOP_STRAFE] = "stop_strafe";
+	move_codes_table[MSG_MOVE_JUMP] = "jump";
+	move_codes_table[MSG_MOVE_START_TURN_LEFT] = "turn_left";
+	move_codes_table[MSG_MOVE_START_TURN_RIGHT] = "turn_right";
+	move_codes_table[MSG_MOVE_STOP_TURN] = "stop_turn";
+
+	FlipLuaTable("wow.enums.move_codes");
+
 	enum_table["attacks"] = m_lua.create_table();
 	sol::table attack_table = enum_table["attacks"];
 
@@ -1000,6 +1016,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_GENERIC_SPELL);
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 	};
+	player_type["move_raw"] = [](const Player* self, const Opcodes code)
+	{
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(code, 8));
+		self->GetSession()->QueuePacket(std::move(packet));
+	};
 	player_type["move"] = sol::overload([](Player* self, const float x, const float y, const float z)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -1054,6 +1075,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
 		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN, speed);
 	});
+
 	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
 	{
 		if (!target)
