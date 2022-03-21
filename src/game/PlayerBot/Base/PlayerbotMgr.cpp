@@ -944,7 +944,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 			i++;
 		}
 
-		return i - self->GetSubGroup() * 5 + 1;
+		return i % 5 + 1;
 	});
 
 	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
