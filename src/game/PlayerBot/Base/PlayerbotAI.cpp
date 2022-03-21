@@ -2609,21 +2609,22 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
         }
 
           // uncomment this and your bots will tell you all their outgoing packet opcode names
-           // case SMSG_MONSTER_MOVE:
-           // case SMSG_UPDATE_WORLD_STATE:
-           // case SMSG_COMPRESSED_UPDATE_OBJECT:
-           case MSG_MOVE_SET_FACING:
-           case MSG_MOVE_STOP:
-           case MSG_MOVE_HEARTBEAT:
-           case MSG_MOVE_STOP_STRAFE:
-           case MSG_MOVE_START_STRAFE_LEFT:
-           // case SMSG_UPDATE_OBJECT:
-           case MSG_MOVE_START_FORWARD:
-           case MSG_MOVE_START_STRAFE_RIGHT:
-           // case SMSG_DESTROY_OBJECT:
-           case MSG_MOVE_START_BACKWARD:
-           case MSG_MOVE_FALL_LAND:
-           case MSG_MOVE_JUMP:
+           case SMSG_MONSTER_MOVE:
+           case SMSG_UPDATE_WORLD_STATE:
+           case SMSG_COMPRESSED_UPDATE_OBJECT:
+           // case MSG_MOVE_SET_FACING:
+           // case MSG_MOVE_STOP:
+           // case MSG_MOVE_HEARTBEAT:
+           // case MSG_MOVE_STOP_STRAFE:
+           // case MSG_MOVE_START_STRAFE_LEFT:
+           case SMSG_UPDATE_OBJECT:
+           // case MSG_MOVE_START_FORWARD:
+			// case MSG_MOVE_START_STRAFE_RIGHT:
+           case SMSG_DESTROY_OBJECT:
+           case SMSG_NOTIFICATION:
+           // case MSG_MOVE_START_BACKWARD:
+           // case MSG_MOVE_FALL_LAND:
+           // case MSG_MOVE_JUMP:
 
         default:
         {
