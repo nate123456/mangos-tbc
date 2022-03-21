@@ -1963,7 +1963,7 @@ void PlayerbotMgr::InitLuaWorldObjectType()
 	};
 	world_object_type["get_distance_to"] = [](const WorldObject* self, const WorldObject* obj)
 	{
-		return self->GetPosition().GetDistance(obj->GetPosition());
+		return pow(self->GetPosition().GetDistance(obj->GetPosition()), .5);
 	};
 }
 
