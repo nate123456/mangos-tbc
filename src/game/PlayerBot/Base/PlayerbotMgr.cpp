@@ -1027,6 +1027,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		*packet << pos.y;
 		*packet << pos.z;
 		*packet << pos.o;
+		*packet << static_cast<uint32>(0);
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
 	player_type["stop_walking_forward"] = [](const Player* self)
@@ -1040,6 +1041,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		*packet << pos.y;
 		*packet << pos.z;
 		*packet << pos.o;
+		*packet << static_cast<uint32>(0);
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
 	player_type["move"] = sol::overload([](Player* self, const float x, const float y, const float z)
