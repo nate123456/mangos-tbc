@@ -1030,19 +1030,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 		*packet << static_cast<uint32>(0);
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
-	player_type["keep_walking"] = [](const Player* self)
+	player_type["keep_walking"] = [](Player* self)
 	{
-		const auto pos = self->GetPosition();
-		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_HEARTBEAT, 29));
-		*packet << MOVEFLAG_FORWARD;
-		*packet << static_cast<uint8>(0);
-		*packet << sWorld.GetCurrentMSTime();
-		*packet << pos.x;
-		*packet << pos.y;
-		*packet << pos.z;
-		*packet << pos.o;
-		*packet << static_cast<uint32>(0);
-		self->GetSession()->QueuePacket(std::move(packet));
+		self->SendHeartBeat();
 	};
 	player_type["stop_walking"] = [](const Player* self)
 	{
