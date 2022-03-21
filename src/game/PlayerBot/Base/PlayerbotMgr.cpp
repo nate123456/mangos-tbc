@@ -912,7 +912,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 			}
 		}
 
-		if (x == 0 && y == 0 && z == 0)
+		if (x == 0.0f && y == 0.0f && z == 0.0f)
 			return true;
 
 		return self->GetPosition().GetDistance(Position(x, y, z, self->GetPosition().o)) < 1;
@@ -925,6 +925,26 @@ void PlayerbotMgr::InitLuaPlayerType()
 			return static_cast<uint8>(-1);
 
 		return self->GetSubGroup();
+	});
+	player_type["party_slot"] = sol::property([](Player* self)
+	{
+		const auto group = self->GetGroup();
+
+		if (!group)
+			return -1;
+
+		const auto &slots = group->GetMemberSlots();
+
+		int i = 0;
+
+		for (auto &slot : slots)
+		{
+			if (slot.guid == self->GetObjectGuid())
+				break;
+			i++;
+		}
+
+		return i - self->GetSubGroup() * 5 + 1;
 	});
 
 	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
