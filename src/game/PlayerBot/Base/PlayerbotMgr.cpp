@@ -153,8 +153,8 @@ void PlayerbotMgr::UpdateAI(const uint32 time)
 
 	if (const auto group = m_master->GetGroup())
 	{
-		const Group::MemberSlotList& group_slot = group->GetMemberSlots();
-		for (const auto& [guid, name, group_num, assistant, lastMap] : group_slot)
+		const Group::MemberSlotList& members = group->GetMemberSlots();
+		for (const auto& [guid, name, group_num, assistant, lastMap] : members)
 		{
 			Player* group_member = sObjectMgr.GetPlayer(guid);
 			if (!group_member)
@@ -1012,7 +1012,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		motion_master->MovePoint(0, x, y, z, FORCED_MOVEMENT_RUN);
+		const UnitMoveType type = self->m_movementInfo.GetSpeedType();
+		const float speed = self->GetSpeed(type);
+
+		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN, speed);
 	}, [](Player* self, const Position* pos)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -1025,7 +1028,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN, 1);
+		const UnitMoveType type = self->m_movementInfo.GetSpeedType();
+		const float speed = self->GetSpeed(type);
+
+		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN, speed);
 	}, [](Player* self, const Unit* target)
 	{
 		if (!target)
@@ -1041,9 +1047,12 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
+		const UnitMoveType type = self->m_movementInfo.GetSpeedType();
+		const float speed = self->GetSpeed(type);
+
 		float x, y, z;
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-		motion_master->MovePoint(0, x, y, z, FORCED_MOVEMENT_RUN);
+		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN, speed);
 	});
 	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
 	{
