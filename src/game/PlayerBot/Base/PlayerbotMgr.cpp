@@ -1016,7 +1016,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_GENERIC_SPELL);
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 	};
-	player_type["start_walking_forward"] = [](const Player* self)
+	player_type["start_walking"] = [](const Player* self)
 	{
 		const auto pos = self->GetPosition();
 		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_START_FORWARD, 29));
@@ -1030,7 +1030,21 @@ void PlayerbotMgr::InitLuaPlayerType()
 		*packet << static_cast<uint32>(0);
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
-	player_type["stop_walking_forward"] = [](const Player* self)
+	player_type["keep_walking"] = [](const Player* self)
+	{
+		const auto pos = self->GetPosition();
+		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_HEARTBEAT, 29));
+		*packet << MOVEFLAG_FORWARD;
+		*packet << static_cast<uint8>(0);
+		*packet << sWorld.GetCurrentMSTime();
+		*packet << pos.x;
+		*packet << pos.y;
+		*packet << pos.z;
+		*packet << pos.o;
+		*packet << static_cast<uint32>(0);
+		self->GetSession()->QueuePacket(std::move(packet));
+	};
+	player_type["stop_walking"] = [](const Player* self)
 	{
 		const auto &pos = self->GetPosition();
 		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_STOP, 29));
