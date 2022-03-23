@@ -103,7 +103,7 @@ private:
 	Unit* m_chaseTarget = nullptr;
 	float m_chaseAngle = 0.0f;
 	float m_chaseDist = 0.0f;
-	inline static float m_minPolicyChangeWaitTime = 400;
+	inline static float m_minPolicyChangeWaitTime = 500;
 };
 
 using PlayerbotMovementPolicyMap = std::unordered_map<ObjectGuid, PlayerbotMovementPolicy*>;
