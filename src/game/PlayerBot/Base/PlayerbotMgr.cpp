@@ -2583,7 +2583,7 @@ void PlayerbotMgr::MoveTo(Player* bot, const float destX, const float destY, con
 		if (!policy->CanUpdatePolicy())
 			return;
 
-		if (const auto old_dest = policy->GetDestination(); old_dest && !old_dest->IsEmpty())
+		if (const auto old_dest = policy->GetDestination(); old_dest != nullptr && !old_dest->IsEmpty())
 			if (sqrtf(old_dest->GetDistance(dest)) < 0.5f)
 				return;
 
