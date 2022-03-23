@@ -2576,23 +2576,23 @@ void PlayerbotMgr::MoveTo(Player* bot, const float destX, const float destY, con
 	MaNGOS::NormalizeMapCoord(y);
 	bot->UpdateAllowedPositionZ(x, y, z);
 
-	auto dest = Position(x, y, z, bot->GetPosition().o);
+	const auto dest = Position(x, y, z, bot->GetPosition().o);
 
 	if (PlayerbotMovementPolicy* policy = m_movementPolicies[bot->GetObjectGuid()])
 	{
 		if (!policy->CanUpdatePolicy())
 			return;
 
-		if (const auto old_dest = policy->GetDestination(); old_dest != nullptr && !old_dest->IsEmpty())
-			if (sqrtf(old_dest->GetDistance(dest)) < 0.5f)
+		if (const auto old_dest = policy->GetDestination(); !old_dest.IsEmpty())
+			if (sqrtf(old_dest.GetDistance(dest)) < 0.5f)
 				return;
 
-		policy->MoveTo(&dest);
+		policy->MoveTo(dest);
 	}
 	else
 	{
 		PlayerbotMovementPolicy new_policy;
-		new_policy.MoveTo(&dest);
+		new_policy.MoveTo(dest);
 
 		m_movementPolicies[bot->GetObjectGuid()] = &new_policy;
 	}
