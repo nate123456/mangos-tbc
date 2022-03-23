@@ -1048,7 +1048,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		*packet << static_cast<uint32>(0);
 		self->GetSession()->QueuePacket(std::move(packet));
 	};
-	player_type["move"] = sol::overload([](Player* self, const float x, const float y, const float z)
+	player_type["move"] = sol::overload([](Player* self, const float destX, const float destY)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
 			return;
@@ -1059,6 +1059,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
+
+		float x = destX;
+		float y = destY;
+		float z;
+
+		MaNGOS::NormalizeMapCoord(x);
+		MaNGOS::NormalizeMapCoord(y);
+		self->UpdateAllowedPositionZ(x, y, z);
 
 		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN);
 	}, [](Player* self, const Position* pos)
