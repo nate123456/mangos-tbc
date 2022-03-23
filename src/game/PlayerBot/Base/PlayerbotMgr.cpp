@@ -2581,7 +2581,7 @@ void PlayerbotMgr::MoveTo(Player* bot, const float destX, const float destY, con
 	if (const auto target = bot->GetTarget())
 		o = bot->GetAngle(target);
 
-	const auto dest = Position(x, y, z, M_PI_F / 2 + o);
+	const auto dest = Position(x, y, z, o > M_PI_F ? o - 2.0f * M_PI_F : o);
 
 	if (PlayerbotMovementPolicy* policy = m_movementPolicies[bot->GetObjectGuid()])
 	{
