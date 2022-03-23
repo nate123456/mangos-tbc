@@ -963,8 +963,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return i % 5 + 1;
 	});
-	player_type["movement_policy"] = sol::property([&](const Player* self)
+	player_type["movement_policy"] = sol::property([&](Player* self)->PlayerbotMovementPolicy*
 	{
+		if (const auto ai = self->GetPlayerbotAI(); !ai)
+			return nullptr;
+
 		return m_movementPolicies[self->GetObjectGuid()];
 	});
 
@@ -1540,11 +1543,11 @@ void PlayerbotMgr::InitMovementPolicy()
 	sol::usertype<PlayerbotMovementPolicy> policy_type = m_lua.new_usertype<PlayerbotMovementPolicy>("MovementPolicy");
 
 	policy_type["follow_target"] = sol::property(&PlayerbotMovementPolicy::GetFollowTarget);
-	policy_type["follow_dist"] = sol::property(&PlayerbotMovementPolicy::GetFollowDistance);
+	policy_type["follow_distance"] = sol::property(&PlayerbotMovementPolicy::GetFollowDistance);
 	policy_type["follow_angle"] = sol::property(&PlayerbotMovementPolicy::GetFollowAngle);
 	policy_type["move_destination"] = sol::property(&PlayerbotMovementPolicy::GetDestination);
 	policy_type["chase_target"] = sol::property(&PlayerbotMovementPolicy::GetChaseTarget);
-	policy_type["chase_dist"] = sol::property(&PlayerbotMovementPolicy::GetChaseDistance);
+	policy_type["chase_distance"] = sol::property(&PlayerbotMovementPolicy::GetChaseDistance);
 	policy_type["chase_angle"] = sol::property(&PlayerbotMovementPolicy::GetChaseAngle);
 }
 
