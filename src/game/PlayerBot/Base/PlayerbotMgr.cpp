@@ -274,6 +274,7 @@ void PlayerbotMgr::InitLua()
 	InitLuaFunctions();
 
 	InitLuaPlayerType();
+	InitMovementPolicy();
 	InitLuaUnitType();
 	InitLuaCreatureType();
 	InitLuaObjectType();
@@ -962,6 +963,10 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		return i % 5 + 1;
 	});
+	player_type["movement_policy"] = sol::property([&](const Player* self)
+	{
+		return m_movementPolicies[self->GetObjectGuid()];
+	});
 
 	player_type["follow"] = [](Player* self, Unit* target, const float dist, const float angle)
 	{
@@ -1016,96 +1021,22 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->InterruptSpell(CURRENT_GENERIC_SPELL);
 		self->InterruptSpell(CURRENT_CHANNELED_SPELL);
 	};
-	player_type["start_walking"] = [](const Player* self)
+	player_type["move"] = sol::overload([&](Player* self, const float destX, const float destY)
 	{
-		const auto pos = self->GetPosition();
-		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_START_FORWARD, 29));
-		*packet << MOVEFLAG_FORWARD;
-		*packet << static_cast<uint8>(0);
-		*packet << sWorld.GetCurrentMSTime();
-		*packet << pos.x;
-		*packet << pos.y;
-		*packet << pos.z;
-		*packet << pos.o;
-		*packet << static_cast<uint32>(0);
-		self->GetSession()->QueuePacket(std::move(packet));
-	};
-	player_type["keep_walking"] = [](Player* self)
-	{
-		self->SendHeartBeat();
-	};
-	player_type["stop_walking"] = [](const Player* self)
-	{
-		const auto &pos = self->GetPosition();
-		std::unique_ptr<WorldPacket> packet(new WorldPacket(MSG_MOVE_STOP, 29));
-		*packet << MOVEFLAG_NONE;
-		*packet << static_cast<uint8>(0);
-		*packet << sWorld.GetCurrentMSTime();
-		*packet << pos.x;
-		*packet << pos.y;
-		*packet << pos.z;
-		*packet << pos.o;
-		*packet << static_cast<uint32>(0);
-		self->GetSession()->QueuePacket(std::move(packet));
-	};
-	player_type["move"] = sol::overload([](Player* self, const float destX, const float destY)
-	{
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		const auto motion_master = self->GetMotionMaster();
-
-		motion_master->Clear();
-
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
-
-		float x = destX;
-		float y = destY;
-		float z;
-
-		MaNGOS::NormalizeMapCoord(x);
-		MaNGOS::NormalizeMapCoord(y);
-		self->UpdateAllowedPositionZ(x, y, z);
-
-		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN);
-	}, [](Player* self, const WorldObject* target)
+		MoveTo(self, destX, destY, 0.0f);
+	}, [&](Player* self, const WorldObject* target)
 	{
 		if (!target)
 			return;
-
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		const auto motion_master = self->GetMotionMaster();
-
-		motion_master->Clear();
-
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		float x, y, z;
 		target->GetContactPoint(self, x, y, z);
-		
-		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN);
+
+		MoveTo(self, x, y, z);
 	});
-
-	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
+	player_type["chase"] = [&](Player* self, Unit* target, const float distance, const float angle)
 	{
-		if (!target)
-			return;
-
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		const auto motion_master = self->GetMotionMaster();
-
-		motion_master->Clear();
-
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
-
-		motion_master->MoveChase(target, distance, angle);
+		Chase(self, target, distance, angle);
 	};
 	player_type["teleport_to"] = [](Player* self, const Unit* target)
 	{
@@ -1603,6 +1534,19 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->GetSession()->QueuePacket(std::move(packet));
 	});
 };
+
+void PlayerbotMgr::InitMovementPolicy()
+{
+	sol::usertype<Player> policy_type = m_lua.new_usertype<PlayerbotMovementPolicy>("PlayerbotMovementPolicy");
+
+	policy_type["follow_target"] = sol::property(PlayerbotMovementPolicy::GetFollowTarget);
+	policy_type["follow_dist"] = sol::property(PlayerbotMovementPolicy::GetFollowDistance);
+	policy_type["follow_angle"] = sol::property(PlayerbotMovementPolicy::GetFollowAngle);
+	policy_type["move_destination"] = sol::property(PlayerbotMovementPolicy::GetDestination);
+	policy_type["chase_target"] = sol::property(PlayerbotMovementPolicy::GetChaseTarget);
+	policy_type["chase_dist"] = sol::property(PlayerbotMovementPolicy::GetChaseDistance);
+	policy_type["chase_angle"] = sol::property(PlayerbotMovementPolicy::GetChaseAngle);
+}
 
 void PlayerbotMgr::InitLuaUnitType()
 {
@@ -2614,6 +2558,155 @@ SpellCastResult PlayerbotMgr::UseItem(Player* bot, Item* item, uint32 targetFlag
 	return SPELL_CAST_OK;
 }
 
+void PlayerbotMgr::MoveToPoint2d(Player* bot, const float destX, const float destY)
+{
+	MoveTo(bot, destX, destY, 0.0f);
+}
+
+void PlayerbotMgr::MoveTo(Player* bot, const float destX, const float destY, const float destZ)
+{
+	if (const auto ai = bot->GetPlayerbotAI(); !ai)
+		return;
+
+	float x = destX;
+	float y = destY;
+	float z = destZ;
+
+	MaNGOS::NormalizeMapCoord(x);
+	MaNGOS::NormalizeMapCoord(y);
+	bot->UpdateAllowedPositionZ(x, y, z);
+
+	auto dest = Position(x, y, z, bot->GetPosition().o);
+
+	if (PlayerbotMovementPolicy* policy = m_movementPolicies[bot->GetObjectGuid()])
+	{
+		if (!policy->CanUpdatePolicy())
+			return;
+
+		if (const auto old_dest = policy->GetDestination())
+			if (sqrtf(old_dest->GetDistance(dest)) < 0.5f)
+				return;
+
+		policy->MoveTo(&dest);
+	}
+	else
+	{
+		PlayerbotMovementPolicy new_policy;
+		new_policy.MoveTo(&dest);
+
+		m_movementPolicies[bot->GetObjectGuid()] = &new_policy;
+	}
+
+	const auto motion_master = bot->GetMotionMaster();
+
+	motion_master->Clear();
+
+	if (bot->getStandState() != UNIT_STAND_STATE_STAND)
+		bot->SetStandState(UNIT_STAND_STATE_STAND);
+
+	motion_master->MovePoint(0, dest, FORCED_MOVEMENT_RUN);
+}
+
+void PlayerbotMgr::Follow(Player* bot, Unit* target, const float dist, const float angle)
+{
+	if (const auto ai = bot->GetPlayerbotAI(); !ai)
+		return;
+
+	if (!target)
+		return;
+
+	if (PlayerbotMovementPolicy* policy = m_movementPolicies[bot->GetObjectGuid()])
+	{
+		if (!policy->CanUpdatePolicy())
+			return;
+
+		bool new_policy_required = false;
+
+		if (const auto old_target = policy->GetFollowTarget())
+			if (old_target->GetObjectGuid() != target->GetObjectGuid())
+				new_policy_required = true;
+
+		if (!new_policy_required)
+			if (const auto old_angle = policy->GetFollowAngle(); abs(old_angle - angle) > 2 * M_PI_F / 360)
+				new_policy_required = true;
+
+		if (!new_policy_required)
+			if (const auto old_dist = policy->GetFollowDistance(); abs(old_dist - dist) > 0.1f)
+				new_policy_required = true;
+
+		if (!new_policy_required)
+			return;
+
+		policy->Follow(target, dist, angle);
+	}
+	else
+	{
+		PlayerbotMovementPolicy new_policy;
+		policy->Follow(target, dist, angle);
+
+		m_movementPolicies[bot->GetObjectGuid()] = &new_policy;
+	}
+
+	const auto motion_master = bot->GetMotionMaster();
+
+	motion_master->Clear();
+
+	if (bot->getStandState() != UNIT_STAND_STATE_STAND)
+		bot->SetStandState(UNIT_STAND_STATE_STAND);
+
+	motion_master->MoveFollow(target, dist, angle);
+}
+
+void PlayerbotMgr::Chase(Player* bot, Unit* target, const float dist, const float angle)
+{
+	if (const auto ai = bot->GetPlayerbotAI(); !ai)
+		return;
+
+	if (!target)
+		return;
+
+	if (PlayerbotMovementPolicy* policy = m_movementPolicies[bot->GetObjectGuid()])
+	{
+		if (!policy->CanUpdatePolicy())
+			return;
+
+		bool new_policy_required = false;
+
+		if (const auto old_target = policy->GetChaseTarget())
+			if (old_target->GetObjectGuid() != target->GetObjectGuid())
+				new_policy_required = true;
+
+		if (!new_policy_required)
+			if (const auto old_angle = policy->GetChaseAngle(); abs(old_angle - angle) > 2 * M_PI_F / 360)
+				new_policy_required = true;
+
+		if (!new_policy_required)
+			if (const auto old_dist = policy->GetChaseDistance(); abs(old_dist - dist) > 0.1f)
+				new_policy_required = true;
+
+		if (!new_policy_required)
+			return;
+
+		policy->Chase(target, dist, angle);
+	}
+	else
+	{
+		PlayerbotMovementPolicy new_policy;
+		policy->Chase(target, dist, angle);
+
+		m_movementPolicies[bot->GetObjectGuid()] = &new_policy;
+	}
+
+	const auto motion_master = bot->GetMotionMaster();
+
+	motion_master->Clear();
+
+	if (bot->getStandState() != UNIT_STAND_STATE_STAND)
+		bot->SetStandState(UNIT_STAND_STATE_STAND);
+
+	motion_master->MoveChase(target, dist, angle);
+}
+
 void PlayerbotMgr::TellMaster(const std::string& text, const Player* fromPlayer) const
 {
 	SendWhisper(text, fromPlayer, m_master);
@@ -3381,7 +3474,8 @@ void PlayerbotMgr::RemoveBots()
         if (bot)
         {
             WorldSession* botWorldSessionPtr = bot->GetSession();
-            m_playerBots.erase(guid);                               // deletes bot player ptr inside this WorldSession PlayerBotMap
+            m_playerBots.erase(guid); // deletes bot player ptr inside this WorldSession PlayerBotMap
+			m_movementPolicies.erase(guid); 
             botWorldSessionPtr->LogoutPlayer();                     // this will delete the bot Player object and PlayerbotAI object
             delete botWorldSessionPtr;                              // finally delete the bot's WorldSession
         }
