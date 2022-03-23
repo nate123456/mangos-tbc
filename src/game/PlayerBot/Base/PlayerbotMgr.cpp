@@ -1069,20 +1069,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		self->UpdateAllowedPositionZ(x, y, z);
 
 		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN);
-	}, [](Player* self, const Position* pos)
-	{
-		if (const auto ai = self->GetPlayerbotAI(); !ai)
-			return;
-
-		const auto motion_master = self->GetMotionMaster();
-
-		motion_master->Clear();
-
-		if (self->getStandState() != UNIT_STAND_STATE_STAND)
-			self->SetStandState(UNIT_STAND_STATE_STAND);
-		
-		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN);
-	}, [](Player* self, const Unit* target)
+	}, [](Player* self, const WorldObject* target)
 	{
 		if (!target)
 			return;
@@ -1098,7 +1085,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
 		float x, y, z;
-		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
+		target->GetContactPoint(self, x, y, z);
+		
 		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN);
 	});
 
