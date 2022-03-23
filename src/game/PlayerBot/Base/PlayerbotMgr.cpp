@@ -2576,7 +2576,12 @@ void PlayerbotMgr::MoveTo(Player* bot, const float destX, const float destY, con
 	MaNGOS::NormalizeMapCoord(y);
 	bot->UpdateAllowedPositionZ(x, y, z);
 
-	const auto dest = Position(x, y, z, bot->GetPosition().o);
+	float o = bot->GetAngle(m_master);
+
+	if (const auto target = bot->GetTarget())
+		o = bot->GetAngle(target);
+
+	const auto dest = Position(x, y, z, o);
 
 	if (PlayerbotMovementPolicy* policy = m_movementPolicies[bot->GetObjectGuid()])
 	{
