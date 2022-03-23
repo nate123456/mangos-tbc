@@ -1060,10 +1060,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		const UnitMoveType type = self->m_movementInfo.GetSpeedType();
-		const float speed = self->GetSpeed(type);
-
-		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN, speed);
+		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN);
 	}, [](Player* self, const Position* pos)
 	{
 		if (const auto ai = self->GetPlayerbotAI(); !ai)
@@ -1075,11 +1072,8 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
-
-		const UnitMoveType type = self->m_movementInfo.GetSpeedType();
-		const float speed = self->GetSpeed(type);
-
-		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN, speed);
+		
+		motion_master->MovePoint(0, *pos, FORCED_MOVEMENT_RUN);
 	}, [](Player* self, const Unit* target)
 	{
 		if (!target)
@@ -1095,12 +1089,9 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (self->getStandState() != UNIT_STAND_STATE_STAND)
 			self->SetStandState(UNIT_STAND_STATE_STAND);
 
-		const UnitMoveType type = self->m_movementInfo.GetSpeedType();
-		const float speed = self->GetSpeed(type);
-
 		float x, y, z;
 		target->GetClosePoint(x, y, z, self->GetObjectBoundingRadius());
-		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN, speed);
+		motion_master->MovePoint(0, Position(x, y, z, self->GetPosition().o), FORCED_MOVEMENT_RUN);
 	});
 
 	player_type["chase"] = [](Player* self, Unit* target, const float distance, const float angle)
