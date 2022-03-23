@@ -1537,7 +1537,7 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 void PlayerbotMgr::InitMovementPolicy()
 {
-	sol::usertype<Player> policy_type = m_lua.new_usertype<PlayerbotMovementPolicy>("PlayerbotMovementPolicy");
+	sol::usertype<PlayerbotMovementPolicy> policy_type = m_lua.new_usertype<PlayerbotMovementPolicy>("MovementPolicy");
 
 	policy_type["follow_target"] = sol::property(&PlayerbotMovementPolicy::GetFollowTarget);
 	policy_type["follow_dist"] = sol::property(&PlayerbotMovementPolicy::GetFollowDistance);
