@@ -950,18 +950,11 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!group)
 			return -1;
 
-		const auto &slots = group->GetMemberSlots();
-
-		int i = 0;
-
-		for (auto &slot : slots)
-		{
+		for (auto& slot : group->GetMemberSlots())
 			if (slot.guid == self->GetObjectGuid())
-				break;
-			i++;
-		}
+				return slot.group + 1;
 
-		return i % 5 + 1;
+		return -1;
 	});
 	player_type["movement_policy"] = sol::property([&](Player* self)->PlayerbotMovementPolicy*
 	{
@@ -2121,7 +2114,7 @@ void PlayerbotMgr::InitLuaAuraType()
 		const uint32 duration = aura->GetAuraDuration();
 
 		if (duration == -1)
-			return (aura->GetAuraApplyTime());
+			return aura->GetAuraApplyTime();
 
 		return duration;
 	});
