@@ -950,11 +950,19 @@ void PlayerbotMgr::InitLuaPlayerType()
 		if (!group)
 			return -1;
 
-		for (auto& slot : group->GetMemberSlots())
-			if (slot.guid == self->GetObjectGuid())
-				return slot.group + 1;
+		int i = 0;
+		const uint8 sub_group = self->GetSubGroup();
 
-		return -1;
+		for (auto& slot : group->GetMemberSlots())
+		{
+			if (slot.group == sub_group)
+				i++;
+
+			if (slot.guid == self->GetObjectGuid())
+				break;
+		}
+
+		return i;
 	});
 	player_type["movement_policy"] = sol::property([&](Player* self)->PlayerbotMovementPolicy*
 	{
