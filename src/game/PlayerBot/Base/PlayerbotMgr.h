@@ -38,11 +38,18 @@ using PlayerBotMap = std::unordered_map<ObjectGuid, Player*>;
 class PlayerbotMovementPolicy
 {
 public:
-	Position GetDestination() const { return m_destination; }
-
-	void MoveTo(Position destination)
+	void GetDestination(float& x, float& y, float& z) const
 	{
-		m_destination = destination;
+		x = m_x;
+		y = m_y;
+		z = m_z;
+	}
+
+	void MoveTo(const float x, const float y, const float z)
+	{
+		m_x = x;
+		m_y = y;
+		m_z = z;
 
 		m_followTarget = nullptr;
 		m_followDist = 0.0f;
@@ -68,7 +75,10 @@ public:
 		m_chaseTarget = nullptr;
 		m_chaseAngle = 0.0f;
 		m_chaseDist = 0.0f;
-		m_destination = Position();
+
+		m_x = 0;
+		m_y = 0;
+		m_z = 0;
 
 		m_lastPolicyUpdate = sWorld.GetCurrentMSTime();
 	}
@@ -87,7 +97,9 @@ public:
 		m_followDist = 0.0f;
 		m_followAngle = 0.0f;
 
-		m_destination = Position();
+		m_x = 0;
+		m_y = 0;
+		m_z = 0;
 
 		m_lastPolicyUpdate = sWorld.GetCurrentMSTime();
 	}
@@ -95,7 +107,9 @@ public:
 	bool CanUpdatePolicy() const { return sWorld.GetCurrentMSTime() - m_lastPolicyUpdate > m_minPolicyChangeWaitTime; }
 
 private:
-	Position m_destination = Position();
+	float m_x = 0.0f;
+	float m_y = 0.0f;
+	float m_z = 0.0f;
 	Unit* m_followTarget = nullptr;
 	float m_followAngle = 0.0f;
 	float m_followDist = 0.0f;

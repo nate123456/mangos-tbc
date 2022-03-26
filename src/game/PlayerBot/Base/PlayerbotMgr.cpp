@@ -2592,16 +2592,12 @@ void PlayerbotMgr::MoveTo(Player* bot, const float destX, const float destY, con
 		if (!policy->CanUpdatePolicy())
 			return;
 
-		if (const auto old_dest = policy->GetDestination(); !old_dest.IsEmpty())
-			if (sqrtf(old_dest.GetDistance(dest)) < 0.5f)
-				return;
-
-		policy->MoveTo(dest);
+		policy->MoveTo(x, y, z);
 	}
 	else
 	{
 		PlayerbotMovementPolicy new_policy;
-		new_policy.MoveTo(dest);
+		new_policy.MoveTo(x, y, z);
 
 		m_movementPolicies[bot->GetObjectGuid()] = &new_policy;
 	}
