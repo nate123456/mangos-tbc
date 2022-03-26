@@ -955,14 +955,14 @@ void PlayerbotMgr::InitLuaPlayerType()
 
 		for (auto& slot : group->GetMemberSlots())
 		{
-			if (slot.group == sub_group)
-				i++;
-
 			if (slot.guid == self->GetObjectGuid())
 				break;
+
+			if (slot.group == sub_group)
+				i++;
 		}
 
-		return i;
+		return i + 1; // 1 based lua convention
 	});
 	player_type["movement_policy"] = sol::property([&](Player* self)->PlayerbotMovementPolicy*
 	{
