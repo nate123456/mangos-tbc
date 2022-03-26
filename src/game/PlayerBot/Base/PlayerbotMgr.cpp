@@ -1546,7 +1546,13 @@ void PlayerbotMgr::InitMovementPolicy()
 	policy_type["follow_target"] = sol::property(&PlayerbotMovementPolicy::GetFollowTarget);
 	policy_type["follow_distance"] = sol::property(&PlayerbotMovementPolicy::GetFollowDistance);
 	policy_type["follow_angle"] = sol::property(&PlayerbotMovementPolicy::GetFollowAngle);
-	policy_type["move_destination"] = sol::property(&PlayerbotMovementPolicy::GetDestination);
+	policy_type["move_destination"] = sol::property([&](const PlayerbotMovementPolicy* self)
+	{
+		float x, y, z;
+		self->GetDestination(x, y, z);
+
+		return Position(x, y, z, 0.0f);
+	});
 	policy_type["chase_target"] = sol::property(&PlayerbotMovementPolicy::GetChaseTarget);
 	policy_type["chase_distance"] = sol::property(&PlayerbotMovementPolicy::GetChaseDistance);
 	policy_type["chase_angle"] = sol::property(&PlayerbotMovementPolicy::GetChaseAngle);
